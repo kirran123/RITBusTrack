@@ -1,0 +1,1135 @@
+import { 
+  Bus, Driver, Student, Route, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, COLLEGE_LOCATION, StaffUser 
+} from '@college-bus/shared';
+
+// 30 Official Real College Bus Routes
+export const INITIAL_ROUTES: Route[] = [
+  {
+    id: 'r1',
+    route_name: 'Route 1: Old Bus Stand, RJPM',
+    description: 'Old Bus Stand, Tenkasi Road to RIT Campus',
+    start_location: 'Old Bus Stand, Rajapalayam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 9.5,
+    estimated_duration: '25 mins',
+    route_color: '#2563eb',
+    start_time: '08:20 AM',
+    end_time: '08:45 AM',
+    status: 'active',
+  },
+  {
+    id: 'r2',
+    route_name: 'Route 2: Kollakondan Villakku',
+    description: 'Kollakondan Villakku, Ayyanar Kovil Road to RIT Campus',
+    start_location: 'Kollakondan Villakku',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 14.0,
+    estimated_duration: '35 mins',
+    route_color: '#10b981',
+    start_time: '08:00 AM',
+    end_time: '08:35 AM',
+    status: 'active',
+  },
+  {
+    id: 'r3',
+    route_name: 'Route 3: Thenmalai',
+    description: 'Thenmalai, Chockampatti, Tenkasi Border to RIT Campus',
+    start_location: 'Thenmalai',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 38.0,
+    estimated_duration: '60 mins',
+    route_color: '#f59e0b',
+    start_time: '07:30 AM',
+    end_time: '08:30 AM',
+    status: 'active',
+  },
+  {
+    id: 'r4',
+    route_name: 'Route 4: Malayadipatti - RJPM',
+    description: 'Malayadipatti, Dhalavaipuram Road to RIT Campus',
+    start_location: 'Malayadipatti, Rajapalayam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 12.0,
+    estimated_duration: '30 mins',
+    route_color: '#8b5cf6',
+    start_time: '08:10 AM',
+    end_time: '08:40 AM',
+    status: 'active',
+  },
+  {
+    id: 'r5',
+    route_name: 'Route 5: Thendral Nagar - RJPM',
+    description: 'Thendral Nagar, PACR Colony to RIT Campus',
+    start_location: 'Thendral Nagar, Rajapalayam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 8.0,
+    estimated_duration: '20 mins',
+    route_color: '#ec4899',
+    start_time: '08:25 AM',
+    end_time: '08:45 AM',
+    status: 'active',
+  },
+  {
+    id: 'r6',
+    route_name: 'Route 6: Vasudevanallur',
+    description: 'Vasudevanallur, Sivagiri, Seithur to RIT Campus',
+    start_location: 'Vasudevanallur',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 34.0,
+    estimated_duration: '55 mins',
+    route_color: '#06b6d4',
+    start_time: '07:30 AM',
+    end_time: '08:25 AM',
+    status: 'active',
+  },
+  {
+    id: 'r7',
+    route_name: 'Route 7: New Bus Stand - RJPM',
+    description: 'New Bus Stand, PACR Mill Circle to RIT Campus',
+    start_location: 'New Bus Stand, Rajapalayam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 10.5,
+    estimated_duration: '25 mins',
+    route_color: '#3b82f6',
+    start_time: '08:20 AM',
+    end_time: '08:45 AM',
+    status: 'active',
+  },
+  {
+    id: 'r9',
+    route_name: 'Route 9: Krishnankoil',
+    description: 'Krishnankoil, Kunnur, Srivilliputhur bypass to RIT Campus',
+    start_location: 'Krishnankoil',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 26.0,
+    estimated_duration: '45 mins',
+    route_color: '#14b8a6',
+    start_time: '07:30 AM',
+    end_time: '08:15 AM',
+    status: 'active',
+  },
+  {
+    id: 'r10',
+    route_name: 'Route 10: JawaherMaithanam, RJPM',
+    description: 'Jawaher Maithanam, Post Office Junction to RIT Campus',
+    start_location: 'JawaherMaithanam, Rajapalayam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 9.0,
+    estimated_duration: '25 mins',
+    route_color: '#f97316',
+    start_time: '08:20 AM',
+    end_time: '08:45 AM',
+    status: 'active',
+  },
+  {
+    id: 'r12',
+    route_name: 'Route 12: Attai Mill',
+    description: 'Attai Mill, Sammandhapuram to RIT Campus',
+    start_location: 'Attai Mill',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 15.0,
+    estimated_duration: '35 mins',
+    route_color: '#6366f1',
+    start_time: '07:50 AM',
+    end_time: '08:25 AM',
+    status: 'active',
+  },
+  {
+    id: 'r13',
+    route_name: 'Route 13: Theradi Stop- SRIVI',
+    description: 'Theradi Stop, Andal Temple Car Street to RIT Campus',
+    start_location: 'Theradi Stop, Srivilliputhur',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 16.5,
+    estimated_duration: '35 mins',
+    route_color: '#a855f7',
+    start_time: '08:10 AM',
+    end_time: '08:45 AM',
+    status: 'active',
+  },
+  {
+    id: 'r14',
+    route_name: 'Route 14: Mamsapuram',
+    description: 'Mamsapuram, Pudupalayam to RIT Campus',
+    start_location: 'Mamsapuram',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 13.0,
+    estimated_duration: '30 mins',
+    route_color: '#ef4444',
+    start_time: '08:15 AM',
+    end_time: '08:45 AM',
+    status: 'active',
+  },
+  {
+    id: 'r15',
+    route_name: 'Route 15: R.R.Nagar, RJPM',
+    description: 'R.R.Nagar, Ramco Colony to RIT Campus',
+    start_location: 'R.R.Nagar, Rajapalayam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 11.0,
+    estimated_duration: '25 mins',
+    route_color: '#0ea5e9',
+    start_time: '08:15 AM',
+    end_time: '08:40 AM',
+    status: 'active',
+  },
+  {
+    id: 'r16',
+    route_name: 'Route 16: S.Ramalingapuram',
+    description: 'S.Ramalingapuram, Cholapuram to RIT Campus',
+    start_location: 'S.Ramalingapuram',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 18.0,
+    estimated_duration: '40 mins',
+    route_color: '#84cc16',
+    start_time: '08:00 AM',
+    end_time: '08:40 AM',
+    status: 'active',
+  },
+  {
+    id: 'r17',
+    route_name: 'Route 17: Bus Stand - SRIVI',
+    description: 'Srivilliputhur Bus Stand, Madurai Road to RIT Campus',
+    start_location: 'Bus Stand, Srivilliputhur',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 17.0,
+    estimated_duration: '35 mins',
+    route_color: '#eab308',
+    start_time: '08:05 AM',
+    end_time: '08:40 AM',
+    status: 'active',
+  },
+  {
+    id: 'r18',
+    route_name: 'Route 18: Ramakrishnapuram, SRIVI',
+    description: 'Ramakrishnapuram, Malli to RIT Campus',
+    start_location: 'Ramakrishnapuram, Srivilliputhur',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 19.0,
+    estimated_duration: '40 mins',
+    route_color: '#d946ef',
+    start_time: '08:05 AM',
+    end_time: '08:45 AM',
+    status: 'active',
+  },
+  {
+    id: 'r19',
+    route_name: 'Route 19: Ganthi Statue - RJPM',
+    description: 'Gandhi Statue, Sanjeevi Hills Road to RIT Campus',
+    start_location: 'Ganthi Statue, Rajapalayam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 7.5,
+    estimated_duration: '20 mins',
+    route_color: '#22c55e',
+    start_time: '08:30 AM',
+    end_time: '08:50 AM',
+    status: 'active',
+  },
+  {
+    id: 'r20',
+    route_name: 'Route 20: Kaliyamman Kovil - RJPM',
+    description: 'Kaliyamman Kovil, Chathirapatti Road to RIT Campus',
+    start_location: 'Kaliyamman Kovil, Rajapalayam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 8.5,
+    estimated_duration: '20 mins',
+    route_color: '#38bdf8',
+    start_time: '08:30 AM',
+    end_time: '08:50 AM',
+    status: 'active',
+  },
+  {
+    id: 'r21',
+    route_name: 'Route 21: Sivakasi (Housing Board)',
+    description: 'Housing Board Sivakasi, Thiruthangal to RIT Campus',
+    start_location: 'Sivakasi Housing Board',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 30.0,
+    estimated_duration: '50 mins',
+    route_color: '#f43f5e',
+    start_time: '07:40 AM',
+    end_time: '08:30 AM',
+    status: 'active',
+  },
+  {
+    id: 'r22',
+    route_name: 'Route 22: Thiruvengadam',
+    description: 'Thiruvengadam, Kuruvikulam, Sankarankoil Road to RIT Campus',
+    start_location: 'Thiruvengadam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 36.0,
+    estimated_duration: '55 mins',
+    route_color: '#f59e0b',
+    start_time: '07:35 AM',
+    end_time: '08:30 AM',
+    status: 'active',
+  },
+  {
+    id: 'r23',
+    route_name: 'Route 23: Sithurajapuram - Sivakasi',
+    description: 'Sithurajapuram, Vilampatti to RIT Campus',
+    start_location: 'Sithurajapuram, Sivakasi',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 32.0,
+    estimated_duration: '55 mins',
+    route_color: '#10b981',
+    start_time: '07:25 AM',
+    end_time: '08:20 AM',
+    status: 'active',
+  },
+  {
+    id: 'r24',
+    route_name: 'Route 24: Virudhunagar',
+    description: 'Virudhunagar Collectorate, Pavali, Alagapuri to RIT Campus',
+    start_location: 'Virudhunagar New Bus Stand',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 55.0,
+    estimated_duration: '75 mins',
+    route_color: '#ec4899',
+    start_time: '07:00 AM',
+    end_time: '08:15 AM',
+    status: 'active',
+  },
+  {
+    id: 'r25',
+    route_name: 'Route 25: Railway Station, SNKL',
+    description: 'Sankarankoil Railway Station, Kalugumalai Road to RIT Campus',
+    start_location: 'Railway Station, Sankarankoil',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 35.0,
+    estimated_duration: '50 mins',
+    route_color: '#6366f1',
+    start_time: '07:40 AM',
+    end_time: '08:30 AM',
+    status: 'active',
+  },
+  {
+    id: 'r26',
+    route_name: 'Route 26: Rayagiri',
+    description: 'Rayagiri, Karivalamvandanallur to RIT Campus',
+    start_location: 'Rayagiri',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 42.0,
+    estimated_duration: '65 mins',
+    route_color: '#14b8a6',
+    start_time: '07:25 AM',
+    end_time: '08:30 AM',
+    status: 'active',
+  },
+  {
+    id: 'r27',
+    route_name: 'Route 27: Kadayanallur',
+    description: 'Kadayanallur, Puliyangudi, Chokkampatti to RIT Campus',
+    start_location: 'Kadayanallur',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 52.0,
+    estimated_duration: '75 mins',
+    route_color: '#f97316',
+    start_time: '07:10 AM',
+    end_time: '08:25 AM',
+    status: 'active',
+  },
+  {
+    id: 'r28',
+    route_name: 'Route 28: Mottamalai - RJPM',
+    description: 'Mottamalai, Alagapuri to RIT Campus',
+    start_location: 'Mottamalai, Rajapalayam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 16.0,
+    estimated_duration: '35 mins',
+    route_color: '#8b5cf6',
+    start_time: '08:00 AM',
+    end_time: '08:35 AM',
+    status: 'active',
+  },
+  {
+    id: 'r29',
+    route_name: 'Route 29: Bus Stand , SNKL',
+    description: 'Sankarankoil Bus Stand, Gomathi Amman Temple to RIT Campus',
+    start_location: 'Bus Stand, Sankarankoil',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 34.0,
+    estimated_duration: '50 mins',
+    route_color: '#06b6d4',
+    start_time: '07:40 AM',
+    end_time: '08:30 AM',
+    status: 'active',
+  },
+  {
+    id: 'r30',
+    route_name: 'Route 30: Alangulam',
+    description: 'Alangulam, Cement Factory Nagar to RIT Campus',
+    start_location: 'Alangulam',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 28.0,
+    estimated_duration: '45 mins',
+    route_color: '#84cc16',
+    start_time: '07:40 AM',
+    end_time: '08:25 AM',
+    status: 'active',
+  },
+  {
+    id: 'r31',
+    route_name: 'Route 31: Cornation-Sivakasi',
+    description: 'Coronation Girls School, Sivakasi Town to RIT Campus',
+    start_location: 'Cornation, Sivakasi',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 31.0,
+    estimated_duration: '55 mins',
+    route_color: '#ef4444',
+    start_time: '07:25 AM',
+    end_time: '08:20 AM',
+    status: 'active',
+  },
+  {
+    id: 'r32',
+    route_name: 'Route 32: Kansapuram',
+    description: 'Kansapuram, Kottaiyur, Watrap Road to RIT Campus',
+    start_location: 'Kansapuram',
+    destination: 'Ramco Institute of Technology Campus',
+    distance_km: 46.0,
+    estimated_duration: '65 mins',
+    route_color: '#2563eb',
+    start_time: '07:10 AM',
+    end_time: '08:15 AM',
+    status: 'active',
+  }
+];
+
+// 30 Official Real College Drivers
+export const INITIAL_DRIVERS: Driver[] = [
+  {
+    id: 'dr1',
+    user_id: 'u_dr1',
+    employee_id: 'EMP-DRV-01',
+    license_number: 'TN-67-2015-001',
+    phone: '+91 9894668646',
+    assigned_bus_id: 'b1',
+    status: 'active',
+    profile: { id: 'u_dr1', auth_user_id: 'auth_dr1', name: 'Mr. B. Moorthi', email: 'moorthi.driver@ritrjpm.ac.in', phone: '+91 9894668646', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr2',
+    user_id: 'u_dr2',
+    employee_id: 'EMP-DRV-02',
+    license_number: 'TN-67-2016-002',
+    phone: '+91 9786470807',
+    assigned_bus_id: 'b2',
+    status: 'active',
+    profile: { id: 'u_dr2', auth_user_id: 'auth_dr2', name: 'Mr. A. Gurumoorthy', email: 'gurumoorthy.driver@ritrjpm.ac.in', phone: '+91 9786470807', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr3',
+    user_id: 'u_dr3',
+    employee_id: 'EMP-DRV-03',
+    license_number: 'TN-67-2014-003',
+    phone: '+91 9787764316',
+    assigned_bus_id: 'b3',
+    status: 'active',
+    profile: { id: 'u_dr3', auth_user_id: 'auth_dr3', name: 'Mr. M. Muthuvelpandi', email: 'muthuvelpandi.driver@ritrjpm.ac.in', phone: '+91 9787764316', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr4',
+    user_id: 'u_dr4',
+    employee_id: 'EMP-DRV-04',
+    license_number: 'TN-67-2017-004',
+    phone: '+91 9944414028',
+    assigned_bus_id: 'b4',
+    status: 'active',
+    profile: { id: 'u_dr4', auth_user_id: 'auth_dr4', name: 'Mr. C. Rameshwaran', email: 'rameshwaran.driver@ritrjpm.ac.in', phone: '+91 9944414028', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr5',
+    user_id: 'u_dr5',
+    employee_id: 'EMP-DRV-05',
+    license_number: 'TN-67-2018-005',
+    phone: '+91 9487297578',
+    assigned_bus_id: 'b5',
+    status: 'active',
+    profile: { id: 'u_dr5', auth_user_id: 'auth_dr5', name: 'Mr. G. Murugan', email: 'murugan.driver@ritrjpm.ac.in', phone: '+91 9487297578', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr6',
+    user_id: 'u_dr6',
+    employee_id: 'EMP-DRV-06',
+    license_number: 'TN-84-2015-006',
+    phone: '+91 8883477365',
+    assigned_bus_id: 'b6',
+    status: 'active',
+    profile: { id: 'u_dr6', auth_user_id: 'auth_dr6', name: 'Mr. S. Mariyappan', email: 'mariyappan.driver@ritrjpm.ac.in', phone: '+91 8883477365', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr7',
+    user_id: 'u_dr7',
+    employee_id: 'EMP-DRV-07',
+    license_number: 'TN-84-2016-007',
+    phone: '+91 9025242536',
+    assigned_bus_id: 'b7',
+    status: 'active',
+    profile: { id: 'u_dr7', auth_user_id: 'auth_dr7', name: 'Mr. C. Sundarraj', email: 'sundarraj.driver@ritrjpm.ac.in', phone: '+91 9025242536', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr8',
+    user_id: 'u_dr8',
+    employee_id: 'EMP-DRV-08',
+    license_number: 'TN-84-2017-008',
+    phone: '+91 9791561199',
+    assigned_bus_id: 'b8',
+    status: 'active',
+    profile: { id: 'u_dr8', auth_user_id: 'auth_dr8', name: 'Mr. K. Raju', email: 'raju.driver@ritrjpm.ac.in', phone: '+91 9791561199', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr9',
+    user_id: 'u_dr9',
+    employee_id: 'EMP-DRV-09',
+    license_number: 'TN-84-2018-009',
+    phone: '+91 9942359928',
+    assigned_bus_id: 'b9',
+    status: 'active',
+    profile: { id: 'u_dr9', auth_user_id: 'auth_dr9', name: 'Mr. K. Sankar', email: 'sankar.driver@ritrjpm.ac.in', phone: '+91 9942359928', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr10',
+    user_id: 'u_dr10',
+    employee_id: 'EMP-DRV-10',
+    license_number: 'TN-84-2019-010',
+    phone: '+91 9791025181',
+    assigned_bus_id: 'b10',
+    status: 'active',
+    profile: { id: 'u_dr10', auth_user_id: 'auth_dr10', name: 'Mr. P. Muneeswaran', email: 'muneeswaran.driver@ritrjpm.ac.in', phone: '+91 9791025181', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr11',
+    user_id: 'u_dr11',
+    employee_id: 'EMP-DRV-11',
+    license_number: 'TN-84-2019-011',
+    phone: '+91 9080228810',
+    assigned_bus_id: 'b11',
+    status: 'active',
+    profile: { id: 'u_dr11', auth_user_id: 'auth_dr11', name: 'Mr. G. Vishnuvaradhan', email: 'vishnu.driver@ritrjpm.ac.in', phone: '+91 9080228810', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr12',
+    user_id: 'u_dr12',
+    employee_id: 'EMP-DRV-12',
+    license_number: 'TN-84-2018-012',
+    phone: '+91 9655463237',
+    assigned_bus_id: 'b12',
+    status: 'active',
+    profile: { id: 'u_dr12', auth_user_id: 'auth_dr12', name: 'Mr. V. Pulugandi', email: 'pulugandi.driver@ritrjpm.ac.in', phone: '+91 9655463237', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr13',
+    user_id: 'u_dr13',
+    employee_id: 'EMP-DRV-13',
+    license_number: 'TN-84-2017-013',
+    phone: '+91 8870815821',
+    assigned_bus_id: 'b13',
+    status: 'active',
+    profile: { id: 'u_dr13', auth_user_id: 'auth_dr13', name: 'Mr. G. Muthukumar', email: 'muthukumar.driver@ritrjpm.ac.in', phone: '+91 8870815821', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr14',
+    user_id: 'u_dr14',
+    employee_id: 'EMP-DRV-14',
+    license_number: 'TN-84-2016-014',
+    phone: '+91 8143987207',
+    assigned_bus_id: 'b14',
+    status: 'active',
+    profile: { id: 'u_dr14', auth_user_id: 'auth_dr14', name: 'Mr. M. Gurunathan', email: 'gurunathan.driver@ritrjpm.ac.in', phone: '+91 8143987207', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr15',
+    user_id: 'u_dr15',
+    employee_id: 'EMP-DRV-15',
+    license_number: 'TN-84-2015-015',
+    phone: '+91 9787506114',
+    assigned_bus_id: 'b15',
+    status: 'active',
+    profile: { id: 'u_dr15', auth_user_id: 'auth_dr15', name: 'Mr. M. Paramasivam', email: 'paramasivam.driver@ritrjpm.ac.in', phone: '+91 9787506114', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr16',
+    user_id: 'u_dr16',
+    employee_id: 'EMP-DRV-16',
+    license_number: 'TN-84-2017-016',
+    phone: '+91 8056457883',
+    assigned_bus_id: 'b16',
+    status: 'active',
+    profile: { id: 'u_dr16', auth_user_id: 'auth_dr16', name: 'Mr. P. Balamurugan', email: 'balamurugan.driver@ritrjpm.ac.in', phone: '+91 8056457883', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr17',
+    user_id: 'u_dr17',
+    employee_id: 'EMP-DRV-17',
+    license_number: 'TN-84-2016-017',
+    phone: '+91 9655717809',
+    assigned_bus_id: 'b17',
+    status: 'active',
+    profile: { id: 'u_dr17', auth_user_id: 'auth_dr17', name: 'Mr. S. Kannan', email: 'kannan.driver@ritrjpm.ac.in', phone: '+91 9655717809', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr18',
+    user_id: 'u_dr18',
+    employee_id: 'EMP-DRV-18',
+    license_number: 'TN-84-2018-018',
+    phone: '+91 9626768029',
+    assigned_bus_id: 'b18',
+    status: 'active',
+    profile: { id: 'u_dr18', auth_user_id: 'auth_dr18', name: 'Kumar K', email: 'kumar.driver@ritrjpm.ac.in', phone: '+91 9626768029', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr19',
+    user_id: 'u_dr19',
+    employee_id: 'EMP-DRV-19',
+    license_number: 'TN-84-2019-019',
+    phone: '+91 9655578154',
+    assigned_bus_id: 'b19',
+    status: 'active',
+    profile: { id: 'u_dr19', auth_user_id: 'auth_dr19', name: 'Mr. R. Pandiyaraj', email: 'pandiyaraj.driver@ritrjpm.ac.in', phone: '+91 9655578154', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr20',
+    user_id: 'u_dr20',
+    employee_id: 'EMP-DRV-20',
+    license_number: 'TN-84-2020-020',
+    phone: '+91 9787772803',
+    assigned_bus_id: 'b20',
+    status: 'active',
+    profile: { id: 'u_dr20', auth_user_id: 'auth_dr20', name: 'Mr. S. Jayaganesan', email: 'jayaganesan.driver@ritrjpm.ac.in', phone: '+91 9787772803', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr21',
+    user_id: 'u_dr21',
+    employee_id: 'EMP-DRV-21',
+    license_number: 'TN-84-2021-021',
+    phone: '+91 9500318042',
+    assigned_bus_id: 'b21',
+    status: 'active',
+    profile: { id: 'u_dr21', auth_user_id: 'auth_dr21', name: 'Mr. R. Yogeshkumar', email: 'yogeshkumar.driver@ritrjpm.ac.in', phone: '+91 9500318042', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr22',
+    user_id: 'u_dr22',
+    employee_id: 'EMP-DRV-22',
+    license_number: 'TN-84-2015-022',
+    phone: '+91 9487257513',
+    assigned_bus_id: 'b22',
+    status: 'active',
+    profile: { id: 'u_dr22', auth_user_id: 'auth_dr22', name: 'Mr. R. Selvakumar', email: 'selvakumar.driver@ritrjpm.ac.in', phone: '+91 9487257513', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr23',
+    user_id: 'u_dr23',
+    employee_id: 'EMP-DRV-23',
+    license_number: 'TN-84-2016-023',
+    phone: '+91 9442534601',
+    assigned_bus_id: 'b23',
+    status: 'active',
+    profile: { id: 'u_dr23', auth_user_id: 'auth_dr23', name: 'Mr. R. Sivakumar', email: 'sivakumar.driver@ritrjpm.ac.in', phone: '+91 9442534601', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr24',
+    user_id: 'u_dr24',
+    employee_id: 'EMP-DRV-24',
+    license_number: 'TN-84-2017-024',
+    phone: '+91 9884824131',
+    assigned_bus_id: 'b24',
+    status: 'active',
+    profile: { id: 'u_dr24', auth_user_id: 'auth_dr24', name: 'Mr. N. Ganesan', email: 'ganesan.driver@ritrjpm.ac.in', phone: '+91 9884824131', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr25',
+    user_id: 'u_dr25',
+    employee_id: 'EMP-DRV-25',
+    license_number: 'TN-84-2018-025',
+    phone: '+91 6379437127',
+    assigned_bus_id: 'b25',
+    status: 'active',
+    profile: { id: 'u_dr25', auth_user_id: 'auth_dr25', name: 'Mr. G. Senthil Kumar', email: 'gsenthil.driver@ritrjpm.ac.in', phone: '+91 6379437127', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr26',
+    user_id: 'u_dr26',
+    employee_id: 'EMP-DRV-26',
+    license_number: 'TN-84-2019-026',
+    phone: '+91 9585271800',
+    assigned_bus_id: 'b26',
+    status: 'active',
+    profile: { id: 'u_dr26', auth_user_id: 'auth_dr26', name: 'Mr. R. Kalimuthu', email: 'kalimuthu.driver@ritrjpm.ac.in', phone: '+91 9585271800', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr27',
+    user_id: 'u_dr27',
+    employee_id: 'EMP-DRV-27',
+    license_number: 'TN-84-2020-027',
+    phone: '+91 9940842108',
+    assigned_bus_id: 'b27',
+    status: 'active',
+    profile: { id: 'u_dr27', auth_user_id: 'auth_dr27', name: 'Mr. K. Senthil Kumar', email: 'ksenthil.driver@ritrjpm.ac.in', phone: '+91 9940842108', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr28',
+    user_id: 'u_dr28',
+    employee_id: 'EMP-DRV-28',
+    license_number: 'TN-84-2021-028',
+    phone: '+91 7867027589',
+    assigned_bus_id: 'b28',
+    status: 'active',
+    profile: { id: 'u_dr28', auth_user_id: 'auth_dr28', name: 'Mr. R. Kalamegam', email: 'kalamegam.driver@ritrjpm.ac.in', phone: '+91 7867027589', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr29',
+    user_id: 'u_dr29',
+    employee_id: 'EMP-DRV-29',
+    license_number: 'TN-84-2022-029',
+    phone: '+91 9585875780',
+    assigned_bus_id: 'b29',
+    status: 'active',
+    profile: { id: 'u_dr29', auth_user_id: 'auth_dr29', name: 'Mr. S. Velmurugan', email: 'velmurugan.driver@ritrjpm.ac.in', phone: '+91 9585875780', role: 'driver', status: 'active' }
+  },
+  {
+    id: 'dr30',
+    user_id: 'u_dr30',
+    employee_id: 'EMP-DRV-30',
+    license_number: 'TN-84-2023-030',
+    phone: '+91 7092454418',
+    assigned_bus_id: 'b30',
+    status: 'active',
+    profile: { id: 'u_dr30', auth_user_id: 'auth_dr30', name: 'Mr. A. Muthukrishnan', email: 'muthukrishnan.driver@ritrjpm.ac.in', phone: '+91 7092454418', role: 'driver', status: 'active' }
+  }
+];
+
+// 30 Official Real College Buses
+export const INITIAL_BUSES: Bus[] = [
+  { id: 'b1', bus_number: 'BUS-01', registration_number: 'TN 67 AM 9785', bus_name: 'Old Bus Stand Shuttle', capacity: 55, route_id: 'r1', assigned_driver_id: 'dr1', status: 'active' },
+  { id: 'b2', bus_number: 'BUS-02', registration_number: 'TN 67 AM 9877', bus_name: 'Kollakondan Express', capacity: 55, route_id: 'r2', assigned_driver_id: 'dr2', status: 'active' },
+  { id: 'b3', bus_number: 'BUS-03', registration_number: 'TN 67 AL 2292', bus_name: 'Thenmalai Express', capacity: 55, route_id: 'r3', assigned_driver_id: 'dr3', status: 'active' },
+  { id: 'b4', bus_number: 'BUS-04', registration_number: 'TN 67 AL 2305', bus_name: 'Malayadipatti Liner', capacity: 50, route_id: 'r4', assigned_driver_id: 'dr4', status: 'active' },
+  { id: 'b5', bus_number: 'BUS-05', registration_number: 'TN 67 AL 2944', bus_name: 'Thendral Nagar Coach', capacity: 50, route_id: 'r5', assigned_driver_id: 'dr5', status: 'active' },
+  { id: 'b6', bus_number: 'BUS-06', registration_number: 'TN 84 - 3620', bus_name: 'Vasudevanallur Express', capacity: 60, route_id: 'r6', assigned_driver_id: 'dr6', status: 'active' },
+  { id: 'b7', bus_number: 'BUS-07', registration_number: 'TN 84 - 3637', bus_name: 'New Bus Stand Super', capacity: 55, route_id: 'r7', assigned_driver_id: 'dr7', status: 'active' },
+  { id: 'b8', bus_number: 'BUS-09', registration_number: 'TN 84 - 3648', bus_name: 'Krishnankoil Shuttle', capacity: 55, route_id: 'r9', assigned_driver_id: 'dr8', status: 'active' },
+  { id: 'b9', bus_number: 'BUS-10', registration_number: 'TN 84 - 5808', bus_name: 'JawaherMaithanam Liner', capacity: 50, route_id: 'r10', assigned_driver_id: 'dr9', status: 'active' },
+  { id: 'b10', bus_number: 'BUS-12', registration_number: 'TN 84 A 9045', bus_name: 'Attai Mill Express', capacity: 55, route_id: 'r12', assigned_driver_id: 'dr10', status: 'active' },
+  { id: 'b11', bus_number: 'BUS-13', registration_number: 'TN 84 A 9040', bus_name: 'Theradi Stop SRIVI', capacity: 55, route_id: 'r13', assigned_driver_id: 'dr11', status: 'active' },
+  { id: 'b12', bus_number: 'BUS-14', registration_number: 'TN 84 A 9046', bus_name: 'Mamsapuram Coach', capacity: 50, route_id: 'r14', assigned_driver_id: 'dr12', status: 'active' },
+  { id: 'b13', bus_number: 'BUS-15', registration_number: 'TN 84 A 9034', bus_name: 'R.R.Nagar Special', capacity: 50, route_id: 'r15', assigned_driver_id: 'dr13', status: 'active' },
+  { id: 'b14', bus_number: 'BUS-16', registration_number: 'TN 84 A 9055', bus_name: 'S.Ramalingapuram Liner', capacity: 55, route_id: 'r16', assigned_driver_id: 'dr14', status: 'active' },
+  { id: 'b15', bus_number: 'BUS-17', registration_number: 'TN 84 C 3078', bus_name: 'Srivilliputhur Deluxe', capacity: 55, route_id: 'r17', assigned_driver_id: 'dr15', status: 'active' },
+  { id: 'b16', bus_number: 'BUS-18', registration_number: 'TN 84 C 3070', bus_name: 'Ramakrishnapuram Shuttle', capacity: 50, route_id: 'r18', assigned_driver_id: 'dr16', status: 'active' },
+  { id: 'b17', bus_number: 'BUS-19', registration_number: 'TN 84 C 3051', bus_name: 'Ganthi Statue City', capacity: 50, route_id: 'r19', assigned_driver_id: 'dr17', status: 'active' },
+  { id: 'b18', bus_number: 'BUS-20', registration_number: 'TN 84 C 3085', bus_name: 'Kaliyamman Kovil Coach', capacity: 50, route_id: 'r20', assigned_driver_id: 'dr18', status: 'active' },
+  { id: 'b19', bus_number: 'BUS-21', registration_number: 'TN 84 C 3053', bus_name: 'Sivakasi Housing Board', capacity: 60, route_id: 'r21', assigned_driver_id: 'dr19', status: 'active' },
+  { id: 'b20', bus_number: 'BUS-22', registration_number: 'TN 84 Q 2970', bus_name: 'Thiruvengadam Express', capacity: 55, route_id: 'r22', assigned_driver_id: 'dr20', status: 'active' },
+  { id: 'b21', bus_number: 'BUS-23', registration_number: 'TN 84 Q 2965', bus_name: 'Sithurajapuram Shuttle', capacity: 55, route_id: 'r23', assigned_driver_id: 'dr21', status: 'active' },
+  { id: 'b22', bus_number: 'BUS-24', registration_number: 'TN 84 Q 2986', bus_name: 'Virudhunagar Highway Express', capacity: 60, route_id: 'r24', assigned_driver_id: 'dr22', status: 'active' },
+  { id: 'b23', bus_number: 'BUS-25', registration_number: 'TN 84 U 6366', bus_name: 'SNKL Railway Station Liner', capacity: 55, route_id: 'r25', assigned_driver_id: 'dr23', status: 'active' },
+  { id: 'b24', bus_number: 'BUS-26', registration_number: 'TN 84 U 6352', bus_name: 'Rayagiri Deluxe', capacity: 55, route_id: 'r26', assigned_driver_id: 'dr24', status: 'active' },
+  { id: 'b25', bus_number: 'BUS-27', registration_number: 'TN 84 U 6558', bus_name: 'Kadayanallur Express', capacity: 60, route_id: 'r27', assigned_driver_id: 'dr25', status: 'active' },
+  { id: 'b26', bus_number: 'BUS-28', registration_number: 'TN 84 AZ 3600', bus_name: 'Mottamalai Coach', capacity: 50, route_id: 'r28', assigned_driver_id: 'dr26', status: 'active' },
+  { id: 'b27', bus_number: 'BUS-29', registration_number: 'TN 84 AZ 3559', bus_name: 'Sankarankoil Bus Stand', capacity: 55, route_id: 'r29', assigned_driver_id: 'dr27', status: 'active' },
+  { id: 'b28', bus_number: 'BUS-30', registration_number: 'TN 84 AZ 3504', bus_name: 'Alangulam Express', capacity: 55, route_id: 'r30', assigned_driver_id: 'dr28', status: 'active' },
+  { id: 'b29', bus_number: 'BUS-31', registration_number: 'TN 84 AZ 3972', bus_name: 'Cornation Sivakasi Super', capacity: 55, route_id: 'r31', assigned_driver_id: 'dr29', status: 'active' },
+  { id: 'b30', bus_number: 'BUS-32', registration_number: 'TN 84 AZ 3976', bus_name: 'Kansapuram Express', capacity: 55, route_id: 'r32', assigned_driver_id: 'dr30', status: 'active' }
+].map((b, idx) => ({
+  ...b,
+  route: INITIAL_ROUTES[idx],
+  driver: INITIAL_DRIVERS[idx]
+}));
+
+// Route Stops for All 30 Routes
+export const INITIAL_STOPS: Stop[] = [
+  // Route 1 Stops
+  { id: 'st1_1', route_id: 'r1', stop_name: 'Old Bus Stand, RJPM', latitude: 9.4485, longitude: 77.5505, stop_order: 1, estimated_arrival: '08:20 AM', status: 'active' },
+  { id: 'st1_2', route_id: 'r1', stop_name: 'Tenkasi Road Junction', latitude: 9.4498, longitude: 77.5518, stop_order: 2, estimated_arrival: '08:28 AM', status: 'active' },
+  { id: 'st1_3', route_id: 'r1', stop_name: 'PACR Mill Circle', latitude: 9.4505, longitude: 77.5525, stop_order: 3, estimated_arrival: '08:35 AM', status: 'active' },
+  { id: 'st1_4', route_id: 'r1', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 4, estimated_arrival: '08:45 AM', status: 'active' },
+
+  // Route 2 Stops
+  { id: 'st2_1', route_id: 'r2', stop_name: 'Kollakondan Villakku', latitude: 9.4280, longitude: 77.5380, stop_order: 1, estimated_arrival: '08:00 AM', status: 'active' },
+  { id: 'st2_2', route_id: 'r2', stop_name: 'Ayyanar Kovil Road Turn', latitude: 9.4350, longitude: 77.5420, stop_order: 2, estimated_arrival: '08:15 AM', status: 'active' },
+  { id: 'st2_3', route_id: 'r2', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:35 AM', status: 'active' },
+
+  // Route 3 Stops
+  { id: 'st3_1', route_id: 'r3', stop_name: 'Thenmalai Bus Stop', latitude: 9.3800, longitude: 77.4200, stop_order: 1, estimated_arrival: '07:30 AM', status: 'active' },
+  { id: 'st3_2', route_id: 'r3', stop_name: 'Chockampatti Junction', latitude: 9.4100, longitude: 77.4800, stop_order: 2, estimated_arrival: '08:00 AM', status: 'active' },
+  { id: 'st3_3', route_id: 'r3', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', status: 'active' },
+
+  // Route 4 Stops
+  { id: 'st4_1', route_id: 'r4', stop_name: 'Malayadipatti, RJPM', latitude: 9.4580, longitude: 77.5420, stop_order: 1, estimated_arrival: '08:10 AM', status: 'active' },
+  { id: 'st4_2', route_id: 'r4', stop_name: 'Dhalavaipuram Road Cross', latitude: 9.4550, longitude: 77.5480, stop_order: 2, estimated_arrival: '08:25 AM', status: 'active' },
+  { id: 'st4_3', route_id: 'r4', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:40 AM', status: 'active' },
+
+  // Route 5 Stops
+  { id: 'st5_1', route_id: 'r5', stop_name: 'Thendral Nagar, RJPM', latitude: 9.4420, longitude: 77.5600, stop_order: 1, estimated_arrival: '08:25 AM', status: 'active' },
+  { id: 'st5_2', route_id: 'r5', stop_name: 'PACR Colony Main Arch', latitude: 9.4470, longitude: 77.5570, stop_order: 2, estimated_arrival: '08:35 AM', status: 'active' },
+  { id: 'st5_3', route_id: 'r5', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', status: 'active' },
+
+  // Route 6 Stops
+  { id: 'st6_1', route_id: 'r6', stop_name: 'Vasudevanallur Bus Stand', latitude: 9.2400, longitude: 77.4180, stop_order: 1, estimated_arrival: '07:30 AM', status: 'active' },
+  { id: 'st6_2', route_id: 'r6', stop_name: 'Sivagiri Main Road', latitude: 9.3400, longitude: 77.4320, stop_order: 2, estimated_arrival: '07:50 AM', status: 'active' },
+  { id: 'st6_3', route_id: 'r6', stop_name: 'Seithur Sugar Mill', latitude: 9.4200, longitude: 77.4900, stop_order: 3, estimated_arrival: '08:10 AM', status: 'active' },
+  { id: 'st6_4', route_id: 'r6', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 4, estimated_arrival: '08:25 AM', status: 'active' },
+
+  // Route 7 Stops
+  { id: 'st7_1', route_id: 'r7', stop_name: 'New Bus Stand - RJPM', latitude: 9.4475, longitude: 77.5450, stop_order: 1, estimated_arrival: '08:20 AM', status: 'active' },
+  { id: 'st7_2', route_id: 'r7', stop_name: 'Gandhi Statue Junction', latitude: 9.4490, longitude: 77.5472, stop_order: 2, estimated_arrival: '08:30 AM', status: 'active' },
+  { id: 'st7_3', route_id: 'r7', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', status: 'active' },
+
+  // Route 9 Stops
+  { id: 'st9_1', route_id: 'r9', stop_name: 'Krishnankoil Bus Stop', latitude: 9.5100, longitude: 77.6200, stop_order: 1, estimated_arrival: '07:30 AM', status: 'active' },
+  { id: 'st9_2', route_id: 'r9', stop_name: 'Kunnur Junction', latitude: 9.4800, longitude: 77.5900, stop_order: 2, estimated_arrival: '07:50 AM', status: 'active' },
+  { id: 'st9_3', route_id: 'r9', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:15 AM', status: 'active' },
+
+  // Route 10 Stops
+  { id: 'st10_1', route_id: 'r10', stop_name: 'JawaherMaithanam, RJPM', latitude: 9.4520, longitude: 77.5480, stop_order: 1, estimated_arrival: '08:20 AM', status: 'active' },
+  { id: 'st10_2', route_id: 'r10', stop_name: 'Head Post Office Cross', latitude: 9.4510, longitude: 77.5510, stop_order: 2, estimated_arrival: '08:30 AM', status: 'active' },
+  { id: 'st10_3', route_id: 'r10', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', status: 'active' },
+
+  // Route 12 Stops
+  { id: 'st12_1', route_id: 'r12', stop_name: 'Attai Mill Junction', latitude: 9.4390, longitude: 77.5310, stop_order: 1, estimated_arrival: '07:50 AM', status: 'active' },
+  { id: 'st12_2', route_id: 'r12', stop_name: 'Sammandhapuram Circle', latitude: 9.4440, longitude: 77.5410, stop_order: 2, estimated_arrival: '08:05 AM', status: 'active' },
+  { id: 'st12_3', route_id: 'r12', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:25 AM', status: 'active' },
+
+  // Route 13 Stops
+  { id: 'st13_1', route_id: 'r13', stop_name: 'Theradi Stop- SRIVI', latitude: 9.5080, longitude: 77.6320, stop_order: 1, estimated_arrival: '08:10 AM', status: 'active' },
+  { id: 'st13_2', route_id: 'r13', stop_name: 'Andal Temple Car Street', latitude: 9.5050, longitude: 77.6300, stop_order: 2, estimated_arrival: '08:20 AM', status: 'active' },
+  { id: 'st13_3', route_id: 'r13', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', status: 'active' },
+
+  // Route 14 Stops
+  { id: 'st14_1', route_id: 'r14', stop_name: 'Mamsapuram Bus Stand', latitude: 9.4750, longitude: 77.5100, stop_order: 1, estimated_arrival: '08:15 AM', status: 'active' },
+  { id: 'st14_2', route_id: 'r14', stop_name: 'Pudupalayam Hospital Turn', latitude: 9.4620, longitude: 77.5300, stop_order: 2, estimated_arrival: '08:30 AM', status: 'active' },
+  { id: 'st14_3', route_id: 'r14', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', status: 'active' },
+
+  // Route 15 Stops
+  { id: 'st15_1', route_id: 'r15', stop_name: 'R.R.Nagar, RJPM', latitude: 9.4310, longitude: 77.5680, stop_order: 1, estimated_arrival: '08:15 AM', status: 'active' },
+  { id: 'st15_2', route_id: 'r15', stop_name: 'Ramco Staff Colony', latitude: 9.4410, longitude: 77.5610, stop_order: 2, estimated_arrival: '08:28 AM', status: 'active' },
+  { id: 'st15_3', route_id: 'r15', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:40 AM', status: 'active' },
+
+  // Route 16 Stops
+  { id: 'st16_1', route_id: 'r16', stop_name: 'S.Ramalingapuram', latitude: 9.4890, longitude: 77.4950, stop_order: 1, estimated_arrival: '08:00 AM', status: 'active' },
+  { id: 'st16_2', route_id: 'r16', stop_name: 'Cholapuram High School', latitude: 9.4720, longitude: 77.5180, stop_order: 2, estimated_arrival: '08:20 AM', status: 'active' },
+  { id: 'st16_3', route_id: 'r16', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:40 AM', status: 'active' },
+
+  // Route 17 Stops
+  { id: 'st17_1', route_id: 'r17', stop_name: 'Bus Stand - SRIVI', latitude: 9.5100, longitude: 77.6350, stop_order: 1, estimated_arrival: '08:05 AM', status: 'active' },
+  { id: 'st17_2', route_id: 'r17', stop_name: 'Government Hospital SRIVI', latitude: 9.4880, longitude: 77.6010, stop_order: 2, estimated_arrival: '08:22 AM', status: 'active' },
+  { id: 'st17_3', route_id: 'r17', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:40 AM', status: 'active' },
+
+  // Route 18 Stops
+  { id: 'st18_1', route_id: 'r18', stop_name: 'Ramakrishnapuram, SRIVI', latitude: 9.5250, longitude: 77.6450, stop_order: 1, estimated_arrival: '08:05 AM', status: 'active' },
+  { id: 'st18_2', route_id: 'r18', stop_name: 'Malli Road Cross', latitude: 9.4950, longitude: 77.6150, stop_order: 2, estimated_arrival: '08:25 AM', status: 'active' },
+  { id: 'st18_3', route_id: 'r18', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', status: 'active' },
+
+  // Route 19 Stops
+  { id: 'st19_1', route_id: 'r19', stop_name: 'Ganthi Statue - RJPM', latitude: 9.4490, longitude: 77.5472, stop_order: 1, estimated_arrival: '08:30 AM', status: 'active' },
+  { id: 'st19_2', route_id: 'r19', stop_name: 'Sanjeevi Hills Junction', latitude: 9.4510, longitude: 77.5505, stop_order: 2, estimated_arrival: '08:40 AM', status: 'active' },
+  { id: 'st19_3', route_id: 'r19', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:50 AM', status: 'active' },
+
+  // Route 20 Stops
+  { id: 'st20_1', route_id: 'r20', stop_name: 'Kaliyamman Kovil - RJPM', latitude: 9.4410, longitude: 77.5480, stop_order: 1, estimated_arrival: '08:30 AM', status: 'active' },
+  { id: 'st20_2', route_id: 'r20', stop_name: 'Chathirapatti Road Entry', latitude: 9.4460, longitude: 77.5510, stop_order: 2, estimated_arrival: '08:40 AM', status: 'active' },
+  { id: 'st20_3', route_id: 'r20', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:50 AM', status: 'active' },
+
+  // Route 21 Stops
+  { id: 'st21_1', route_id: 'r21', stop_name: 'Sivakasi (Housing Board)', latitude: 9.4550, longitude: 77.8000, stop_order: 1, estimated_arrival: '07:40 AM', status: 'active' },
+  { id: 'st21_2', route_id: 'r21', stop_name: 'Thiruthangal Railway Gate', latitude: 9.4750, longitude: 77.7800, stop_order: 2, estimated_arrival: '08:00 AM', status: 'active' },
+  { id: 'st21_3', route_id: 'r21', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', status: 'active' },
+
+  // Route 22 Stops
+  { id: 'st22_1', route_id: 'r22', stop_name: 'Thiruvengadam Bus Stand', latitude: 9.2750, longitude: 77.6800, stop_order: 1, estimated_arrival: '07:35 AM', status: 'active' },
+  { id: 'st22_2', route_id: 'r22', stop_name: 'Kuruvikulam Cross', latitude: 9.3300, longitude: 77.6400, stop_order: 2, estimated_arrival: '08:00 AM', status: 'active' },
+  { id: 'st22_3', route_id: 'r22', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', status: 'active' },
+
+  // Route 23 Stops
+  { id: 'st23_1', route_id: 'r23', stop_name: 'Sithurajapuram - Sivakasi', latitude: 9.4400, longitude: 77.7800, stop_order: 1, estimated_arrival: '07:25 AM', status: 'active' },
+  { id: 'st23_2', route_id: 'r23', stop_name: 'Vilampatti Checkpost', latitude: 9.4450, longitude: 77.7200, stop_order: 2, estimated_arrival: '07:50 AM', status: 'active' },
+  { id: 'st23_3', route_id: 'r23', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:20 AM', status: 'active' },
+
+  // Route 24 Stops
+  { id: 'st24_1', route_id: 'r24', stop_name: 'Virudhunagar New Bus Stand', latitude: 9.5850, longitude: 77.9550, stop_order: 1, estimated_arrival: '07:00 AM', status: 'active' },
+  { id: 'st24_2', route_id: 'r24', stop_name: 'Collectorate Junction', latitude: 9.5700, longitude: 77.9400, stop_order: 2, estimated_arrival: '07:15 AM', status: 'active' },
+  { id: 'st24_3', route_id: 'r24', stop_name: 'Alagapuri Flyover', latitude: 9.5100, longitude: 77.7500, stop_order: 3, estimated_arrival: '07:45 AM', status: 'active' },
+  { id: 'st24_4', route_id: 'r24', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 4, estimated_arrival: '08:15 AM', status: 'active' },
+
+  // Route 25 Stops
+  { id: 'st25_1', route_id: 'r25', stop_name: 'Railway Station, SNKL', latitude: 9.1720, longitude: 77.5350, stop_order: 1, estimated_arrival: '07:40 AM', status: 'active' },
+  { id: 'st25_2', route_id: 'r25', stop_name: 'Kalugumalai Road Junction', latitude: 9.2500, longitude: 77.5400, stop_order: 2, estimated_arrival: '08:05 AM', status: 'active' },
+  { id: 'st25_3', route_id: 'r25', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', status: 'active' },
+
+  // Route 26 Stops
+  { id: 'st26_1', route_id: 'r26', stop_name: 'Rayagiri Bus Stop', latitude: 9.2800, longitude: 77.4400, stop_order: 1, estimated_arrival: '07:25 AM', status: 'active' },
+  { id: 'st26_2', route_id: 'r26', stop_name: 'Karivalamvandanallur', latitude: 9.3500, longitude: 77.4700, stop_order: 2, estimated_arrival: '07:55 AM', status: 'active' },
+  { id: 'st26_3', route_id: 'r26', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', status: 'active' },
+
+  // Route 27 Stops
+  { id: 'st27_1', route_id: 'r27', stop_name: 'Kadayanallur Bus Stand', latitude: 9.0750, longitude: 77.3450, stop_order: 1, estimated_arrival: '07:10 AM', status: 'active' },
+  { id: 'st27_2', route_id: 'r27', stop_name: 'Puliyangudi Market Road', latitude: 9.1750, longitude: 77.3950, stop_order: 2, estimated_arrival: '07:40 AM', status: 'active' },
+  { id: 'st27_3', route_id: 'r27', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:25 AM', status: 'active' },
+
+  // Route 28 Stops
+  { id: 'st28_1', route_id: 'r28', stop_name: 'Mottamalai - RJPM', latitude: 9.4700, longitude: 77.5700, stop_order: 1, estimated_arrival: '08:00 AM', status: 'active' },
+  { id: 'st28_2', route_id: 'r28', stop_name: 'Alagapuri Road Corner', latitude: 9.4600, longitude: 77.5620, stop_order: 2, estimated_arrival: '08:20 AM', status: 'active' },
+  { id: 'st28_3', route_id: 'r28', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:35 AM', status: 'active' },
+
+  // Route 29 Stops
+  { id: 'st29_1', route_id: 'r29', stop_name: 'Bus Stand , SNKL', latitude: 9.1700, longitude: 77.5300, stop_order: 1, estimated_arrival: '07:40 AM', status: 'active' },
+  { id: 'st29_2', route_id: 'r29', stop_name: 'Gomathi Amman Temple Car St', latitude: 9.1750, longitude: 77.5320, stop_order: 2, estimated_arrival: '08:00 AM', status: 'active' },
+  { id: 'st29_3', route_id: 'r29', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', status: 'active' },
+
+  // Route 30 Stops
+  { id: 'st30_1', route_id: 'r30', stop_name: 'Alangulam Center', latitude: 9.3500, longitude: 77.6800, stop_order: 1, estimated_arrival: '07:40 AM', status: 'active' },
+  { id: 'st30_2', route_id: 'r30', stop_name: 'Cement Factory Nagar', latitude: 9.3800, longitude: 77.6300, stop_order: 2, estimated_arrival: '08:05 AM', status: 'active' },
+  { id: 'st30_3', route_id: 'r30', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:25 AM', status: 'active' },
+
+  // Route 31 Stops
+  { id: 'st31_1', route_id: 'r31', stop_name: 'Cornation-Sivakasi', latitude: 9.4520, longitude: 77.7950, stop_order: 1, estimated_arrival: '07:25 AM', status: 'active' },
+  { id: 'st31_2', route_id: 'r31', stop_name: 'Coronation Girls School Gate', latitude: 9.4560, longitude: 77.7880, stop_order: 2, estimated_arrival: '07:50 AM', status: 'active' },
+  { id: 'st31_3', route_id: 'r31', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:20 AM', status: 'active' },
+
+  // Route 32 Stops
+  { id: 'st32_1', route_id: 'r32', stop_name: 'Kansapuram Main Bus Stop', latitude: 9.6100, longitude: 77.5800, stop_order: 1, estimated_arrival: '07:10 AM', status: 'active' },
+  { id: 'st32_2', route_id: 'r32', stop_name: 'Watrap Road Junction', latitude: 9.5600, longitude: 77.5700, stop_order: 2, estimated_arrival: '07:40 AM', status: 'active' },
+  { id: 'st32_3', route_id: 'r32', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:15 AM', status: 'active' }
+];
+
+// Initial Students Registered across Routes
+export const INITIAL_STUDENTS: Student[] = [
+  {
+    id: 's1',
+    user_id: 'u_stu1',
+    register_number: '953621104021',
+    department: 'BE Computer Science & Eng.',
+    year: 4,
+    section: 'A',
+    route_id: 'r1',
+    bus_id: 'b1',
+    boarding_stop_id: 'st1_1',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_stu1', auth_user_id: 'auth_stu1', name: 'Kavitha M', email: 'kavitha.cse@ritrjpm.ac.in', phone: '+91 99887 76655', role: 'student', status: 'active' },
+    route: INITIAL_ROUTES[0],
+    bus: INITIAL_BUSES[0],
+    boarding_stop: INITIAL_STOPS[0]
+  },
+  {
+    id: 's2',
+    user_id: 'u_stu2',
+    register_number: '953621104088',
+    department: 'BE Mechanical Engineering',
+    year: 4,
+    section: 'B',
+    route_id: 'r1',
+    bus_id: 'b1',
+    boarding_stop_id: 'st1_2',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_stu2', auth_user_id: 'auth_stu2', name: 'Vignesh K', email: 'vignesh.mech@ritrjpm.ac.in', phone: '+91 94421 98765', role: 'student', status: 'active' },
+    route: INITIAL_ROUTES[0],
+    bus: INITIAL_BUSES[0],
+    boarding_stop: INITIAL_STOPS[1]
+  },
+  {
+    id: 's3',
+    user_id: 'u_stu3',
+    register_number: '21IT045',
+    department: 'B.Tech Information Tech.',
+    year: 3,
+    section: 'A',
+    route_id: 'r1',
+    bus_id: 'b1',
+    boarding_stop_id: 'st1_1',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_stu3', auth_user_id: 'auth_stu3', name: 'Kishore ST', email: 'kishore.it@ritrjpm.ac.in', phone: '+91 98421 23456', role: 'student', status: 'active' },
+    route: INITIAL_ROUTES[0],
+    bus: INITIAL_BUSES[0],
+    boarding_stop: INITIAL_STOPS[0]
+  },
+  {
+    id: 's4',
+    user_id: 'u_stu4',
+    register_number: '953622104005',
+    department: 'B.Tech AI & Data Science',
+    year: 2,
+    section: 'A',
+    route_id: 'r2',
+    bus_id: 'b2',
+    boarding_stop_id: 'st2_1',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_stu4', auth_user_id: 'auth_stu4', name: 'Ananya P', email: 'ananya.aids@ritrjpm.ac.in', phone: '+91 98401 54321', role: 'student', status: 'active' },
+    route: INITIAL_ROUTES[1],
+    bus: INITIAL_BUSES[1],
+    boarding_stop: INITIAL_STOPS[4]
+  },
+  {
+    id: 's5',
+    user_id: 'u_stu5',
+    register_number: '953621104045',
+    department: 'BE Electronics & Comm.',
+    year: 3,
+    section: 'B',
+    route_id: 'r7',
+    bus_id: 'b7',
+    boarding_stop_id: 'st7_1',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_stu5', auth_user_id: 'auth_stu5', name: 'Rahul S', email: 'rahul.ece@ritrjpm.ac.in', phone: '+91 98765 43210', role: 'student', status: 'active' },
+    route: INITIAL_ROUTES[6],
+    bus: INITIAL_BUSES[6],
+    boarding_stop: INITIAL_STOPS[17]
+  },
+  {
+    id: 's6',
+    user_id: 'u_stu6',
+    register_number: '953621104092',
+    department: 'BE Electrical & Electronics',
+    year: 3,
+    section: 'A',
+    route_id: 'r17',
+    bus_id: 'b15',
+    boarding_stop_id: 'st17_1',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_stu6', auth_user_id: 'auth_stu6', name: 'Surya Prakash', email: 'surya.eee@ritrjpm.ac.in', phone: '+91 93456 78901', role: 'student', status: 'active' },
+    route: INITIAL_ROUTES[14],
+    bus: INITIAL_BUSES[14],
+    boarding_stop: INITIAL_STOPS[37]
+  },
+  {
+    id: 's7',
+    user_id: 'u_stu7',
+    register_number: '953621104018',
+    department: 'BE Civil Engineering',
+    year: 2,
+    section: 'A',
+    route_id: 'r21',
+    bus_id: 'b19',
+    boarding_stop_id: 'st21_1',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_stu7', auth_user_id: 'auth_stu7', name: 'Deepa R', email: 'deepa.civil@ritrjpm.ac.in', phone: '+91 97890 12345', role: 'student', status: 'active' },
+    route: INITIAL_ROUTES[18],
+    bus: INITIAL_BUSES[18],
+    boarding_stop: INITIAL_STOPS[47]
+  }
+];
+
+// Initial Live GPS Locations for all 30 buses
+export const INITIAL_LOCATIONS: CurrentBusLocation[] = INITIAL_BUSES.map((b, idx) => {
+  const routeStops = INITIAL_STOPS.filter(s => s.route_id === b.route_id);
+  const startStop = routeStops[0];
+  const lat = startStop ? startStop.latitude : (9.4475 + (idx * 0.003));
+  const lng = startStop ? startStop.longitude : (77.5450 + (idx * 0.002));
+
+  return {
+    id: 'loc_' + b.id,
+    bus_id: b.id,
+    trip_id: 'trip_' + b.id,
+    latitude: lat,
+    longitude: lng,
+    speed: 28.5 + (idx % 8),
+    heading: (idx * 25) % 360,
+    accuracy: 3.5,
+    updated_at: new Date().toISOString(),
+    bus: b
+  };
+});
+
+// Initial Active Trips
+export const INITIAL_TRIPS: Trip[] = [
+  {
+    id: 't1',
+    bus_id: 'b1',
+    driver_id: 'dr1',
+    route_id: 'r1',
+    start_time: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    status: 'active',
+    start_latitude: 9.4485,
+    start_longitude: 77.5505,
+    distance_travelled: 4.2,
+    bus: INITIAL_BUSES[0],
+    driver: INITIAL_DRIVERS[0],
+    route: INITIAL_ROUTES[0]
+  },
+  {
+    id: 't2',
+    bus_id: 'b7',
+    driver_id: 'dr7',
+    route_id: 'r7',
+    start_time: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
+    status: 'active',
+    start_latitude: 9.4475,
+    start_longitude: 77.5450,
+    distance_travelled: 5.1,
+    bus: INITIAL_BUSES[6],
+    driver: INITIAL_DRIVERS[6],
+    route: INITIAL_ROUTES[6]
+  }
+];
+
+// Initial Emergency Alerts (Empty by default for clean real system)
+export const INITIAL_EMERGENCIES: EmergencyAlert[] = [];
+
+// Initial Notifications
+export const INITIAL_NOTIFICATIONS: SystemNotification[] = [
+  {
+    id: 'n1',
+    title: 'College Transit Operations Active',
+    message: 'All 30 college transit buses are active and connected with live GPS dispatch synchronization.',
+    type: 'trip',
+    target_type: 'all',
+    created_at: new Date().toISOString()
+  }
+];
+
+// Official Staff Users with Role-Based Access (Transport In-charge & Coordinators)
+export const INITIAL_STAFF: StaffUser[] = [
+  {
+    id: 'stf_1',
+    auth_user_id: 'auth_stf_1',
+    name: 'Dr. S. Ganesh',
+    email: 'ganesh.staff@ritrjpm.ac.in',
+    phone: '+91 98421 22334',
+    password: 'staff123',
+    department: 'Transport Department',
+    designation: 'Transport Supervisor & In-charge',
+    access_level: 'edit',
+    assigned_route_ids: ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7'],
+    status: 'active',
+    created_at: '2024-01-10T09:00:00.000Z',
+    last_login: new Date().toISOString()
+  },
+  {
+    id: 'stf_2',
+    auth_user_id: 'auth_stf_2',
+    name: 'Prof. P. Deepa',
+    email: 'deepa.staff@ritrjpm.ac.in',
+    phone: '+91 94432 55667',
+    password: 'staff123',
+    department: 'Computer Science & Engg',
+    designation: 'Faculty Transport Coordinator',
+    access_level: 'view',
+    assigned_route_ids: ['r1', 'r7', 'r10'],
+    status: 'active',
+    created_at: '2024-02-15T10:30:00.000Z',
+    last_login: new Date().toISOString()
+  },
+  {
+    id: 'stf_3',
+    auth_user_id: 'auth_stf_3',
+    name: 'M. Selvam',
+    email: 'selvam.staff@ritrjpm.ac.in',
+    phone: '+91 97890 11223',
+    password: 'staff123',
+    department: 'Student Affairs & Hostel',
+    designation: 'Hostel Warden & Route Inspector',
+    access_level: 'edit',
+    assigned_route_ids: ['r21', 'r24', 'r27'],
+    status: 'active',
+    created_at: '2024-03-01T11:00:00.000Z',
+    last_login: new Date().toISOString()
+  }
+];

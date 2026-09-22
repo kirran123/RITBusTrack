@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "College Bus Track",
+    "slug": "college-bus-track",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "College Bus Track needs your location to display your proximity to bus stops and calculate accurate arrival times.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "College Bus Track requires background location access for drivers to broadcast continuous bus telemetry during active trips.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
+      }
+    },
+    "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "scheme": "college-bus-track",
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

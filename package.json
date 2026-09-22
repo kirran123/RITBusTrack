@@ -1,0 +1,29 @@
+{
+  "name": "college-bus-tracking-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "College Bus Live Tracking and Transport Management System",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev --workspace=apps/admin-web",
+    "dev:mobile": "npm run start --workspace=apps/mobile",
+    "build:admin": "npm run build --workspace=apps/admin-web",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "test": "echo \"Running workspace tests...\" && exit 0"
+  },
+  "keywords": [
+    "college",
+    "bus-tracking",
+    "supabase",
+    "react",
+    "react-native",
+    "expo",
+    "leaflet",
+    "openstreetmap"
+  ],
+  "author": "College Transport System Team",
+  "license": "MIT"
+}

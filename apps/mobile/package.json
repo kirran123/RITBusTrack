@@ -1,0 +1,43 @@
+{
+  "name": "college-bus-mobile",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@college-bus/shared": "file:../../packages/shared",
+    "@expo/metro": "^56.1.0",
+    "@expo/metro-runtime": "~57.0.16",
+    "@supabase/supabase-js": "^2.45.0",
+    "expo": "^57.0.24",
+    "expo-constants": "~57.0.19",
+    "expo-linking": "^57.0.10",
+    "expo-location": "~57.0.19",
+    "expo-router": "~57.0.22",
+    "expo-status-bar": "~57.0.1",
+    "lucide-react-native": "^0.395.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-reanimated": "4.5.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
+    "react-native-web": "^0.21.2",
+    "react-native-webview": "13.16.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@types/react": "~19.0.0",
+    "babel-preset-expo": "^57.0.12",
+    "metro": "^0.84.4",
+    "metro-config": "^0.84.4",
+    "typescript": "^5.3.3"
+  },
+  "private": true
+}
