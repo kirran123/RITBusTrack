@@ -249,19 +249,19 @@ export const Students: React.FC<StudentsProps> = ({
       {/* Table */}
       <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-950 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800">
+          <table className="w-full text-left text-xs text-slate-300">
+            <thead className="bg-slate-950 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
               <tr>
-                <th className="px-6 py-4">Student Name</th>
-                <th className="px-6 py-4">Register No.</th>
-                <th className="px-6 py-4">Department & Year</th>
-                <th className="px-6 py-4">Assigned Bus Number</th>
-                <th className="px-6 py-4">Boarding Stop Name</th>
-                <th className="px-6 py-4">Today's Attendance / Leave</th>
-                <th className="px-6 py-4 text-right">{isEditable ? 'Actions' : 'Access Level'}</th>
+                <th className="px-4 py-3.5">Student</th>
+                <th className="px-3 py-3.5 whitespace-nowrap">Reg No.</th>
+                <th className="px-3.5 py-3.5">Department</th>
+                <th className="px-3 py-3.5 whitespace-nowrap">Bus</th>
+                <th className="px-3.5 py-3.5">Boarding Stop</th>
+                <th className="px-3.5 py-3.5 text-center whitespace-nowrap">Attendance Status</th>
+                <th className="px-4 py-3.5 text-right whitespace-nowrap">{isEditable ? 'Actions' : 'Access'}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80">
+            <tbody className="divide-y divide-slate-800/60">
               {filteredStudents.map((student) => {
                 const bus = buses.find(b => b.id === student.bus_id);
                 const stop = stops.find(s => s.id === student.boarding_stop_id) || student.boarding_stop;
@@ -269,16 +269,16 @@ export const Students: React.FC<StudentsProps> = ({
                 return (
                   <tr key={student.id} className="hover:bg-slate-850/60 transition-colors">
                     {/* Student Name & Avatar */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600/20 to-teal-600/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center font-black text-sm shrink-0 shadow-sm">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center space-x-2.5 min-w-[130px]">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600/20 to-teal-600/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center font-black text-xs shrink-0 shadow-sm">
                           {student.profile?.name ? student.profile.name.charAt(0) : 'S'}
                         </div>
-                        <div className="min-w-0">
-                          <div className="font-extrabold text-white text-sm leading-tight truncate">
-                            {student.profile?.name || 'Student Name'}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-white text-xs leading-tight truncate">
+                            {student.profile?.name || 'Student'}
                           </div>
-                          <div className="text-xs text-slate-400 font-normal truncate mt-0.5">
+                          <div className="text-[10.5px] text-slate-400 font-normal truncate">
                             {student.profile?.email}
                           </div>
                         </div>
@@ -286,77 +286,84 @@ export const Students: React.FC<StudentsProps> = ({
                     </td>
 
                     {/* Register Number */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="font-mono text-xs font-extrabold px-2.5 py-1 rounded-lg bg-slate-950 text-emerald-400 border border-slate-800">
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-950 text-emerald-400 border border-slate-800/80">
                         {student.register_number}
                       </span>
                     </td>
 
                     {/* Department & Year */}
-                    <td className="px-6 py-4">
-                      <div className="text-xs font-semibold text-slate-200 leading-snug">
+                    <td className="px-3.5 py-3 max-w-[160px]">
+                      <div className="text-xs font-semibold text-slate-200 truncate" title={student.department}>
                         {student.department}
                       </div>
-                      <div className="text-[11px] text-slate-400 font-medium mt-0.5">
-                        Year {student.year} &bull; Section {student.section}
+                      <div className="text-[10px] text-slate-400 font-medium">
+                        Year {student.year} &bull; Sec {student.section}
                       </div>
                     </td>
 
                     {/* Assigned Bus */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-3 py-1 rounded-xl text-xs font-black bg-blue-500/10 text-blue-400 border border-blue-500/30">
-                        {bus?.bus_number || student.leave_info?.bus_number || 'BUS 12'}
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <span className="px-2.5 py-0.5 rounded-lg text-xs font-extrabold bg-blue-500/10 text-blue-400 border border-blue-500/30">
+                        {bus?.bus_number || student.leave_info?.bus_number || 'BUS-01'}
                       </span>
                     </td>
 
                     {/* Boarding Stop */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-1.5 text-sky-300 text-xs font-bold">
-                        <span className="shrink-0">📍</span>
-                        <span className="leading-snug">{stop?.stop_name || student.leave_info?.stop_name || 'N/A'}</span>
+                    <td className="px-3.5 py-3 max-w-[170px]">
+                      <div className="flex items-center space-x-1 text-sky-300 text-xs font-semibold truncate" title={stop?.stop_name || 'N/A'}>
+                        <span className="shrink-0 text-[11px]">📍</span>
+                        <span className="truncate">{stop?.stop_name || student.leave_info?.stop_name || 'N/A'}</span>
                       </div>
                     </td>
 
-                    {/* Today's Attendance / Leave Badge */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {student.is_on_leave ? (
-                        <span className="px-3 py-1 rounded-xl text-xs font-black bg-rose-500/15 text-rose-400 border border-rose-500/30 inline-flex items-center space-x-1.5 shadow-sm">
-                          <span>⛔</span>
-                          <span>ON LEAVE TODAY</span>
-                        </span>
+                    {/* Today's Interactive Attendance Status */}
+                    <td className="px-3.5 py-3 text-center whitespace-nowrap">
+                      {isEditable && onToggleStudentLeave ? (
+                        <button
+                          type="button"
+                          onClick={() => onToggleStudentLeave(student.id)}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold transition-all inline-flex items-center space-x-1.5 shadow-sm border ${
+                            student.is_on_leave
+                              ? 'bg-rose-500/15 text-rose-300 border-rose-500/40 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500/40'
+                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25 hover:bg-rose-500/15 hover:text-rose-300 hover:border-rose-500/30'
+                          }`}
+                          title={student.is_on_leave ? "Click to restore attendance" : "Click to mark 1-day absence"}
+                        >
+                          {student.is_on_leave ? (
+                            <>
+                              <span>⛔</span>
+                              <span>On Leave</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              <span>Travelling</span>
+                            </>
+                          )}
+                        </button>
                       ) : (
-                        <span className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center space-x-1.5 shadow-sm">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                          <span>Travelling Regular</span>
+                        <span className={`px-2.5 py-1 rounded-xl text-xs font-bold inline-flex items-center space-x-1 border ${
+                          student.is_on_leave
+                            ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        }`}>
+                          {student.is_on_leave ? '⛔ On Leave' : '🟢 Travelling'}
                         </span>
                       )}
                     </td>
 
-                    {/* Unified Actions Toolbar */}
-                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                    {/* Actions Toolbar */}
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
                       {isEditable ? (
-                        <div className="flex items-center justify-end space-x-1.5">
-                          {onToggleStudentLeave && (
-                            <button
-                              type="button"
-                              onClick={() => onToggleStudentLeave(student.id)}
-                              className={`px-3 py-1.5 rounded-xl border text-xs font-black transition-all flex items-center space-x-1 shadow-sm ${
-                                student.is_on_leave
-                                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
-                                  : 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
-                              }`}
-                              title={student.is_on_leave ? "Restore attendance status" : "Mark 1-day absence"}
-                            >
-                              <span>{student.is_on_leave ? '🟢 Restore' : '⛔ Mark Leave'}</span>
-                            </button>
-                          )}
+                        <div className="flex items-center justify-end space-x-1">
                           <button
                             type="button"
                             onClick={() => openEditModal(student)}
-                            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                             title="Edit Student Pass"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
@@ -365,15 +372,15 @@ export const Students: React.FC<StudentsProps> = ({
                                 onDeleteStudent(student.id);
                               }
                             }}
-                            className="p-1.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
                             title="Delete Student"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[11px] font-bold text-slate-500 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800">
-                          Read Only
+                        <span className="text-[10px] font-bold text-slate-500 px-2 py-0.5 rounded bg-slate-950 border border-slate-800">
+                          View
                         </span>
                       )}
                     </td>
