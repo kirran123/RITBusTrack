@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bus, Lock, Mail, ShieldAlert, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { Bus, Lock, Mail, ShieldAlert, ArrowRight } from 'lucide-react';
 import { UserProfile, StaffUser } from '@college-bus/shared';
 import { INITIAL_STAFF } from '../services/mockDataStore';
 
@@ -9,9 +9,8 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF }) => {
-  const [email, setEmail] = useState('kirranvijay@gmail.com');
-  const [password, setPassword] = useState('Kirranst@14');
-  const [selectedQuickType, setSelectedQuickType] = useState<'super_admin' | 'admin_staff'>('super_admin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,16 +22,20 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
     setTimeout(() => {
       setLoading(false);
 
+      const normalizedEmail = email.trim().toLowerCase();
+      const trimmedPass = password.trim();
+
       // 1. Super Admin Authentication
       const isSuperAdminEmail =
-        email.toLowerCase() === 'kirranvijay@gmail.com' ||
-        email.toLowerCase() === 'admin@college.edu' ||
-        email.toLowerCase() === 'admin';
-      const isSuperAdminPass = password === 'Kirranst@14' || password === 'admin123';
+        normalizedEmail === 'kirranvijay@gmail.com' ||
+        normalizedEmail === 'admin@college.edu' ||
+        normalizedEmail === 'admin' ||
+        normalizedEmail === 'admin@ritrjpm.ac.in';
+      const isSuperAdminPass = trimmedPass === 'Kirranst@14' || trimmedPass === 'admin123';
 
       if (isSuperAdminEmail) {
         if (!isSuperAdminPass) {
-          setError('Invalid Super Admin password. Please check your credentials.');
+          setError('Invalid credentials. Please check your password.');
           return;
         }
 
@@ -49,17 +52,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
         return;
       }
 
-      // 2. Unified Admin Staff Authentication (Created by Super Admin with Edit or View permissions)
-      const foundStaff = staffList.find((s) => s.email.toLowerCase() === email.toLowerCase());
+      // 2. Unified Admin Staff Authentication
+      const foundStaff = staffList.find((s) => s.email.toLowerCase() === normalizedEmail);
       if (foundStaff) {
         if (foundStaff.status !== 'active') {
-          setError('This Admin Staff account is currently inactive. Contact Super Admin.');
+          setError('This staff account is currently inactive. Contact administrator.');
           return;
         }
 
         const validPass = foundStaff.password || 'staff123';
-        if (password !== validPass) {
-          setError('Invalid Admin Staff password. Contact Super Admin to reset your password.');
+        if (trimmedPass !== validPass) {
+          setError('Invalid password. Please contact transport administrator.');
           return;
         }
 
@@ -77,39 +80,22 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
         return;
       }
 
-      // 3. Fallback for custom staff logins
-      if (email.includes('staff')) {
+      // 3. Fallback for staff accounts
+      if (normalizedEmail.includes('staff')) {
         onLogin({
           id: 'stf_custom_' + Date.now(),
           auth_user_id: 'auth_stf_' + Date.now(),
-          name: email.split('@')[0].toUpperCase(),
-          email,
+          name: normalizedEmail.split('@')[0].toUpperCase(),
+          email: normalizedEmail,
           phone: '+91 98421 00000',
           role: 'staff',
           access_level: 'edit',
           status: 'active',
         });
       } else {
-        setError('Account not found in Super Admin database. Please check email address.');
+        setError('Account not found. Please verify your email address.');
       }
     }, 450);
-  };
-
-  const selectQuickAccount = (type: 'super_admin' | 'admin_staff') => {
-    setSelectedQuickType(type);
-    setError(null);
-
-    if (type === 'super_admin') {
-      setEmail('kirranvijay@gmail.com');
-      setPassword('Kirranst@14');
-    } else {
-      const activeStaff = staffList[0] || {
-        email: 'ganesh.staff@ritrjpm.ac.in',
-        password: 'staff123',
-      };
-      setEmail(activeStaff.email);
-      setPassword(activeStaff.password || 'staff123');
-    }
   };
 
   return (
@@ -134,47 +120,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
 
         {/* Main Card */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-7 shadow-2xl backdrop-blur-xl space-y-5">
-          {/* Quick Role Selector */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                Select Sign-In Identity:
-              </label>
-              <span className="text-[10px] text-blue-400 font-bold flex items-center space-x-1">
-                <Sparkles className="w-3 h-3" />
-                <span>One-Click Select</span>
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => selectQuickAccount('super_admin')}
-                className={`py-3 px-3 rounded-2xl text-xs font-black transition-all border flex items-center justify-center space-x-2 ${
-                  selectedQuickType === 'super_admin'
-                    ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-600/30 ring-2 ring-blue-500/30'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                <span>👑</span>
-                <span>Super Admin</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => selectQuickAccount('admin_staff')}
-                className={`py-3 px-3 rounded-2xl text-xs font-black transition-all border flex items-center justify-center space-x-2 ${
-                  selectedQuickType === 'admin_staff'
-                    ? 'bg-amber-600 text-white border-amber-400 shadow-md shadow-amber-600/30 ring-2 ring-amber-500/30'
-                    : 'bg-slate-950 text-amber-400 border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Admin Staff</span>
-              </button>
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center space-x-2 animate-in fade-in">
@@ -185,7 +130,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                {selectedQuickType === 'super_admin' ? 'Super Admin Email' : 'Admin Staff Email'}
+                Official Email
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -195,7 +140,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950 text-white pl-10 pr-4 py-3 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 text-xs font-mono transition-colors"
-                  placeholder={selectedQuickType === 'super_admin' ? 'kirranvijay@gmail.com' : 'staff@ritrjpm.ac.in'}
+                  placeholder="name@ritrjpm.ac.in"
+                  autoComplete="username"
                 />
               </div>
             </div>
@@ -213,6 +159,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-950 text-white pl-10 pr-4 py-3 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 text-xs font-mono transition-colors"
                   placeholder="••••••••"
+                  autoComplete="current-password"
                 />
               </div>
             </div>
@@ -222,22 +169,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
               disabled={loading}
               className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-black py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all duration-200"
             >
-              <span>{loading ? 'Authenticating...' : 'Sign In to Command Portal'}</span>
+              <span>{loading ? 'Authenticating...' : 'Sign In to Transport Portal'}</span>
               {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>
-
-          {/* Role Credentials Reference Footnote */}
-          <div className="pt-3 border-t border-slate-800 text-[11px] text-slate-400 space-y-1.5 bg-slate-950/60 p-3 rounded-2xl border">
-            <div className="flex items-center justify-between text-slate-300 font-bold">
-              <span>👑 Super Admin:</span>
-              <span className="font-mono text-blue-400">kirranvijay@gmail.com</span>
-            </div>
-            <div className="flex items-center justify-between text-slate-400 text-[10.5px]">
-              <span>🛡️ Admin Staff:</span>
-              <span>Permissions (Edit/View) auto-applied from profile</span>
-            </div>
-          </div>
         </div>
 
         {/* Global Developer & Department Credit */}
