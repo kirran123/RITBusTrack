@@ -46,22 +46,11 @@ const saveStorage = <T,>(key: string, data: T): void => {
 };
 
 export const App: React.FC = () => {
-  // Authentication State (Session-aware: defaults to null if logged out)
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    return loadStorage<UserProfile | null>('bustrack_current_user_session', null);
-  });
+  // Authentication State: Always starts at Login (reloading page stays on Login)
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-  // Sync user session to localStorage
-  useEffect(() => {
-    if (currentUser) {
-      saveStorage('bustrack_current_user_session', currentUser);
-    } else {
-      localStorage.removeItem('bustrack_current_user_session');
-    }
-  }, [currentUser]);
 
   // Persistent System Central State (Synced to localStorage and Supabase)
   const [buses, setBuses] = useState<Bus[]>(() => loadStorage('bustrack_buses_v1', INITIAL_BUSES));
