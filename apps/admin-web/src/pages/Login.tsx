@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bus, Lock, Mail, ShieldAlert, ArrowRight } from 'lucide-react';
+import { Bus, Lock, Mail, ShieldAlert, ArrowRight, ShieldCheck } from 'lucide-react';
 import { UserProfile, StaffUser } from '@college-bus/shared';
 import { INITIAL_STAFF } from '../services/mockDataStore';
 
@@ -9,6 +9,7 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF }) => {
+  const [selectedRole, setSelectedRole] = useState<'super_admin' | 'admin_staff'>('super_admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,9 +34,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
         normalizedEmail === 'admin@ritrjpm.ac.in';
       const isSuperAdminPass = trimmedPass === 'Kirranst@14' || trimmedPass === 'admin123';
 
-      if (isSuperAdminEmail) {
+      if (selectedRole === 'super_admin') {
+        if (!isSuperAdminEmail) {
+          setError('Super Admin account not found. Please verify your email address.');
+          return;
+        }
         if (!isSuperAdminPass) {
-          setError('Invalid credentials. Please check your password.');
+          setError('Invalid Super Admin password. Please check your credentials.');
           return;
         }
 
@@ -52,7 +57,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
         return;
       }
 
-      // 2. Unified Admin Staff Authentication
+      // 2. Admin Staff Authentication
       const foundStaff = staffList.find((s) => s.email.toLowerCase() === normalizedEmail);
       if (foundStaff) {
         if (foundStaff.status !== 'active') {
@@ -93,7 +98,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
           status: 'active',
         });
       } else {
-        setError('Account not found. Please verify your email address.');
+        setError('Admin Staff account not found. Please verify your email.');
       }
     }, 450);
   };
@@ -120,6 +125,46 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
 
         {/* Main Card */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-7 shadow-2xl backdrop-blur-xl space-y-5">
+          {/* Separate Role Tabs */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">
+              Sign-In Role:
+            </label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRole('super_admin');
+                  setError(null);
+                }}
+                className={`py-3 px-3 rounded-2xl text-xs font-black transition-all border flex items-center justify-center space-x-2 cursor-pointer ${
+                  selectedRole === 'super_admin'
+                    ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-600/30 ring-2 ring-blue-500/30'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <span>👑</span>
+                <span>Super Admin</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRole('admin_staff');
+                  setError(null);
+                }}
+                className={`py-3 px-3 rounded-2xl text-xs font-black transition-all border flex items-center justify-center space-x-2 cursor-pointer ${
+                  selectedRole === 'admin_staff'
+                    ? 'bg-amber-600 text-white border-amber-400 shadow-md shadow-amber-600/30 ring-2 ring-amber-500/30'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Admin Staff</span>
+              </button>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center space-x-2 animate-in fade-in">
@@ -130,7 +175,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Official Email
+                {selectedRole === 'super_admin' ? 'Super Admin Email' : 'Admin Staff Email'}
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -140,7 +185,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950 text-white pl-10 pr-4 py-3 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 text-xs font-mono transition-colors"
-                  placeholder="name@ritrjpm.ac.in"
+                  placeholder={selectedRole === 'super_admin' ? 'kirranvijay@gmail.com' : 'name@ritrjpm.ac.in'}
                   autoComplete="username"
                 />
               </div>
@@ -167,9 +212,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-black py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all duration-200 cursor-pointer"
+              className={`w-full text-white font-black py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-center space-x-2 transition-all duration-200 cursor-pointer ${
+                selectedRole === 'super_admin'
+                  ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 shadow-blue-600/30'
+                  : 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/30'
+              }`}
             >
-              <span>{loading ? 'Authenticating...' : 'Sign In to Transport Portal'}</span>
+              <span>
+                {loading
+                  ? 'Authenticating...'
+                  : selectedRole === 'super_admin'
+                  ? 'Sign In as Super Admin'
+                  : 'Sign In as Admin Staff'}
+              </span>
               {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>
