@@ -53,7 +53,7 @@ export default function DriverDashboard() {
     busNumber: 'BUS-01',
     registrationNumber: 'TN 67 AM 9785',
     routeName: 'Route 1 (Old Bus Stand, RJPM ➔ RIT)',
-    role: 'Senior Fleet Master Driver',
+    role: 'Driver',
   });
 
   useEffect(() => {
@@ -1087,7 +1087,7 @@ export default function DriverDashboard() {
                 <Text style={{ fontSize: 32 }}>👨‍✈️</Text>
               </View>
               <Text style={styles.driverHeroName}>{driverProfile.name}</Text>
-              <Text style={styles.driverHeroMeta}>Employee ID: {driverProfile.employeeId} &bull; Senior Fleet Master Driver</Text>
+              <Text style={styles.driverHeroMeta}>Employee ID: {driverProfile.employeeId}</Text>
               <View style={styles.busAllocationPill}>
                 <Text style={styles.busAllocationPillText}>ASSIGNED BUS: {driverProfile.busNumber} &bull; ROUTE 1</Text>
               </View>
