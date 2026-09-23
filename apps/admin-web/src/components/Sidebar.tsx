@@ -6,6 +6,7 @@ import {
   Bus as BusIcon, 
   Users, 
   GraduationCap, 
+  Briefcase,
   Route as RouteIcon, 
   History, 
   AlertTriangle, 
@@ -42,8 +43,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { label: 'Bus Management', path: '/buses', icon: BusIcon },
     { label: 'Driver Management', path: '/drivers', icon: Users },
     { label: 'Student Management', path: '/students', icon: GraduationCap },
+    { label: 'Staff Management', path: '/staff', icon: Briefcase },
     { label: 'Routes & Stops', path: '/routes', icon: RouteIcon },
-    ...(isAdmin ? [{ label: 'Admin Staff Logins', path: '/staff', icon: ShieldCheck }] : []),
     { label: 'Trip History', path: '/trips', icon: History },
   ];
 

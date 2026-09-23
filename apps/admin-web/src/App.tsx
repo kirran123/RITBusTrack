@@ -1166,33 +1166,29 @@ export const App: React.FC = () => {
                 </ErrorBoundary>
               } />
 
-              {/* Staff Management & Role-Based Access Control */}
+              {/* Staff Management (Faculty Commuters & Web Staff Control) */}
               <Route path="/staff" element={
-                currentUser?.role === 'admin' ? (
-                  <ErrorBoundary fallbackTitle="Staff Access Center">
-                    <StaffPage
-                      currentUser={currentUser}
-                      canEdit={canEdit}
-                      staffList={staffList}
-                      staffCommuters={staffCommuters}
-                      buses={buses}
-                      routes={routes}
-                      stops={stops}
-                      onSaveStaff={handleSaveStaff}
-                      onDeleteStaff={handleDeleteStaff}
-                      onToggleStaffAccess={handleToggleStaffAccess}
-                      onUpdateStaffPassword={handleUpdateStaffPassword}
-                      onSimulateLoginAsStaff={handleSimulateLoginAsStaff}
-                      onSaveStaffCommuter={handleSaveStaffCommuter}
-                      onDeleteStaffCommuter={handleDeleteStaffCommuter}
-                      onToggleStaffCommuterLeave={handleToggleStaffCommuterLeave}
-                      onUpdateStaffCommuterPassword={handleUpdateStaffCommuterPassword}
-                      onImportStaffCommuterCSV={handleImportStaffCommutersCSV}
-                    />
-                  </ErrorBoundary>
-                ) : (
-                  <Navigate to="/" replace />
-                )
+                <ErrorBoundary fallbackTitle="Staff Management">
+                  <StaffPage
+                    currentUser={currentUser}
+                    canEdit={canEdit}
+                    staffList={staffList}
+                    staffCommuters={staffCommuters}
+                    buses={buses}
+                    routes={routes}
+                    stops={stops}
+                    onSaveStaff={handleSaveStaff}
+                    onDeleteStaff={handleDeleteStaff}
+                    onToggleStaffAccess={handleToggleStaffAccess}
+                    onUpdateStaffPassword={handleUpdateStaffPassword}
+                    onSimulateLoginAsStaff={handleSimulateLoginAsStaff}
+                    onSaveStaffCommuter={handleSaveStaffCommuter}
+                    onDeleteStaffCommuter={handleDeleteStaffCommuter}
+                    onToggleStaffCommuterLeave={handleToggleStaffCommuterLeave}
+                    onUpdateStaffCommuterPassword={handleUpdateStaffCommuterPassword}
+                    onImportStaffCommuterCSV={handleImportStaffCommutersCSV}
+                  />
+                </ErrorBoundary>
               } />
 
               <Route path="/trips" element={
