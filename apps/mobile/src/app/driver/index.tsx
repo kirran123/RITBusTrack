@@ -398,14 +398,16 @@ export default function DriverDashboard() {
           <View style={styles.topLogo}>
             <Text style={{ fontSize: 18 }}>👨‍✈️</Text>
           </View>
-          <View>
+          <View style={styles.topHeaderInfo}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.topAppName}>Driver Cockpit</Text>
               <View style={styles.topBusBadge}>
                 <Text style={styles.topBusBadgeText}>{driverProfile.busNumber || driverBusNumber}</Text>
               </View>
             </View>
-            <Text style={styles.topSub}>{driverProfile.routeName} &bull; {driverProfile.registrationNumber} &bull; {driverProfile.name}</Text>
+            <Text style={styles.topSub} numberOfLines={1} ellipsizeMode="tail">
+              {driverProfile.routeName} &bull; {driverProfile.registrationNumber}
+            </Text>
           </View>
         </View>
 
@@ -1278,9 +1280,15 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1e293b',
   },
   topHeaderLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    overflow: 'hidden',
+  },
+  topHeaderInfo: {
+    flex: 1,
+    justifyContent: 'center',
   },
   topLogo: {
     width: 36,
@@ -1289,6 +1297,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e3a8a',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   topAppName: {
     color: '#ffffff',
@@ -1301,6 +1310,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
+    flexShrink: 0,
   },
   topBusBadgeText: {
     color: '#000000',
@@ -1311,9 +1321,11 @@ const styles = StyleSheet.create({
   topSub: {
     color: '#94a3b8',
     fontSize: 11,
+    marginTop: 1,
   },
   topHeaderRight: {
     alignItems: 'flex-end',
+    flexShrink: 0,
   },
   liveStatusPill: {
     flexDirection: 'row',

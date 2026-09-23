@@ -249,14 +249,16 @@ export default function StudentDashboard() {
           <View style={styles.topLogo}>
             <Text style={{ fontSize: 18 }}>🚌</Text>
           </View>
-          <View>
+          <View style={styles.topHeaderInfo}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.topAppName}>College Bus Track</Text>
               <View style={styles.topBusNumberBadge}>
                 <Text style={styles.topBusNumberText}>{currentStudent.busNumber || 'BUS-01'}</Text>
               </View>
             </View>
-            <Text style={styles.topRouteSubtitle}>Route 1 &bull; Rajapalayam ➔ Campus &bull; TN 84 AX 1001</Text>
+            <Text style={styles.topRouteSubtitle} numberOfLines={1} ellipsizeMode="tail">
+              Route 1 &bull; Old Bus Stand ➔ Campus &bull; TN 67 AM 9785
+            </Text>
           </View>
         </View>
 
@@ -895,9 +897,15 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1e293b',
   },
   topHeaderLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    overflow: 'hidden',
+  },
+  topHeaderInfo: {
+    flex: 1,
+    justifyContent: 'center',
   },
   topLogo: {
     width: 36,
@@ -906,6 +914,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e3a8a',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   topAppName: {
     color: '#ffffff',
@@ -918,6 +927,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
+    flexShrink: 0,
   },
   topBusNumberText: {
     color: '#000000',
@@ -928,6 +938,7 @@ const styles = StyleSheet.create({
   topRouteSubtitle: {
     color: '#94a3b8',
     fontSize: 11,
+    marginTop: 1,
   },
   topHeaderRight: {
     alignItems: 'flex-end',
