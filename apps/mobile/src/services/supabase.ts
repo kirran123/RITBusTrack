@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import { GPSCoordinate, EmergencyAlert } from '@college-bus/shared';
 
@@ -85,9 +86,9 @@ const fleetSwapListeners: Set<FleetSwapListener> = new Set();
 const leaveListeners: Set<LeaveListener> = new Set();
 const tripListeners: Set<TripListener> = new Set();
 
-// Cross-Tab / Cross-Window Broadcast Channel for instant local sync
+// Cross-Tab / Cross-Window Broadcast Channel for instant local sync (Web Only)
 let crossClientChannel: any = null;
-if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+if (Platform.OS === 'web' && typeof window !== 'undefined' && 'BroadcastChannel' in window) {
   try {
     crossClientChannel = new BroadcastChannel('bustrack_cross_client_sync');
     crossClientChannel.onmessage = (event: MessageEvent) => {
@@ -111,26 +112,28 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
   }
 }
 
-// Storage event listener fallback
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'bustrack_cross_sync_event' && e.newValue) {
-      try {
-        const data = JSON.parse(e.newValue);
-        if (data.type === 'location_update') {
-          telemetryListeners.forEach((l) => l(data.payload));
-        } else if (data.type === 'emergency_sos') {
-          sosListeners.forEach((l) => l(data.payload));
-        } else if (data.type === 'fleet_swap_notice') {
-          fleetSwapListeners.forEach((l) => l(data.payload));
-        } else if (data.type === 'leave_toggle') {
-          leaveListeners.forEach((l) => l(data.payload));
-        } else if (data.type === 'trip_update') {
-          tripListeners.forEach((l) => l(data.payload));
-        }
-      } catch {}
-    }
-  });
+// Storage event listener fallback (Web Only)
+if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  try {
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'bustrack_cross_sync_event' && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          if (data.type === 'location_update') {
+            telemetryListeners.forEach((l) => l(data.payload));
+          } else if (data.type === 'emergency_sos') {
+            sosListeners.forEach((l) => l(data.payload));
+          } else if (data.type === 'fleet_swap_notice') {
+            fleetSwapListeners.forEach((l) => l(data.payload));
+          } else if (data.type === 'leave_toggle') {
+            leaveListeners.forEach((l) => l(data.payload));
+          } else if (data.type === 'trip_update') {
+            tripListeners.forEach((l) => l(data.payload));
+          }
+        } catch {}
+      }
+    });
+  } catch {}
 }
 
 // Shared Realtime Channel
@@ -180,7 +183,7 @@ function postCrossClient(type: string, payload: any) {
       crossClientChannel.postMessage({ type, payload, timestamp: Date.now() });
     } catch {}
   }
-  if (typeof localStorage !== 'undefined') {
+  if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
     try {
       localStorage.setItem('bustrack_cross_sync_event', JSON.stringify({ type, payload, timestamp: Date.now() }));
     } catch {}

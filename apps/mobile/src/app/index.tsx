@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   KeyboardAvoidingView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -20,6 +21,14 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('kishore.it@ritrjpm.ac.in');
   const [password, setPassword] = useState('driver123');
   const [showPassword, setShowPassword] = useState(false);
+
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.alert === 'function') {
+      window.alert(`${title}: ${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
 
   const handleSelectRole = (r: MobilePortalRole) => {
     setRole(r);
@@ -38,34 +47,26 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (role === 'driver') {
       if (!phone || phone.trim().length < 8) {
-        if (Platform.OS === 'web') {
-          window.alert('Please enter a valid driver phone number (e.g. 9894668646)');
-        }
+        showAlert('Invalid Input', 'Please enter a valid driver phone number (e.g. 9894668646)');
         return;
       }
       if (!password || password.trim().length === 0) {
-        if (Platform.OS === 'web') {
-          window.alert('Please enter your driver password');
-        }
+        showAlert('Invalid Input', 'Please enter your driver password');
         return;
       }
     } else {
       if (!email || !email.includes('@')) {
-        if (Platform.OS === 'web') {
-          window.alert('Please enter a valid institutional email address');
-        }
+        showAlert('Invalid Input', 'Please enter a valid institutional email address');
         return;
       }
       if (!password || password.trim().length === 0) {
-        if (Platform.OS === 'web') {
-          window.alert('Please enter your password');
-        }
+        showAlert('Invalid Input', 'Please enter your password');
         return;
       }
     }
 
-    // Dynamic Credentials Sync Check against localStorage
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    // Dynamic Credentials Sync Check against localStorage (Web Only)
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
       try {
         if (role === 'student') {
           const storedStudentsRaw = localStorage.getItem('bustrack_students_v1');
@@ -77,7 +78,7 @@ export default function LoginScreen() {
                      (s.register_number || '').toLowerCase() === email.trim().toLowerCase()
               );
               if (matchedStudent && matchedStudent.password && matchedStudent.password !== password.trim()) {
-                window.alert(`Incorrect password for ${email}. Please check with the transport administrator.`);
+                showAlert('Authentication Failed', `Incorrect password for ${email}. Please check with the transport administrator.`);
                 return;
               }
               if (matchedStudent) {
@@ -95,7 +96,7 @@ export default function LoginScreen() {
                      (s.employee_id || '').toLowerCase() === email.trim().toLowerCase()
               );
               if (matchedStaff && matchedStaff.password && matchedStaff.password !== password.trim()) {
-                window.alert(`Incorrect password for ${email}. Please check with the transport administrator.`);
+                showAlert('Authentication Failed', `Incorrect password for ${email}. Please check with the transport administrator.`);
                 return;
               }
               if (matchedStaff) {
@@ -110,7 +111,7 @@ export default function LoginScreen() {
     }
 
     try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'default') {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window && window.Notification && window.Notification.permission === 'default') {
         await window.Notification.requestPermission();
       }
     } catch (e) {
