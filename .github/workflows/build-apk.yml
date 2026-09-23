@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Bus Track Mobile Apps (Android & iOS)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-android:
-    name: Fast Android APK Build
+    name: Build Android APK (Bus Track)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -28,7 +28,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Dependencies
+      - name: Install Monorepo Dependencies
         run: npm ci
 
       - name: Generate Native Android Project (Expo Prebuild)
@@ -38,13 +38,47 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - name: Build APK with Gradle
+      - name: Build Android APK with Gradle
         working-directory: apps/mobile/android
-        run: ./gradlew assembleDebug
+        run: |
+          ./gradlew assembleDebug
+          mkdir -p ../../../dist-mobile-apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../../../dist-mobile-apk/Bus-Track.apk
 
-      - name: Upload APK to GitHub Actions (Direct Download)
+      - name: Upload Bus Track Android APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: College-Bus-Tracker-Mobile-APK
-          path: apps/mobile/android/app/build/outputs/apk/debug/*.apk
+          name: Bus-Track-Android-APK
+          path: dist-mobile-apk/Bus-Track.apk
           retention-days: 30
+
+  build-ios:
+    name: Export iOS App Package (Bus Track)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Export Mobile Standalone Web App & iOS PWA Bundle
+        working-directory: apps/mobile
+        run: |
+          npx expo export --platform web
+          mkdir -p ../../dist-mobile-ios
+          cp -r dist/* ../../dist-mobile-ios/
+
+      - name: Upload Bus Track iOS Web Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bus-Track-iOS-Package
+          path: dist-mobile-ios/
+          retention-days: 30
+

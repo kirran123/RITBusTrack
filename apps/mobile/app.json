@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "College Bus Track",
-    "slug": "college-bus-track",
+    "name": "Bus Track",
+    "slug": "bus-track",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",

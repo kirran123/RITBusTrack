@@ -65,7 +65,7 @@ async function createWindow() {
     height: 920,
     minWidth: 380,
     minHeight: 650,
-    title: 'College Bus Track - Student, Driver & Staff App',
+    title: 'Bus Track - Student, Driver & Staff',
     backgroundColor: '#080c14',
     webPreferences: {
       nodeIntegration: false,
