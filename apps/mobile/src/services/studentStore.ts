@@ -170,12 +170,46 @@ export const INITIAL_BUS12_STUDENTS: BusStudent[] = [
   },
 ];
 
+const loadSavedStudents = (): BusStudent[] => {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('bustrack_students_v1');
+      if (raw) {
+        const adminStudents = JSON.parse(raw);
+        if (Array.isArray(adminStudents) && adminStudents.length > 0) {
+          return adminStudents.map((as: any, idx: number) => ({
+            id: as.id || `s${idx + 1}`,
+            name: as.profile?.name || as.name || `Student ${idx + 1}`,
+            rollNumber: as.register_number || as.rollNumber || `REG-${idx + 1}`,
+            department: as.department || 'Computer Science',
+            year: as.year || 4,
+            section: as.section || 'A',
+            boardingStopId: as.boarding_stop_id || as.boardingStopId || 'st1',
+            boardingStopName: as.boarding_stop?.stop_name || as.boardingStopName || 'Rajapalayam Stand',
+            phone: as.profile?.phone || as.phone || '+91 99887 76655',
+            email: as.profile?.email || as.email || 'student@college.edu',
+            busId: as.bus_id || as.busId || 'b1',
+            busNumber: as.bus?.bus_number || as.busNumber || 'BUS 12',
+            routeId: as.route_id || as.routeId || 'r1',
+            isBoarded: false,
+            isOnLeave: Boolean(as.is_on_leave || as.isOnLeave),
+            leaveDate: as.leave_date || as.leaveDate || (as.is_on_leave ? 'Today' : undefined),
+            leaveReason: as.leave_reason || as.leaveReason || undefined,
+            avatarBg: idx % 2 === 0 ? '#059669' : '#2563eb'
+          }));
+        }
+      }
+    } catch {}
+  }
+  return INITIAL_BUS12_STUDENTS;
+};
+
 class StudentRosterStore {
-  private students: BusStudent[] = [...INITIAL_BUS12_STUDENTS];
+  private students: BusStudent[] = loadSavedStudents();
   private listeners: Set<() => void> = new Set();
 
   getStudents(busId: string = 'b1'): BusStudent[] {
-    return this.students.filter((s) => s.busId === busId);
+    return this.students.filter((s) => s.busId === busId || (!s.busId && busId === 'b1'));
   }
 
   getAllStudents(): BusStudent[] {
@@ -183,7 +217,7 @@ class StudentRosterStore {
   }
 
   getStudentById(studentId: string): BusStudent | undefined {
-    return this.students.find((s) => s.id === studentId);
+    return this.students.find((s) => s.id === studentId || s.rollNumber === studentId);
   }
 
   getTotalCount(busId: string = 'b1'): number {
@@ -207,7 +241,7 @@ class StudentRosterStore {
     try {
       subscribeToLeave((payload) => {
         this.students = this.students.map((s) =>
-          s.id === payload.studentId
+          s.id === payload.studentId || s.rollNumber === payload.studentId
             ? {
                 ...s,
                 isOnLeave: payload.isOnLeave,
@@ -228,7 +262,7 @@ class StudentRosterStore {
     leaveDate: string = 'Today'
   ) {
     this.students = this.students.map((s) =>
-      s.id === studentId
+      s.id === studentId || s.rollNumber === studentId
         ? {
             ...s,
             isOnLeave,
@@ -237,6 +271,31 @@ class StudentRosterStore {
           }
         : s
     );
+
+    // Save directly to localStorage for immediate Admin Web reflection
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('bustrack_students_v1');
+        if (raw) {
+          const list = JSON.parse(raw);
+          const updated = list.map((s: any) => {
+            if (s.id === studentId || s.user_id === studentId || s.register_number === studentId || (s.profile && (s.profile.id === studentId || s.profile.name === 'Kishore ST'))) {
+              return {
+                ...s,
+                is_on_leave: isOnLeave,
+                leave_date: isOnLeave ? leaveDate : undefined,
+                leave_reason: isOnLeave ? reason : undefined,
+              };
+            }
+            return s;
+          });
+          localStorage.setItem('bustrack_students_v1', JSON.stringify(updated));
+        }
+      } catch (err) {
+        console.warn('Storage save error:', err);
+      }
+    }
+
     this.notify();
 
     // Broadcast update to Admin Web and Supabase

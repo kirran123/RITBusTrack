@@ -118,7 +118,18 @@ export const App: React.FC = () => {
             });
           } else if (data.type === 'leave_toggle') {
             const { studentId, isOnLeave } = data.payload;
-            setStudents(prev => prev.map(s => s.id === studentId ? { ...s, is_on_leave: isOnLeave } : s));
+            setStudents(prev => {
+              const updated = prev.map(s =>
+                s.id === studentId ||
+                s.user_id === studentId ||
+                s.register_number === studentId ||
+                (s.profile && (s.profile.id === studentId || s.profile.name === 'Kishore ST'))
+                  ? { ...s, is_on_leave: isOnLeave, leave_date: isOnLeave ? new Date().toISOString().split('T')[0] : undefined }
+                  : s
+              );
+              saveStorage('bustrack_students_v1', updated);
+              return updated;
+            });
           } else if (data.type === 'emergency_sos') {
             setEmergencies(prev => [data.payload, ...prev]);
           }
@@ -129,6 +140,15 @@ export const App: React.FC = () => {
     }
 
     const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'bustrack_students_v1' && e.newValue) {
+        try {
+          const freshStudents = JSON.parse(e.newValue);
+          if (Array.isArray(freshStudents)) {
+            setStudents(freshStudents);
+          }
+        } catch {}
+      }
+
       if (e.key === 'bustrack_cross_sync_event' && e.newValue) {
         try {
           const data = JSON.parse(e.newValue);
@@ -157,7 +177,18 @@ export const App: React.FC = () => {
             });
           } else if (data.type === 'leave_toggle') {
             const { studentId, isOnLeave } = data.payload;
-            setStudents(prev => prev.map(s => s.id === studentId ? { ...s, is_on_leave: isOnLeave } : s));
+            setStudents(prev => {
+              const updated = prev.map(s =>
+                s.id === studentId ||
+                s.user_id === studentId ||
+                s.register_number === studentId ||
+                (s.profile && (s.profile.id === studentId || s.profile.name === 'Kishore ST'))
+                  ? { ...s, is_on_leave: isOnLeave, leave_date: isOnLeave ? new Date().toISOString().split('T')[0] : undefined }
+                  : s
+              );
+              saveStorage('bustrack_students_v1', updated);
+              return updated;
+            });
           } else if (data.type === 'emergency_sos') {
             setEmergencies(prev => [data.payload, ...prev]);
           }
@@ -165,11 +196,20 @@ export const App: React.FC = () => {
       }
     };
 
+    const handleFocus = () => {
+      const fresh = loadStorage<Student[] | null>('bustrack_students_v1', null);
+      if (fresh && Array.isArray(fresh)) {
+        setStudents(fresh);
+      }
+    };
+
     window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       if (crossChannel) crossChannel.close();
       window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
