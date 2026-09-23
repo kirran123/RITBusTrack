@@ -110,7 +110,7 @@ export default function LoginScreen() {
 
         {/* Access Portal Selector */}
         <View style={styles.roleCard}>
-          <Text style={styles.sectionHeader}>SELECT YOUR SIGN-IN PORTAL</Text>
+          <Text style={styles.sectionHeader}>SELECT SIGN-IN PORTAL</Text>
           <View style={styles.roleGrid}>
             <TouchableOpacity
               onPress={() => handleSelectRole('driver')}
@@ -152,68 +152,9 @@ export default function LoginScreen() {
 
         {/* Sign In Form Card */}
         <View style={styles.authCard}>
-          {role === 'driver' && (
-            <View style={styles.driverInfoBanner}>
-              <View style={styles.driverAvatar}>
-                <Text style={{ fontSize: 22 }}>👨‍✈️</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.driverName}>Driver Portal</Text>
-                  <View style={styles.busBadge}>
-                    <Text style={styles.busBadgeText}>PHONE & PASSWORD LOGIN</Text>
-                  </View>
-                </View>
-                <Text style={styles.driverMeta}>
-                  Log in with your registered phone number & password configured by transport admin.
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {role === 'student' && (
-            <View style={styles.studentInfoBanner}>
-              <View style={styles.studentAvatar}>
-                <Text style={{ fontSize: 22 }}>🎓</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.driverName}>Student Bus Tracker</Text>
-                  <View style={styles.busBadgeBlue}>
-                    <Text style={styles.busBadgeTextBlue}>EMAIL & PASSWORD</Text>
-                  </View>
-                </View>
-                <Text style={styles.driverMeta}>
-                  Realtime Bus ETA, Boarding Stop Alerts & Leave Requests
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {role === 'staff' && (
-            <View style={styles.staffInfoBanner}>
-              <View style={styles.staffAvatar}>
-                <Text style={{ fontSize: 22 }}>👔</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.driverName}>Staff Commuter</Text>
-                  <View style={styles.busBadgeAmber}>
-                    <Text style={styles.busBadgeTextAmber}>EMAIL & PASSWORD</Text>
-                  </View>
-                </View>
-                <Text style={styles.driverMeta}>
-                  Bus Pass Verification, Live Radar & Route Intelligence
-                </Text>
-              </View>
-            </View>
-          )}
-
-          <Text style={styles.inputSectionTitle}>LOGIN CREDENTIALS</Text>
-
           {role === 'driver' ? (
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Driver Registered Phone Number</Text>
+              <Text style={styles.inputLabel}>Driver Phone Number</Text>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputIcon}>📱</Text>
                 <TextInput
@@ -231,7 +172,7 @@ export default function LoginScreen() {
           ) : (
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>
-                {role === 'student' ? 'Student Institutional Email' : 'Staff Member Email'}
+                {role === 'student' ? 'Student College Email' : 'Staff Member Email'}
               </Text>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputIcon}>{role === 'student' ? '🎓' : '👔'}</Text>
@@ -239,7 +180,7 @@ export default function LoginScreen() {
                   style={styles.textInput}
                   value={email}
                   onChangeText={setEmail}
-                  placeholder={role === 'student' ? 'kishore.it@ritrjpm.ac.in' : 'ganesh.staff@ritrjpm.ac.in'}
+                  placeholder={role === 'student' ? 'student@ritrjpm.ac.in' : 'staff@ritrjpm.ac.in'}
                   placeholderTextColor="#64748b"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -251,9 +192,7 @@ export default function LoginScreen() {
 
           <View style={styles.inputGroup}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.inputLabel}>
-                {role === 'driver' ? 'Driver App Password' : 'Password'}
-              </Text>
+              <Text style={styles.inputLabel}>Password</Text>
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Text style={styles.showPassText}>{showPassword ? 'Hide' : 'Show'}</Text>
               </TouchableOpacity>
@@ -283,10 +222,10 @@ export default function LoginScreen() {
           >
             <Text style={styles.submitBtnText}>
               {role === 'driver'
-                ? 'Sign In with Phone & Launch Cockpit'
+                ? 'Sign In as Driver'
                 : role === 'student'
                 ? 'Sign In as Student'
-                : 'Sign In as Staff Commuter'}
+                : 'Sign In as Staff'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -463,134 +402,20 @@ const styles = StyleSheet.create({
   authCard: {
     backgroundColor: '#0f172a',
     borderRadius: 24,
-    padding: 18,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#1e293b',
-  },
-  driverInfoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#020617',
-    borderRadius: 18,
-    padding: 12,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#059669',
-    marginBottom: 16,
-  },
-  driverAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#064e3b',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#10b981',
-  },
-  studentInfoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#020617',
-    borderRadius: 18,
-    padding: 12,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#2563eb',
-    marginBottom: 16,
-  },
-  studentAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#1e3a8a',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#3b82f6',
-  },
-  staffInfoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#020617',
-    borderRadius: 18,
-    padding: 12,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#d97706',
-    marginBottom: 16,
-  },
-  staffAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#451a03',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#f59e0b',
-  },
-  driverName: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  busBadge: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  busBadgeText: {
-    color: '#000000',
-    fontSize: 8.5,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  busBadgeBlue: {
-    backgroundColor: '#38bdf8',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  busBadgeTextBlue: {
-    color: '#000000',
-    fontSize: 8.5,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  busBadgeAmber: {
-    backgroundColor: '#f59e0b',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  busBadgeTextAmber: {
-    color: '#000000',
-    fontSize: 8.5,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  driverMeta: {
-    color: '#94a3b8',
-    fontSize: 10.5,
-    marginTop: 2,
-    lineHeight: 14,
-  },
-  inputSectionTitle: {
-    color: '#64748b',
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 10,
+    shadowColor: '#000000',
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
   },
   inputGroup: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   inputLabel: {
     color: '#94a3b8',
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
     marginBottom: 6,
   },
@@ -616,14 +441,14 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#ffffff',
     paddingVertical: 12,
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '600',
   },
   submitBtn: {
     borderRadius: 16,
-    paddingVertical: 15,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 6,
@@ -643,7 +468,7 @@ const styles = StyleSheet.create({
   submitBtnText: {
     color: '#ffffff',
     fontWeight: '900',
-    fontSize: 13,
+    fontSize: 13.5,
     letterSpacing: 0.4,
   },
   footerContainer: {
