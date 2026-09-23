@@ -38,17 +38,82 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
   const heading = busLocation?.heading || 0;
 
   const stopsJson = JSON.stringify(
-    stops.map((s, idx) => ({
-      id: s.id,
-      name: s.stop_name,
-      lat: s.latitude,
-      lng: s.longitude,
-      order: idx + 1,
-      isStart: idx === 0,
-      isEnd: idx === stops.length - 1,
-      isBoarding: boardingStop ? boardingStop.id === s.id : false,
-      eta: s.estimated_arrival || '--',
-    }))
+    stops.map((s, idx) => {
+      // Haversine distance in km from bus to this stop
+      const R = 6371;
+      const dLat = ((s.latitude - busLat) * Math.PI) / 180;
+      const dLon = ((s.longitude - busLng) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((busLat * Math.PI) / 180) *
+          Math.cos((s.latitude * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      // Dynamic ETA calculation based on speed & dwell
+      let effectiveSpeed = 22;
+      if (speed >= 35) effectiveSpeed = Math.min(50, Math.round(speed * 0.85));
+      else if (speed >= 15) effectiveSpeed = Math.max(16, Math.round(speed * 0.9));
+      else effectiveSpeed = 16;
+
+      const stopDwell = Math.max(0, idx) * 1.2;
+      const travelMins = (distKm / effectiveSpeed) * 60;
+      const totalEtaMins = Math.max(1, Math.round(travelMins + stopDwell));
+
+      const now = new Date();
+      const arrDate = new Date(now.getTime() + totalEtaMins * 60 * 1000);
+      const arrH = arrDate.getHours();
+      const arrM = arrDate.getMinutes();
+      const ampm = arrH >= 12 ? 'PM' : 'AM';
+      const liveEtaTime = `${(arrH % 12 || 12).toString().padStart(2, '0')}:${arrM.toString().padStart(2, '0')} ${ampm}`;
+
+      let delayLabel = 'On Time';
+      let delayColor = '#10b981';
+      let isDelayed = false;
+
+      if (totalEtaMins <= 2) {
+        delayLabel = 'Arriving Soon';
+        delayColor = '#f59e0b';
+      } else if (s.estimated_arrival) {
+        const parts = s.estimated_arrival.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (parts) {
+          let sH = parseInt(parts[1], 10);
+          const sM = parseInt(parts[2], 10);
+          if (parts[3].toUpperCase() === 'PM' && sH < 12) sH += 12;
+          if (parts[3].toUpperCase() === 'AM' && sH === 12) sH = 0;
+          const sDate = new Date(now);
+          sDate.setHours(sH, sM, 0, 0);
+          const diffMins = Math.round((arrDate.getTime() - sDate.getTime()) / (60 * 1000));
+          if (diffMins > 2) {
+            isDelayed = true;
+            delayLabel = `Delayed (+${diffMins}m)`;
+            delayColor = '#f43f5e';
+          } else if (diffMins < -3) {
+            delayLabel = `${Math.abs(diffMins)}m Early`;
+            delayColor = '#38bdf8';
+          }
+        }
+      }
+
+      return {
+        id: s.id,
+        name: s.stop_name,
+        lat: s.latitude,
+        lng: s.longitude,
+        order: idx + 1,
+        isStart: idx === 0,
+        isEnd: idx === stops.length - 1,
+        isBoarding: boardingStop ? boardingStop.id === s.id : false,
+        scheduledEta: s.estimated_arrival || '--',
+        liveEta: liveEtaTime,
+        etaMinutes: totalEtaMins,
+        distanceKm: distKm.toFixed(1),
+        delayLabel,
+        delayColor,
+        isDelayed,
+      };
+    })
   );
 
   const userLocationJson = userLocation
@@ -310,12 +375,26 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
             });
           }
 
-          var popupContent = "<div style='font-family:sans-serif;font-size:12px;padding:2px;'>" +
-            "<b>Stop #" + s.order + ": " + s.name + "</b><br/>" +
-            "Scheduled ETA: <span style='color:#059669;font-weight:bold;'>" + s.eta + "</span>" +
-            (s.isStart ? "<br/><span style='color:#059669;font-weight:bold;'>🟢 Route Starting Terminal</span>" :
-             s.isEnd ? "<br/><span style='color:#dc2626;font-weight:bold;'>🏁 Final Campus Terminal</span>" :
-             s.isBoarding ? "<br/><span style='color:#d97706;font-weight:bold;'>⭐ Your Assigned Boarding Stop</span>" : "") +
+          var popupContent = "<div style='font-family:sans-serif;font-size:12px;padding:4px;min-width:180px;'>" +
+            "<div style='font-weight:900;color:#0f172a;margin-bottom:4px;font-size:13px;'>Stop #" + s.order + ": " + s.name + "</div>" +
+            "<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;'>" +
+            "  <span style='color:#64748b;font-size:11px;'>Live Dynamic ETA:</span>" +
+            "  <span style='color:#0284c7;font-weight:900;font-size:13px;'>" + s.liveEta + "</span>" +
+            "</div>" +
+            "<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;'>" +
+            "  <span style='color:#64748b;font-size:11px;'>Scheduled Time:</span>" +
+            "  <span style='color:#475569;font-weight:600;font-size:11px;" + (s.isDelayed ? "text-decoration:line-through;color:#94a3b8;" : "") + "'>" + s.scheduledEta + "</span>" +
+            "</div>" +
+            "<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;'>" +
+            "  <span style='color:#64748b;font-size:11px;'>Distance / Speed:</span>" +
+            "  <span style='color:#334155;font-weight:700;font-size:11px;'>" + s.distanceKm + " km &bull; ${speed} km/h</span>" +
+            "</div>" +
+            "<div style='background:" + (s.isDelayed ? "#fee2e2" : "#dcfce7") + ";color:" + s.delayColor + ";padding:2px 6px;border-radius:6px;font-size:10px;font-weight:800;display:inline-block;'>" +
+              s.delayLabel + " (in ~" + s.etaMinutes + " mins)" +
+            "</div>" +
+            (s.isStart ? "<div style='color:#059669;font-weight:bold;font-size:11px;margin-top:4px;'>🟢 Route Starting Terminal</div>" :
+             s.isEnd ? "<div style='color:#dc2626;font-weight:bold;font-size:11px;margin-top:4px;'>🏁 Final Campus Terminal</div>" :
+             s.isBoarding ? "<div style='color:#d97706;font-weight:bold;font-size:11px;margin-top:4px;'>⭐ Your Designated Boarding Stop</div>" : "") +
             "</div>";
 
           L.marker([s.lat, s.lng], { icon: sIcon }).bindPopup(popupContent).addTo(map);

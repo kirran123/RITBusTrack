@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
-import { CurrentBusLocation, Route, Stop, Bus, Driver, COLLEGE_LOCATION } from '@college-bus/shared';
+import { CurrentBusLocation, Route, Stop, Bus, Driver, COLLEGE_LOCATION, calculateStopLiveETA, calculateDynamicETA } from '@college-bus/shared';
 import { 
   Bus as BusIcon, Navigation, MapPin, Layers, Filter, Eye, EyeOff, Maximize2, Compass, CheckCircle2,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Clock, Gauge
 } from 'lucide-react';
 
 // Fallback curated vibrant transit colors
@@ -726,7 +726,7 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
             );
           })}
 
-          {/* ROUTE STOPS (Clean, numbered transit nodes) */}
+          {/* ROUTE STOPS (Clean, numbered transit nodes with Dynamic Live ETA) */}
           {displayedStops.map((stop) => {
             const routeStops = validStops
               .filter(s => s.route_id === stop.route_id)
@@ -736,6 +736,13 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
             const isStart = routeStops.length > 0 && routeStops[0].id === stop.id;
             const isEnd = routeStops.length > 0 && routeStops[routeStops.length - 1].id === stop.id;
             const isHighlighted = activeRouteId === stop.route_id;
+
+            // Find live bus operating on this route to compute dynamic live arrival time
+            const routeBusLoc = validLocations.find(l => {
+              const b = l.bus || buses.find(item => item.id === l.bus_id);
+              return b?.route_id === stop.route_id;
+            });
+            const dynamicETA = calculateStopLiveETA(routeBusLoc, stop, routeStops);
 
             return (
               <Marker
@@ -748,14 +755,14 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
                   <div className="text-[11px] font-bold text-slate-900 py-0.5 whitespace-nowrap flex items-center gap-1.5">
                     <span>{isStart ? '🟢 Start:' : isEnd ? '🏁 Terminus:' : `📍 Stop #${stop.stop_order}:`}</span>
                     <span>{stop.stop_name}</span>
-                    {stop.estimated_arrival && (
-                      <span className="text-emerald-700 font-black font-mono">({stop.estimated_arrival})</span>
-                    )}
+                    <span className="font-mono font-black" style={{ color: dynamicETA.statusColor }}>
+                      ({dynamicETA.arrivalTimeStr} &bull; {dynamicETA.statusLabel})
+                    </span>
                   </div>
                 </Tooltip>
 
                 <Popup>
-                  <div className="text-slate-900 text-xs p-1.5 min-w-[180px] space-y-1">
+                  <div className="text-slate-900 text-xs p-1.5 min-w-[210px] space-y-2">
                     <div className="font-black text-slate-900 flex items-center justify-between">
                       <span>{isStart ? '🟢 Route Origin' : isEnd ? '🏁 Terminal Stop' : '📍 Transit Stop'}</span>
                       <span className="px-1.5 py-0.2 rounded text-[10px] font-bold text-white" style={{ backgroundColor: routeColor }}>
@@ -771,9 +778,33 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between text-[11px] font-bold pt-1 border-t border-slate-200">
-                      <span className="text-slate-500">Scheduled ETA:</span>
-                      <span className="text-emerald-700 font-mono">{stop.estimated_arrival || '07:45 AM'}</span>
+                    {/* Dynamic Live Telemetry ETA Card */}
+                    <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 space-y-1 text-[11px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Live Dynamic ETA:</span>
+                        <span className="font-mono font-black text-xs text-slate-900">{dynamicETA.arrivalTimeStr}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-slate-500">Scheduled Time:</span>
+                        <span className="font-mono text-slate-500 line-through">{dynamicETA.scheduledTimeStr}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                        <span className="text-slate-500 font-medium">Schedule Status:</span>
+                        <span 
+                          className="font-bold text-[10px] px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: `${dynamicETA.statusColor}20`, color: dynamicETA.statusColor }}
+                        >
+                          {dynamicETA.statusLabel} ({dynamicETA.formattedEta})
+                        </span>
+                      </div>
+                      {routeBusLoc && (
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5 border-t border-slate-200">
+                          <span>Bus Speed / Dist:</span>
+                          <span className="font-mono font-bold text-slate-700">
+                            {Math.round(routeBusLoc.speed || 0)} km/h &bull; {dynamicETA.formattedDistance}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Popup>
@@ -793,6 +824,13 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
             const isMoving = speed > 0;
             const isStandby = matchedBus?.is_standby_replacement || false;
 
+            // Compute bus next stop ETA
+            const routeStops = validStops
+              .filter(s => s.route_id === (matchedBus?.route_id || loc.bus?.route_id))
+              .sort((a, b) => (a.stop_order || 0) - (b.stop_order || 0));
+            const nextStop = routeStops[0];
+            const nextStopETA = nextStop ? calculateStopLiveETA(loc, nextStop, routeStops) : null;
+
             return (
               <Marker
                 key={`bus_loc_${loc.bus_id}`}
@@ -811,11 +849,16 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
                     <span>{busNumber}</span>
                     <span className="text-slate-500 font-normal">({route?.route_name || 'Active Fleet'})</span>
                     <span className="text-emerald-700 font-mono font-black">{Math.round(speed)} km/h</span>
+                    {nextStopETA && (
+                      <span className="font-bold font-mono text-[10px]" style={{ color: nextStopETA.statusColor }}>
+                        &bull; {nextStopETA.statusLabel}
+                      </span>
+                    )}
                   </div>
                 </Tooltip>
 
                 <Popup>
-                  <div className="text-slate-900 text-xs p-1.5 min-w-[200px] space-y-1.5">
+                  <div className="text-slate-900 text-xs p-1.5 min-w-[210px] space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-1.5">
                         <span className="font-black text-sm text-blue-700">{busNumber}</span>
@@ -847,6 +890,25 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
                       <div className="text-[11px] text-slate-600 flex items-center justify-between">
                         <span>Driver:</span>
                         <span className="font-bold text-slate-800">{matchedDriver.profile?.name || matchedDriver.employee_id}</span>
+                      </div>
+                    )}
+
+                    {/* Next Stop Live Dynamic Arrival */}
+                    {nextStop && nextStopETA && (
+                      <div className="bg-blue-50/80 p-1.5 rounded-lg border border-blue-200 text-[10.5px] space-y-1">
+                        <div className="flex items-center justify-between font-bold text-blue-950">
+                          <span>Next: {nextStop.stop_name}</span>
+                          <span className="font-mono">{nextStopETA.arrivalTimeStr}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-600">
+                          <span>{nextStopETA.formattedDistance} &bull; {nextStopETA.formattedEta}</span>
+                          <span 
+                            className="font-bold px-1 py-0.2 rounded text-[9.5px]"
+                            style={{ backgroundColor: `${nextStopETA.statusColor}20`, color: nextStopETA.statusColor }}
+                          >
+                            {nextStopETA.statusLabel}
+                          </span>
+                        </div>
                       </div>
                     )}
 

@@ -1,6 +1,17 @@
 import React, { useState } from 'react';
 import { LiveFleetMap } from '../components/LiveFleetMap';
-import { CurrentBusLocation, Route, Stop, Bus, Driver, Student } from '@college-bus/shared';
+import {
+  CurrentBusLocation,
+  Route,
+  Stop,
+  Bus,
+  Driver,
+  Student,
+  calculateStopLiveETA,
+  calculateDynamicETA,
+  calculateDistanceKm,
+  formatDistance,
+} from '@college-bus/shared';
 import {
   MapPin,
   Navigation,
@@ -878,21 +889,43 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                     </div>
 
                     {/* Route & Terminals */}
-                    <div className="text-xs bg-slate-900/90 p-3 rounded-xl border border-slate-800/80 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-400 font-medium">Route:</span>
-                        <span className="text-white font-bold truncate max-w-[180px]">{route?.route_name || 'Assigned Route'}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] border-t border-slate-800/60 pt-1">
-                        <span className="text-emerald-400 font-semibold">🟢 {route?.start_location || 'Start Point'}</span>
-                        <span className="text-slate-500">&rarr;</span>
-                        <span className="text-rose-400 font-semibold">🏁 {route?.destination || 'College Hub'}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] border-t border-slate-800/60 pt-1">
-                        <span className="text-slate-400">Driver:</span>
-                        <span className="text-slate-200 font-medium">{driver?.profile?.name || 'Assigned Driver'}</span>
-                      </div>
-                    </div>
+                    {(() => {
+                      const busStops = stops.filter((s) => s.route_id === bus.route_id).sort((a, b) => a.stop_order - b.stop_order);
+                      const nextStop = busStops[0];
+                      const nextStopEta = nextStop ? calculateStopLiveETA(loc, nextStop, busStops) : null;
+
+                      return (
+                        <div className="text-xs bg-slate-900/90 p-3 rounded-xl border border-slate-800/80 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400 font-medium">Route:</span>
+                            <span className="text-white font-bold truncate max-w-[180px]">{route?.route_name || 'Assigned Route'}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] border-t border-slate-800/60 pt-1">
+                            <span className="text-emerald-400 font-semibold">🟢 {route?.start_location || 'Start Point'}</span>
+                            <span className="text-slate-500">&rarr;</span>
+                            <span className="text-rose-400 font-semibold">🏁 {route?.destination || 'College Hub'}</span>
+                          </div>
+                          {nextStop && nextStopEta && (
+                            <div className="flex items-center justify-between text-[11px] border-t border-slate-800/60 pt-1">
+                              <span className="text-sky-400 font-semibold">📍 Next: {nextStop.stop_name}</span>
+                              <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded font-black ${
+                                nextStopEta.status === 'DELAYED'
+                                  ? 'text-rose-400 bg-rose-500/15'
+                                  : nextStopEta.status === 'EARLY'
+                                  ? 'text-sky-400 bg-sky-500/15'
+                                  : 'text-emerald-400 bg-emerald-500/15'
+                              }`}>
+                                {nextStopEta.etaFormatted} ({nextStopEta.badgeText})
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between text-[11px] border-t border-slate-800/60 pt-1">
+                            <span className="text-slate-400">Driver:</span>
+                            <span className="text-slate-200 font-medium">{driver?.profile?.name || 'Assigned Driver'}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Exact GPS Coordinates */}
                     <div className="flex items-center justify-between text-[10px] font-mono bg-slate-950 p-2 rounded-lg border border-slate-800 text-slate-400">
@@ -1086,21 +1119,43 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
               </div>
 
               {/* Next Stop Highlight */}
-              <div className="p-3.5 rounded-2xl bg-slate-950 border border-amber-500/30 space-y-1.5">
-                <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider">
-                  NEXT STOP ({currentStopIndex + 1}/{routeStops.length})
-                </span>
-                <div className="text-sm font-bold text-white">{currentStop?.stop_name}</div>
-                <div className="text-xs text-slate-400">
-                  Live Arrival: <strong className="text-sky-400">{currentStop?.estimated_arrival || '07:45 AM'}</strong>
-                </div>
-              </div>
+              {(() => {
+                const nextStopLiveEta = calculateStopLiveETA(selectedLoc, currentStop, routeStops);
+                return (
+                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-amber-500/30 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider">
+                        NEXT STOP ({currentStopIndex + 1}/{routeStops.length})
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black ${
+                        nextStopLiveEta.status === 'DELAYED'
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : nextStopLiveEta.status === 'EARLY'
+                          ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      }`}>
+                        {nextStopLiveEta.badgeText}
+                      </span>
+                    </div>
+                    <div className="text-sm font-bold text-white">{currentStop?.stop_name}</div>
+                    <div className="flex items-center justify-between text-xs text-slate-400 pt-0.5">
+                      <span>
+                        Live Arrival: <strong className="text-sky-400">{nextStopLiveEta.etaFormatted}</strong>
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-500">
+                        {formatDistance(nextStopLiveEta.distanceKm)} ahead
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Stop Sequence */}
               <div className="space-y-1.5 max-h-[140px] overflow-y-auto">
                 {routeStops.map((stop, idx) => {
                   const isPassed = idx < currentStopIndex;
                   const isCurrent = idx === currentStopIndex;
+                  const stopEta = calculateStopLiveETA(selectedLoc, stop, routeStops);
 
                   return (
                     <div
@@ -1114,7 +1169,9 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                       }`}
                     >
                       <span className="truncate">{idx + 1}. {stop.stop_name}</span>
-                      <span className="text-[10px] font-mono">{isPassed ? 'Passed' : isCurrent ? 'NEXT' : stop.estimated_arrival}</span>
+                      <span className="text-[10px] font-mono">
+                        {isPassed ? 'Passed' : isCurrent ? `NEXT (${stopEta.etaFormatted})` : `${stopEta.etaFormatted} (${stopEta.badgeText})`}
+                      </span>
                     </div>
                   );
                 })}
@@ -1325,39 +1382,54 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
             </div>
 
             {/* Dynamic Proximity Radar Card */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <span className="text-xs font-black text-blue-400 uppercase tracking-wider">
-                  Proximity Radar & Dynamic ETA
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">
-                  1-MIN GPS CYCLE
-                </span>
-              </div>
+            {(() => {
+              const studentStop = stops.find((s) => s.id === selectedStudent?.boarding_stop_id) || routeStops[0];
+              const studentEta = calculateStopLiveETA(selectedLoc, studentStop, routeStops);
 
-              {/* Clock Arrival Banner */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-sky-500/40 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-black text-sky-400 uppercase tracking-wider">
-                    Expected Arrival Time
-                  </span>
-                  <div className="text-2xl font-black text-white mt-0.5">07:44 AM</div>
-                  <div className="text-xs text-slate-400">Arriving in ~8 mins</div>
-                </div>
-                <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-extrabold">
-                  ON TIME
-                </div>
-              </div>
+              return (
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <span className="text-xs font-black text-blue-400 uppercase tracking-wider">
+                      Proximity Radar & Dynamic ETA
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">
+                      LIVE GPS SPEED: {Math.round(selectedLoc?.speed || 0)} KM/H
+                    </span>
+                  </div>
 
-              {/* Walking Time to Stop */}
-              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center space-x-3">
-                <span className="text-xl">🚶</span>
-                <div className="flex-1">
-                  <div className="text-xs font-bold text-white">4 mins walking distance</div>
-                  <div className="text-[11px] text-slate-400">320 meters from current location to stop</div>
+                  {/* Clock Arrival Banner */}
+                  <div className="p-4 rounded-2xl bg-slate-950 border border-sky-500/40 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-black text-sky-400 uppercase tracking-wider">
+                        Expected Arrival Time
+                      </span>
+                      <div className="text-2xl font-black text-white mt-0.5">{studentEta.etaFormatted}</div>
+                      <div className="text-xs text-slate-400">
+                        Arriving in ~{studentEta.etaMinutes} mins &bull; {formatDistance(studentEta.distanceKm)}
+                      </div>
+                    </div>
+                    <div className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold ${
+                      studentEta.status === 'DELAYED'
+                        ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                        : studentEta.status === 'EARLY'
+                        ? 'bg-sky-500/15 border-sky-500/30 text-sky-400'
+                        : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                    }`}>
+                      {studentEta.badgeText}
+                    </div>
+                  </div>
+
+                  {/* Walking Time to Stop */}
+                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center space-x-3">
+                    <span className="text-xl">🚶</span>
+                    <div className="flex-1">
+                      <div className="text-xs font-bold text-white">4 mins walking distance</div>
+                      <div className="text-[11px] text-slate-400">320 meters from current location to {studentStop?.stop_name || 'stop'}</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
 
           {/* Right 2 Cols: Route Schedule Timelines & Live Sequence */}
@@ -1395,6 +1467,7 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
               {routeStops.map((stop, idx) => {
                 const isStudentStop = stop.id === selectedStudent?.boarding_stop_id;
                 const isPassed = idx < currentStopIndex;
+                const stopEta = calculateStopLiveETA(selectedLoc, stop, routeStops);
 
                 return (
                   <div
@@ -1425,15 +1498,29 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                           )}
                         </div>
                         <div className="text-xs text-slate-400 mt-0.5">
-                          Scheduled: {stop.estimated_arrival} &bull; <strong className="text-sky-400">Live ETA: {isPassed ? 'Passed' : stop.estimated_arrival}</strong>
+                          Scheduled: <span className={stopEta.isDelayed ? 'line-through text-slate-500' : 'text-slate-300'}>{stop.estimated_arrival}</span> &bull;{' '}
+                          <strong className="text-sky-400">
+                            Live ETA: {isPassed ? 'Passed' : `${stopEta.etaFormatted} (${stopEta.badgeText})`}
+                          </strong>
+                          {!isPassed && (
+                            <span className="text-slate-500 font-mono text-[11px] ml-1.5">
+                              &bull; {formatDistance(stopEta.distanceKm)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
-                      isPassed ? 'bg-slate-800 text-slate-500' : 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                      isPassed
+                        ? 'bg-slate-800 text-slate-500'
+                        : stopEta.status === 'DELAYED'
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        : stopEta.status === 'EARLY'
+                        ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                     }`}>
-                      {isPassed ? 'PASSED' : 'EXPECTED'}
+                      {isPassed ? 'PASSED' : stopEta.badgeText}
                     </span>
                   </div>
                 );
