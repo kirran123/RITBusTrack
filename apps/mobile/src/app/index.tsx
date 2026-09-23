@@ -104,6 +104,33 @@ export default function LoginScreen() {
               }
             }
           }
+        } else if (role === 'driver') {
+          const storedDriversRaw = localStorage.getItem('bustrack_drivers_v1');
+          let matchedDriver: any = null;
+          if (storedDriversRaw) {
+            try {
+              const storedDrivers = JSON.parse(storedDriversRaw);
+              if (Array.isArray(storedDrivers)) {
+                matchedDriver = storedDrivers.find(
+                  d => (d.phone || d.profile?.phone || '').replace(/\D/g, '').includes(phone.trim().replace(/\D/g, '')) ||
+                       (d.employee_id || '').toLowerCase() === phone.trim().toLowerCase()
+                );
+              }
+            } catch {}
+          }
+          if (!matchedDriver) {
+            matchedDriver = {
+              id: 'dr1',
+              name: 'Mr. B. Moorthi',
+              employee_id: 'EMP-DRV-01',
+              phone: '+91 9894668646',
+              license_number: 'TN-67-2015-001',
+              bus_number: 'BUS-01',
+              registration_number: 'TN 67 AM 9785',
+              route_name: 'Route 1 (Rajapalayam ➔ RIT)',
+            };
+          }
+          localStorage.setItem('bustrack_current_mobile_driver', JSON.stringify(matchedDriver));
         }
       } catch (err) {
         console.log('Mobile login sync check note:', err);

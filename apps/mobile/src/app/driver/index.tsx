@@ -44,6 +44,45 @@ export default function DriverDashboard() {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [driverBusNumber, setDriverBusNumber] = useState('BUS-01');
 
+  const [driverProfile, setDriverProfile] = useState({
+    id: 'dr1',
+    name: 'Mr. B. Moorthi',
+    employeeId: 'EMP-DRV-01',
+    phone: '+91 9894668646',
+    licenseNumber: 'TN-67-2015-001',
+    busNumber: 'BUS-01',
+    registrationNumber: 'TN 67 AM 9785',
+    routeName: 'Route 1 (Old Bus Stand, RJPM ➔ RIT)',
+    role: 'Senior Fleet Master Driver',
+  });
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('bustrack_current_mobile_driver');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && (parsed.name || parsed.profile?.name)) {
+            setDriverProfile(prev => ({
+              ...prev,
+              id: parsed.id || prev.id,
+              name: parsed.profile?.name || parsed.name || prev.name,
+              employeeId: parsed.employee_id || prev.employeeId,
+              phone: parsed.phone || parsed.profile?.phone || prev.phone,
+              licenseNumber: parsed.license_number || prev.licenseNumber,
+              busNumber: parsed.bus?.bus_number || parsed.bus_number || prev.busNumber,
+              registrationNumber: parsed.bus?.registration_number || parsed.registration_number || prev.registrationNumber,
+              routeName: parsed.route_name || prev.routeName,
+            }));
+            if (parsed.bus?.bus_number || parsed.bus_number) {
+              setDriverBusNumber(parsed.bus?.bus_number || parsed.bus_number);
+            }
+          }
+        }
+      } catch {}
+    }
+  }, []);
+
   // Real-time Students Roster State
   const [students, setStudents] = useState<BusStudent[]>(studentRosterStore.getStudents('b1'));
   const [studentSearch, setStudentSearch] = useState('');
@@ -168,8 +207,8 @@ export default function DriverDashboard() {
     const success = await locationTracker.startTracking({
       busId: 'b1',
       tripId: 'trip_' + Date.now(),
-      busNumber: 'BUS-01',
-      driverName: 'Murugan M',
+      busNumber: driverProfile.busNumber || 'BUS-01',
+      driverName: driverProfile.name || 'Mr. B. Moorthi',
       useSimulation,
       onLocationUpdate: (coord, distKm) => {
         setCurrentLoc(coord);
@@ -363,10 +402,10 @@ export default function DriverDashboard() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.topAppName}>Driver Cockpit</Text>
               <View style={styles.topBusBadge}>
-                <Text style={styles.topBusBadgeText}>{driverBusNumber}</Text>
+                <Text style={styles.topBusBadgeText}>{driverProfile.busNumber || driverBusNumber}</Text>
               </View>
             </View>
-            <Text style={styles.topSub}>Route 1 &bull; TN 84 AX 1001 &bull; Murugan M</Text>
+            <Text style={styles.topSub}>{driverProfile.routeName} &bull; {driverProfile.registrationNumber} &bull; {driverProfile.name}</Text>
           </View>
         </View>
 
@@ -1047,10 +1086,10 @@ export default function DriverDashboard() {
               <View style={styles.driverAvatar}>
                 <Text style={{ fontSize: 32 }}>👨‍✈️</Text>
               </View>
-              <Text style={styles.driverHeroName}>Murugan M</Text>
-              <Text style={styles.driverHeroMeta}>Employee ID: DRV-001 &bull; Senior Fleet Master Driver</Text>
+              <Text style={styles.driverHeroName}>{driverProfile.name}</Text>
+              <Text style={styles.driverHeroMeta}>Employee ID: {driverProfile.employeeId} &bull; Senior Fleet Master Driver</Text>
               <View style={styles.busAllocationPill}>
-                <Text style={styles.busAllocationPillText}>ASSIGNED BUS: BUS-01 &bull; ROUTE 1</Text>
+                <Text style={styles.busAllocationPillText}>ASSIGNED BUS: {driverProfile.busNumber} &bull; ROUTE 1</Text>
               </View>
             </View>
 
@@ -1079,7 +1118,7 @@ export default function DriverDashboard() {
                 <View style={styles.shiftDotActive} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.shiftTitle}>Morning Express Trip (Trip 1)</Text>
-                  <Text style={styles.shiftSub}>07:30 AM – 08:20 AM &bull; Rajapalayam ➔ RIT Campus</Text>
+                  <Text style={styles.shiftSub}>07:30 AM – 08:20 AM &bull; Old Bus Stand ➔ RIT Campus</Text>
                 </View>
                 <View style={styles.shiftTagCurrent}>
                   <Text style={styles.shiftTagTextCurrent}>CURRENT</Text>
@@ -1090,7 +1129,7 @@ export default function DriverDashboard() {
                 <View style={styles.shiftDotUpcoming} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.shiftTitle}>Evening Return Trip (Trip 2)</Text>
-                  <Text style={styles.shiftSub}>04:30 PM – 05:25 PM &bull; RIT Campus ➔ Rajapalayam</Text>
+                  <Text style={styles.shiftSub}>04:30 PM – 05:25 PM &bull; RIT Campus ➔ Old Bus Stand</Text>
                 </View>
                 <View style={styles.shiftTagUpcoming}>
                   <Text style={styles.shiftTagTextUpcoming}>UPCOMING</Text>
@@ -1105,26 +1144,22 @@ export default function DriverDashboard() {
                 <Text style={styles.infoLabel}>Assigned Bus Number</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <View style={styles.busPillSmall}>
-                    <Text style={styles.busPillSmallText}>BUS-01</Text>
+                    <Text style={styles.busPillSmallText}>{driverProfile.busNumber}</Text>
                   </View>
-                  <Text style={styles.infoVal}>TN 84 AX 1001</Text>
+                  <Text style={styles.infoVal}>{driverProfile.registrationNumber}</Text>
                 </View>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Designated Route</Text>
-                <Text style={styles.infoVal}>Route 1 (Rajapalayam ➔ RIT)</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Seating Capacity</Text>
-                <Text style={styles.infoVal}>54 Passenger Seats</Text>
+                <Text style={styles.infoVal}>{driverProfile.routeName}</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Driving License</Text>
-                <Text style={styles.infoVal}>TN-84-2015-009214 (Heavy Vehicle)</Text>
+                <Text style={styles.infoVal}>{driverProfile.licenseNumber} (Heavy Vehicle)</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Driver Contact</Text>
-                <Text style={styles.infoVal}>+91 98421 00001</Text>
+                <Text style={styles.infoVal}>{driverProfile.phone}</Text>
               </View>
             </View>
 

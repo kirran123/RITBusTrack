@@ -290,7 +290,7 @@ class LocationTracker {
       busId,
       tripId,
       busNumber = 'BUS-01',
-      driverName = 'Murugan M',
+      driverName = 'Mr. B. Moorthi',
       intervalMs = DEFAULT_TRACKING_INTERVAL_MS,
       useSimulation = false,
       onLocationUpdate,

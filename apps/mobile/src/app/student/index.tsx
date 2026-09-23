@@ -350,7 +350,7 @@ export default function StudentDashboard() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.leaveNoticeTitle}>1-DAY LEAVE ACTIVE ({currentStudent.leaveDate || 'TODAY'})</Text>
                     <Text style={styles.leaveNoticeSub}>
-                      Driver Murugan M & Transport Admin are notified not to stop for your pickup at <Text style={{ color: '#fde68a', fontWeight: 'bold' }}>{currentStudent.boardingStopName}</Text>.
+                      Driver Mr. B. Moorthi & Transport Admin are notified not to stop for your pickup at <Text style={{ color: '#fde68a', fontWeight: 'bold' }}>{currentStudent.boardingStopName}</Text>.
                     </Text>
                   </View>
                 </View>
@@ -460,8 +460,8 @@ export default function StudentDashboard() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.busSummaryTitle}>Route 1 &bull; Rajapalayam ➔ Campus</Text>
-                <Text style={styles.busSummaryVehicle}>Vehicle: TN 84 AX 1001</Text>
-                <Text style={styles.busSummaryDriver}>Driver: Murugan M (+91 98421 00001)</Text>
+                <Text style={styles.busSummaryVehicle}>Vehicle: TN 67 AM 9785</Text>
+                <Text style={styles.busSummaryDriver}>Driver: Mr. B. Moorthi (+91 9894668646)</Text>
               </View>
             </View>
 
@@ -640,7 +640,7 @@ export default function StudentDashboard() {
                 <View>
                   <Text style={styles.leaveControlTitle}>One-Day Leave Notice</Text>
                   <Text style={styles.leaveControlSub}>
-                    Notify Driver Murugan M and Admin if you will not board today.
+                    Notify Driver Mr. B. Moorthi and Admin if you will not board today.
                   </Text>
                 </View>
                 <View style={[styles.leaveStatusTag, currentStudent.isOnLeave ? styles.leaveStatusTagActive : styles.leaveStatusTagInactive]}>
@@ -690,16 +690,16 @@ export default function StudentDashboard() {
                   <View style={styles.busNumberInlineBadge}>
                     <Text style={styles.busNumberInlineText}>{currentStudent.busNumber}</Text>
                   </View>
-                  <Text style={styles.settingVal}>TN 84 AX 1001</Text>
+                  <Text style={styles.settingVal}>TN 67 AM 9785</Text>
                 </View>
               </View>
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Route Assignment</Text>
-                <Text style={styles.settingVal}>Route 1 (Rajapalayam ➔ RIT)</Text>
+                <Text style={styles.settingVal}>Route 1 (Old Bus Stand, RJPM ➔ RIT)</Text>
               </View>
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Driver Name</Text>
-                <Text style={styles.settingVal}>Murugan M (+91 98421 00001)</Text>
+                <Text style={styles.settingVal}>Mr. B. Moorthi (+91 9894668646)</Text>
               </View>
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Boarding Stop</Text>
@@ -771,7 +771,7 @@ export default function StudentDashboard() {
             <View style={styles.leaveModalHeader}>
               <View>
                 <Text style={styles.leaveModalTitle}>Apply 1-Day Leave</Text>
-                <Text style={styles.leaveModalSub}>Notify Driver Murugan M & Admin Portal</Text>
+                <Text style={styles.leaveModalSub}>Notify Driver Mr. B. Moorthi & Admin Portal</Text>
               </View>
               <TouchableOpacity onPress={() => setShowLeaveModal(false)}>
                 <Text style={{ color: '#94a3b8', fontSize: 16, fontWeight: 'bold' }}>✕</Text>

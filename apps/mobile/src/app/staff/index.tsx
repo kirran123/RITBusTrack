@@ -274,7 +274,7 @@ export default function StaffMobileDashboard() {
     // Notify Driver & System Push
     notificationService.sendPushNotification(
       '📝 Staff 1-Day Leave Recorded',
-      `Leave marked for ${selectedLeaveDate}. Driver Murugan M has been notified not to wait at ${staffBoardingStop.stop_name}.`,
+      `Leave marked for ${selectedLeaveDate}. Driver Mr. B. Moorthi has been notified not to wait at ${staffBoardingStop.stop_name}.`,
       'announcement'
     );
 
@@ -396,7 +396,7 @@ export default function StaffMobileDashboard() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.leaveNoticeTitle}>1-Day Leave Active ({facultyProfile.leaveDate})</Text>
                     <Text style={styles.leaveNoticeSubtitle}>
-                      Driver Murugan has been notified. Bus will not hold at {staffBoardingStop.stop_name}.
+                      Driver Mr. B. Moorthi has been notified. Bus will not hold at {staffBoardingStop.stop_name}.
                     </Text>
                   </View>
                 </View>
@@ -494,19 +494,19 @@ export default function StaffMobileDashboard() {
                 </View>
                 <View>
                   <Text style={styles.driverName}>
-                    {activeSwapNotice?.substituteDriverName || 'Murugan M'}
+                    {activeSwapNotice?.substituteDriverName || 'Mr. B. Moorthi'}
                   </Text>
                   <Text style={styles.driverRole}>
                     {activeSwapNotice?.type === 'driver_swap' ? 'Assigned Substitute Driver' : 'Primary Route Driver'} &bull; {facultyProfile.busNumber || 'BUS-01'}
                   </Text>
                   <Text style={styles.driverPhone}>
-                    {activeSwapNotice?.substituteDriverPhone || '+91 98421 00001'}
+                    {activeSwapNotice?.substituteDriverPhone || '+91 9894668646'}
                   </Text>
                 </View>
               </View>
               <TouchableOpacity
                 style={styles.callDriverBtn}
-                onPress={() => handleCallDriver(activeSwapNotice?.substituteDriverPhone || '+919842100001')}
+                onPress={() => handleCallDriver(activeSwapNotice?.substituteDriverPhone || '+919894668646')}
               >
                 <Text style={styles.callDriverBtnText}>📞 CALL</Text>
               </TouchableOpacity>
@@ -657,7 +657,7 @@ export default function StaffMobileDashboard() {
             {swapNoticesList.length === 0 ? (
               <View style={styles.emptyAlertBox}>
                 <Text style={styles.emptyAlertText}>
-                  🟢 No active bus or driver swaps. Regular {facultyProfile.busNumber || 'BUS-01'} & Driver Murugan are on duty.
+                  🟢 No active bus or driver swaps. Regular {facultyProfile.busNumber || 'BUS-01'} & Driver Mr. B. Moorthi are on duty.
                 </Text>
               </View>
             ) : (

@@ -791,7 +791,7 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                 <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Driver:</span>
-                    <span className="text-white font-bold">{selectedDriver?.profile?.name || 'Murugan M'}</span>
+                    <span className="text-white font-bold">{selectedDriver?.profile?.name || 'Mr. B. Moorthi'}</span>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-slate-400">Students:</span>
