@@ -291,7 +291,7 @@ class LocationTracker {
       tripId,
       busNumber = 'BUS-01',
       driverName = 'Mr. B. Moorthi',
-      intervalMs = DEFAULT_TRACKING_INTERVAL_MS,
+      intervalMs = 60000, // 1 minute standardized GPS cycle
       useSimulation = false,
       onLocationUpdate,
       onError,
@@ -303,7 +303,7 @@ class LocationTracker {
     this.lastCoord = null;
 
     if (useSimulation) {
-      console.log('Starting GPS Simulation Engine...');
+      console.log('Starting GPS Simulation Engine (1-min live cadence)...');
       let index = 0;
       const initialPoint = SIMULATION_ROUTE_A[0];
       const initialCoord: GPSCoordinate = {
@@ -418,8 +418,8 @@ class LocationTracker {
       this.subscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
-          timeInterval: intervalMs,
-          distanceInterval: 5, // update every 5m movement
+          timeInterval: intervalMs, // 60s (1 min) periodic updates
+          distanceInterval: 10, // or every 10m movement
         },
         (loc) => {
           if (!this.isTracking) return;

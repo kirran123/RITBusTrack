@@ -612,11 +612,25 @@ export default function StaffMobileDashboard() {
             </View>
 
             {/* Stops Timeline */}
-            <Text style={styles.sectionHeading}>Live Stop Sequence</Text>
+            <Text style={styles.sectionHeading}>Live Stop Sequence & Dynamic Arrival Radar</Text>
             {INITIAL_STOPS.slice(0, 5).map((stop, idx) => {
               const isStaffStop = stop.id === staffBoardingStop.id;
               const isPassed = idx < currentStopIndex;
               const isCurrent = idx === currentStopIndex;
+
+              const stopDist = calculateDistanceKm(
+                busLocation.latitude,
+                busLocation.longitude,
+                stop.latitude,
+                stop.longitude
+              );
+
+              const stopETA = calculateDynamicETA(
+                stopDist,
+                busLocation.speed || 0,
+                Math.max(0, idx - currentStopIndex),
+                stop.estimated_arrival
+              );
 
               return (
                 <View
@@ -655,7 +669,7 @@ export default function StaffMobileDashboard() {
                           )}
                         </View>
                         <Text style={styles.stopTimeText}>
-                          Scheduled Arrival: <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>{stop.estimated_arrival}</Text>
+                          Sched: {stop.estimated_arrival} &bull; <Text style={{ color: isPassed ? '#64748b' : stopETA.statusColor, fontWeight: 'bold' }}>{isPassed ? 'Passed' : `Expected: ${stopETA.arrivalTimeStr}`}</Text> ({formatDistance(stopDist)})
                         </Text>
                       </View>
 
@@ -667,7 +681,7 @@ export default function StaffMobileDashboard() {
                         ]}
                       >
                         <Text style={styles.stopStatusBadgeText}>
-                          {isPassed ? 'DEPARTED' : isCurrent ? 'BUS ARRIVED' : 'SCHEDULED'}
+                          {isPassed ? 'DEPARTED' : isCurrent ? 'BUS ARRIVED' : stopETA.statusLabel}
                         </Text>
                       </View>
                     </View>
