@@ -128,14 +128,34 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
     <!DOCTYPE html>
     <html>
     <head>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
       <style>
-        * { box-sizing: border-box; }
-        body, html, #map { width: 100%; height: 100%; margin: 0; padding: 0; background: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html { 
+          width: 100%; 
+          height: 100%; 
+          margin: 0; 
+          padding: 0; 
+          overflow: hidden; 
+          background: #080c14; 
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+          touch-action: pan-x pan-y pinch-zoom;
+        }
         
-        .leaflet-container { background: #e2e8f0 !important; }
+        #map { 
+          width: 100%; 
+          height: 100%; 
+          background: #080c14 !important;
+          touch-action: pan-x pan-y pinch-zoom;
+        }
+        
+        .leaflet-container { 
+          background: #080c14 !important; 
+          touch-action: pan-x pan-y pinch-zoom;
+        }
 
         /* LIVE BUS MOVING PUCK */
         .bus-marker-wrap {
@@ -299,21 +319,35 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           z-index: 1000;
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 5px;
         }
         .ctrl-btn {
           width: 32px;
           height: 32px;
-          background: #0f172a;
-          border: 1px solid #334155;
+          background: rgba(15, 23, 42, 0.94);
+          border: 1.5px solid #334155;
           border-radius: 8px;
           color: #ffffff;
-          font-size: 14px;
+          font-size: 13px;
+          font-weight: bold;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
           box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+          user-select: none;
+          touch-action: manipulation;
+          transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+        }
+        .ctrl-btn:active {
+          background: #1e293b;
+          border-color: #38bdf8;
+          transform: scale(0.92);
+        }
+        .ctrl-btn-zoom {
+          font-size: 17px;
+          color: #38bdf8;
+          font-family: monospace, sans-serif;
         }
       </style>
     </head>
@@ -326,21 +360,34 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
         <div class="route-legend-text">${routeNumber} &bull; ${busNumber}</div>
       </div>
 
-      <!-- Control buttons -->
+      <!-- Control buttons with Zoom In (+) and Zoom Out (-) -->
       <div class="map-ctrl-panel">
+        <div class="ctrl-btn ctrl-btn-zoom" onclick="zoomIn()" title="Zoom In (+)">➕</div>
+        <div class="ctrl-btn ctrl-btn-zoom" onclick="zoomOut()" title="Zoom Out (-)">➖</div>
         <div class="ctrl-btn" onclick="recenterBus()" title="Recenter Bus">🚌</div>
         <div class="ctrl-btn" onclick="recenterUser()" title="Recenter Location">📍</div>
         <div class="ctrl-btn" onclick="fitAll()" title="Fit Entire Route">🗺️</div>
       </div>
 
       <script>
-        var map = L.map('map', { zoomControl: false }).setView([${busLat}, ${busLng}], 13);
+        var map = L.map('map', {
+          zoomControl: false,
+          touchZoom: true,
+          scrollWheelZoom: true,
+          doubleClickZoom: true,
+          boxZoom: true,
+          dragging: true,
+          tap: true,
+          minZoom: 3,
+          maxZoom: 20
+        }).setView([${busLat}, ${busLng}], 14);
         
-        // Clean Google Maps Vector Roadmap Tiles (100% Free & No Watermark)
+        // Clean Google Maps Vector Roadmap Tiles (Free & High Res Zoom)
         L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
           attribution: '&copy; Google Maps',
           subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-          maxZoom: 20
+          maxZoom: 20,
+          minZoom: 3
         }).addTo(map);
 
         var bounds = [];
@@ -454,13 +501,21 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           map.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
         }
 
+        function zoomIn() {
+          map.zoomIn();
+        }
+
+        function zoomOut() {
+          map.zoomOut();
+        }
+
         function recenterBus() {
-          map.flyTo([${busLat}, ${busLng}], 15, { duration: 0.8 });
+          map.flyTo([${busLat}, ${busLng}], Math.max(map.getZoom(), 15), { duration: 0.8 });
         }
 
         function recenterUser() {
           if (userLoc) {
-            map.flyTo([userLoc.lat, userLoc.lng], 16, { duration: 0.8 });
+            map.flyTo([userLoc.lat, userLoc.lng], Math.max(map.getZoom(), 16), { duration: 0.8 });
           } else {
             recenterBus();
           }
@@ -485,6 +540,7 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           srcDoc={htmlContent}
           style={{ width: '100%', height: '100%', border: 'none', borderRadius: 18 }}
           title="OpenStreetMap Live Telemetry"
+          allow="geolocation"
         />
       </View>
     );
@@ -499,12 +555,16 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           style={styles.webview}
           javaScriptEnabled={true}
           domStorageEnabled={true}
+          nestedScrollEnabled={true}
+          scalesPageToFit={false}
+          scrollEnabled={false}
         />
       ) : (
         <iframe
           srcDoc={htmlContent}
           style={{ width: '100%', height: '100%', border: 'none', borderRadius: 18 }}
           title="OpenStreetMap Live Telemetry"
+          allow="geolocation"
         />
       )}
     </View>
