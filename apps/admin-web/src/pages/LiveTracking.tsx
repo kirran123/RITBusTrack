@@ -108,13 +108,18 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
   canEdit,
 }) => {
   const isEditable = canEdit ?? (currentUser?.role === 'admin' || (currentUser?.role === 'staff' && currentUser?.access_level === 'edit'));
-  // Mode switcher: 'fleet' | 'driver' | 'student'
-  const [activeMode, setActiveMode] = useState<'fleet' | 'driver' | 'student'>('fleet');
+  // Mode switcher: 'fleet' | 'timings' | 'driver' | 'student'
+  const [activeMode, setActiveMode] = useState<'fleet' | 'timings' | 'driver' | 'student'>('fleet');
   const [selectedBusId, setSelectedBusId] = useState<string>(buses[0]?.id || 'b1');
   const [selectedStudentId, setSelectedStudentId] = useState<string>(students[0]?.id || 's1');
   const [manifestSearch, setManifestSearch] = useState('');
   const [manifestStopFilter, setManifestStopFilter] = useState('all');
   const [scheduleType, setScheduleType] = useState<'morning' | 'evening'>('morning');
+
+  // Timings Matrix Mode State
+  const [timingSearch, setTimingSearch] = useState('');
+  const [timingFilter, setTimingFilter] = useState<'all' | 'delayed' | 'ontime' | 'arriving'>('all');
+  const [expandedBusTimings, setExpandedBusTimings] = useState<Record<string, boolean>>({});
 
   // Quick Action Modal States
   const [isAddBusOpen, setIsAddBusOpen] = useState(false);
@@ -466,23 +471,38 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
           </div>
         </div>
 
-        {/* 3 Main Perspective Mode Tabs */}
-        <div className="flex items-center bg-slate-950 p-1.5 rounded-2xl border border-slate-800 space-x-1">
+        {/* 4 Main Perspective Mode Tabs */}
+        <div className="flex flex-wrap items-center bg-slate-950 p-1.5 rounded-2xl border border-slate-800 gap-1.5">
           <button
             onClick={() => setActiveMode('fleet')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center space-x-2 ${
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center space-x-1.5 ${
               activeMode === 'fleet'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>🌐 All Buses Overview</span>
+            <span>🌐 Fleet Overview</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMode('timings')}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center space-x-1.5 ${
+              activeMode === 'timings'
+                ? 'bg-gradient-to-r from-sky-600 to-blue-600 text-white shadow-lg shadow-sky-600/30'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Clock className="w-4 h-4 text-sky-300" />
+            <span>🕒 All Buses Live Timings</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-400/20 text-sky-200 border border-sky-400/40">
+              {buses.length}
+            </span>
           </button>
 
           <button
             onClick={() => setActiveMode('driver')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center space-x-2 ${
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center space-x-1.5 ${
               activeMode === 'driver'
                 ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
                 : 'text-slate-400 hover:text-white'
@@ -494,7 +514,7 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
 
           <button
             onClick={() => setActiveMode('student')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center space-x-2 ${
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center space-x-1.5 ${
               activeMode === 'student'
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
                 : 'text-slate-400 hover:text-white'
@@ -515,6 +535,14 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setActiveMode('timings')}
+              className="px-3.5 py-2 bg-sky-600/20 hover:bg-sky-600 text-sky-300 hover:text-white border border-sky-500/40 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>🕒 All Buses Dynamic Timings ({buses.length})</span>
+            </button>
+
             <button
               onClick={() => setIsAddBusOpen(true)}
               className="px-3.5 py-2 bg-blue-600/15 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm"
@@ -890,32 +918,56 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
 
                     {/* Route & Terminals */}
                     {(() => {
-                      const busStops = stops.filter((s) => s.route_id === bus.route_id).sort((a, b) => a.stop_order - b.stop_order);
-                      const nextStop = busStops[0];
+                      const busStops = stops
+                        .filter((s) => s.route_id === bus.route_id)
+                        .sort((a, b) => (a.stop_order || 0) - (b.stop_order || 0));
+
+                      // Find next closest stop in sequence
+                      let nextStop = busStops[0];
+                      let minStopDist = Infinity;
+                      for (const s of busStops) {
+                        const d = calculateDistanceKm(loc.latitude, loc.longitude, s.latitude, s.longitude);
+                        if (d < minStopDist) {
+                          minStopDist = d;
+                          nextStop = s;
+                        }
+                      }
                       const nextStopEta = nextStop ? calculateStopLiveETA(loc, nextStop, busStops) : null;
+                      const finalStop = busStops.length > 1 ? busStops[busStops.length - 1] : null;
+                      const finalStopEta = finalStop ? calculateStopLiveETA(loc, finalStop, busStops) : null;
 
                       return (
-                        <div className="text-xs bg-slate-900/90 p-3 rounded-xl border border-slate-800/80 space-y-1.5">
+                        <div className="text-xs bg-slate-900/90 p-3 rounded-xl border border-slate-800/80 space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-slate-400 font-medium">Route:</span>
                             <span className="text-white font-bold truncate max-w-[180px]">{route?.route_name || 'Assigned Route'}</span>
                           </div>
                           <div className="flex items-center justify-between text-[11px] border-t border-slate-800/60 pt-1">
-                            <span className="text-emerald-400 font-semibold">🟢 {route?.start_location || 'Start Point'}</span>
+                            <span className="text-emerald-400 font-semibold truncate max-w-[120px]">🟢 {route?.start_location || 'Start Point'}</span>
                             <span className="text-slate-500">&rarr;</span>
-                            <span className="text-rose-400 font-semibold">🏁 {route?.destination || 'College Hub'}</span>
+                            <span className="text-rose-400 font-semibold truncate max-w-[120px]">🏁 {route?.destination || 'College Hub'}</span>
                           </div>
                           {nextStop && nextStopEta && (
-                            <div className="flex items-center justify-between text-[11px] border-t border-slate-800/60 pt-1">
-                              <span className="text-sky-400 font-semibold">📍 Next: {nextStop.stop_name}</span>
-                              <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded font-black ${
-                                nextStopEta.status === 'DELAYED'
-                                  ? 'text-rose-400 bg-rose-500/15'
-                                  : nextStopEta.status === 'EARLY'
-                                  ? 'text-sky-400 bg-sky-500/15'
-                                  : 'text-emerald-400 bg-emerald-500/15'
-                              }`}>
-                                {nextStopEta.etaFormatted} ({nextStopEta.badgeText})
+                            <div className="flex items-center justify-between text-[11px] border-t border-slate-800/60 pt-1.5 bg-slate-950/60 -mx-1 px-2 py-1 rounded-lg">
+                              <span className="text-sky-300 font-bold truncate max-w-[130px]">📍 Next: {nextStop.stop_name}</span>
+                              <span 
+                                className="font-mono text-[10.5px] px-2 py-0.5 rounded-md font-black flex items-center gap-1 shadow-sm"
+                                style={{
+                                  backgroundColor: `${nextStopEta.statusColor}22`,
+                                  color: nextStopEta.statusColor,
+                                  border: `1px solid ${nextStopEta.statusColor}44`
+                                }}
+                              >
+                                <span>{nextStopEta.arrivalTimeStr}</span>
+                                <span className="text-[9px] font-bold opacity-90">({nextStopEta.statusLabel})</span>
+                              </span>
+                            </div>
+                          )}
+                          {finalStop && finalStopEta && finalStop.id !== nextStop?.id && (
+                            <div className="flex items-center justify-between text-[10.5px] border-t border-slate-800/40 pt-1">
+                              <span className="text-slate-400">🏁 Campus Hub ETA:</span>
+                              <span className="font-mono font-bold text-slate-200">
+                                {finalStopEta.arrivalTimeStr} <span className="text-slate-500 font-normal">({finalStopEta.formattedEta})</span>
                               </span>
                             </div>
                           )}
@@ -949,6 +1001,17 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedBusId(bus.id);
+                          setActiveMode('timings');
+                        }}
+                        className="py-1.5 px-2 bg-sky-600/15 hover:bg-sky-600/30 text-sky-400 border border-sky-500/30 rounded-lg text-[11px] font-bold transition-all"
+                        title="View Full Stop Timings"
+                      >
+                        🕒 Timings
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedBusId(bus.id);
                           setActiveMode('driver');
                         }}
                         className="py-1.5 px-2 bg-amber-600/15 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-[11px] font-bold transition-all"
@@ -972,6 +1035,373 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODE 1.5: 🕒 ALL BUSES DYNAMIC LIVE TIMINGS MATRIX (FULL FLEET SCHEDULE)  */}
+      {/* ========================================================================= */}
+      {activeMode === 'timings' && (
+        <div className="space-y-4 flex-1">
+          {/* Header Summary Telemetry Strip */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+              <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
+                <span>Total Fleet Monitored</span>
+                <BusIcon className="w-4 h-4 text-blue-400" />
+              </div>
+              <div className="text-2xl font-black text-white mt-1.5">
+                {buses.length} <span className="text-xs text-slate-400 font-normal">Buses Active</span>
+              </div>
+              <div className="text-[10px] text-emerald-400 font-bold mt-0.5 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>1-Min GPS Cadence Active</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+              <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
+                <span>On-Time Running</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="text-2xl font-black text-emerald-400 mt-1.5">
+                {buses.filter(b => {
+                  const loc = locations.find(l => l.bus_id === b.id);
+                  const bStops = stops.filter(s => s.route_id === b.route_id);
+                  const target = bStops[0];
+                  const eta = target && loc ? calculateStopLiveETA(loc, target, bStops) : null;
+                  return eta?.statusTag !== 'DELAYED';
+                }).length} <span className="text-xs text-slate-400 font-normal">/ {buses.length} Buses</span>
+              </div>
+              <div className="text-[10px] text-slate-400 font-medium mt-0.5">Operating within &plusmn;2m scheduled</div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+              <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
+                <span>Delayed / Traffic</span>
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+              </div>
+              <div className="text-2xl font-black text-rose-400 mt-1.5">
+                {buses.filter(b => {
+                  const loc = locations.find(l => l.bus_id === b.id);
+                  const bStops = stops.filter(s => s.route_id === b.route_id);
+                  const target = bStops[0];
+                  const eta = target && loc ? calculateStopLiveETA(loc, target, bStops) : null;
+                  return eta?.statusTag === 'DELAYED';
+                }).length} <span className="text-xs text-slate-400 font-normal">Buses Flagged</span>
+              </div>
+              <div className="text-[10px] text-rose-400/80 font-bold mt-0.5">Dynamic ETA adjusted for traffic</div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+              <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
+                <span>Active Shift</span>
+                <Clock className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="text-xl font-black text-amber-300 mt-1.5">
+                {scheduleType === 'morning' ? '🌅 Morning Shift' : '🌆 Evening Return'}
+              </div>
+              <div className="text-[10px] text-slate-400 font-medium mt-0.5">Auto-synced across Student & Staff apps</div>
+            </div>
+          </div>
+
+          {/* Search, Filter & Controls Bar */}
+          <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3 shadow-md">
+            <div className="relative flex-1 w-full">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search bus number, route name, stop, or driver..."
+                value={timingSearch}
+                onChange={(e) => setTimingSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+              <button
+                onClick={() => setTimingFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  timingFilter === 'all'
+                    ? 'bg-sky-600 text-white shadow-md'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                }`}
+              >
+                All ({buses.length})
+              </button>
+              <button
+                onClick={() => setTimingFilter('ontime')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  timingFilter === 'ontime'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                }`}
+              >
+                🟢 On Time
+              </button>
+              <button
+                onClick={() => setTimingFilter('delayed')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  timingFilter === 'delayed'
+                    ? 'bg-rose-600 text-white shadow-md'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                }`}
+              >
+                🔴 Delayed
+              </button>
+              <button
+                onClick={() => setTimingFilter('arriving')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  timingFilter === 'arriving'
+                    ? 'bg-amber-600 text-white shadow-md'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                }`}
+              >
+                🟡 Arriving (&lt;2m)
+              </button>
+            </div>
+          </div>
+
+          {/* All 30 Buses Live Dynamic Timing Matrix Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {buses
+              .filter((bus) => {
+                const route = routes.find((r) => r.id === bus.route_id);
+                const driver = drivers.find((d) => d.id === bus.assigned_driver_id);
+                const loc = locations.find((l) => l.bus_id === bus.id);
+                const busStops = stops.filter((s) => s.route_id === bus.route_id);
+                const target = busStops[0];
+                const eta = target && loc ? calculateStopLiveETA(loc, target, busStops) : null;
+
+                if (timingFilter === 'ontime' && eta?.statusTag === 'DELAYED') return false;
+                if (timingFilter === 'delayed' && eta?.statusTag !== 'DELAYED') return false;
+                if (timingFilter === 'arriving' && eta?.statusTag !== 'ARRIVING_NOW') return false;
+
+                if (!timingSearch) return true;
+                const q = timingSearch.toLowerCase();
+                return (
+                  bus.bus_number.toLowerCase().includes(q) ||
+                  (route?.route_name || '').toLowerCase().includes(q) ||
+                  (driver?.profile?.name || '').toLowerCase().includes(q) ||
+                  busStops.some((s) => s.stop_name.toLowerCase().includes(q))
+                );
+              })
+              .map((bus) => {
+                const route = routes.find((r) => r.id === bus.route_id);
+                const driver = drivers.find((d) => d.id === bus.assigned_driver_id);
+                const loc = locations.find((l) => l.bus_id === bus.id) || {
+                  latitude: 9.449,
+                  longitude: 77.548,
+                  speed: 25,
+                  heading: 45,
+                };
+                const routeColor = route?.route_color || '#2563eb';
+                const busStops = stops
+                  .filter((s) => s.route_id === bus.route_id)
+                  .sort((a, b) => (a.stop_order || 0) - (b.stop_order || 0));
+
+                // Determine next closest upcoming stop
+                let nextStop = busStops[0];
+                let minStopDist = Infinity;
+                for (const s of busStops) {
+                  const d = calculateDistanceKm(loc.latitude, loc.longitude, s.latitude, s.longitude);
+                  if (d < minStopDist) {
+                    minStopDist = d;
+                    nextStop = s;
+                  }
+                }
+
+                const nextStopEta = nextStop ? calculateStopLiveETA(loc, nextStop, busStops) : null;
+                const finalStop = busStops.length > 1 ? busStops[busStops.length - 1] : null;
+                const finalStopEta = finalStop ? calculateStopLiveETA(loc, finalStop, busStops) : null;
+                const isExpanded = !!expandedBusTimings[bus.id];
+
+                return (
+                  <div
+                    key={`timing_card_${bus.id}`}
+                    className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 hover:border-slate-700 transition-all space-y-3.5 shadow-md flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Top Header Row */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-2.5">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-base shadow-md border border-white/20"
+                            style={{ backgroundColor: routeColor }}
+                          >
+                            {bus.bus_number.replace('BUS-', '')}
+                          </div>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <h3 className="text-base font-black text-white">{bus.bus_number}</h3>
+                              <span className="text-[11px] font-mono text-slate-400">{bus.registration_number}</span>
+                            </div>
+                            <div className="text-xs font-bold truncate max-w-[200px]" style={{ color: routeColor }}>
+                              {route?.route_name || 'Assigned Route'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Live Speed / Telemetry Beacon */}
+                        <div className="text-right">
+                          <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 inline-flex items-center space-x-1.5 shadow-sm">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>{Math.round(loc.speed || 0)} KM/H</span>
+                          </span>
+                          <div className="text-[10px] text-slate-500 mt-0.5">1-Min Sync Active</div>
+                        </div>
+                      </div>
+
+                      {/* Driver & Contact Bar */}
+                      <div className="mt-2.5 flex items-center justify-between text-xs bg-slate-950 p-2.5 rounded-xl border border-slate-800/80">
+                        <div className="flex items-center space-x-2">
+                          <User className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="text-slate-300 font-bold">{driver?.profile?.name || 'Assigned Driver'}</span>
+                        </div>
+                        {driver?.profile?.phone && (
+                          <a
+                            href={`tel:${driver.profile.phone}`}
+                            className="text-[11px] text-sky-400 hover:text-sky-300 font-mono font-bold flex items-center space-x-1"
+                          >
+                            <Phone className="w-3 h-3" />
+                            <span>{driver.profile.phone}</span>
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Key Dynamic ETA Cards */}
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        {/* Next Approaching Stop */}
+                        <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1">
+                          <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center justify-between">
+                            <span>📍 Next Stop</span>
+                            {nextStopEta && (
+                              <span
+                                className="px-1.5 py-0.2 rounded text-[9px] font-black"
+                                style={{
+                                  backgroundColor: `${nextStopEta.statusColor}22`,
+                                  color: nextStopEta.statusColor,
+                                }}
+                              >
+                                {nextStopEta.statusLabel}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs font-bold text-white truncate" title={nextStop?.stop_name}>
+                            {nextStop?.stop_name || 'Upcoming Terminal'}
+                          </div>
+                          <div className="text-sm font-black text-sky-300 font-mono flex items-center justify-between">
+                            <span>{nextStopEta?.arrivalTimeStr || '--'}</span>
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              {nextStopEta ? `~${nextStopEta.formattedEta}` : ''}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Final Campus Terminal */}
+                        <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1">
+                          <div className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">
+                            🏁 Campus Hub ETA
+                          </div>
+                          <div className="text-xs font-bold text-white truncate">
+                            {finalStop?.stop_name || 'RIT Campus Terminal'}
+                          </div>
+                          <div className="text-sm font-black text-emerald-400 font-mono flex items-center justify-between">
+                            <span>{finalStopEta?.arrivalTimeStr || '--'}</span>
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              {finalStopEta ? `~${finalStopEta.formattedEta}` : ''}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Expandable Full Stop-by-Stop Live Schedule Timeline */}
+                      {isExpanded && (
+                        <div className="mt-3 bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                          <div className="text-[11px] font-bold text-slate-300 flex items-center justify-between border-b border-slate-800 pb-1.5">
+                            <span>Full Route Stop Schedule ({busStops.length} Stops)</span>
+                            <span className="text-[10px] text-sky-400 font-mono">Dynamic Realtime</span>
+                          </div>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            {busStops.map((stop, idx) => {
+                              const sEta = calculateStopLiveETA(loc, stop, busStops);
+                              const isNext = nextStop?.id === stop.id;
+
+                              return (
+                                <div
+                                  key={`stop_time_${stop.id}`}
+                                  className={`p-2 rounded-lg text-xs flex items-center justify-between border ${
+                                    isNext
+                                      ? 'bg-sky-500/10 border-sky-500/30 text-white'
+                                      : 'bg-slate-900 border-slate-800 text-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center space-x-2 truncate max-w-[160px]">
+                                    <span className="w-4 h-4 rounded-full bg-slate-800 text-slate-300 text-[9px] font-bold flex items-center justify-center shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="font-semibold truncate">{stop.stop_name}</span>
+                                    {isNext && <span className="text-[9px] text-sky-400 font-black">NEXT</span>}
+                                  </div>
+
+                                  <div className="text-right font-mono">
+                                    <div className="font-black text-sky-300 text-xs">{sEta.arrivalTimeStr}</div>
+                                    <div className="text-[9.5px] text-slate-500">
+                                      Sched: {stop.estimated_arrival || '--'} &bull;{' '}
+                                      <span style={{ color: sEta.statusColor }} className="font-bold">
+                                        {sEta.statusLabel}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom Action Strip */}
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center gap-1.5">
+                      <button
+                        onClick={() =>
+                          setExpandedBusTimings((prev) => ({
+                            ...prev,
+                            [bus.id]: !prev[bus.id],
+                          }))
+                        }
+                        className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-1"
+                      >
+                        <Clock className="w-3.5 h-3.5 text-sky-400" />
+                        <span>{isExpanded ? 'Hide Stops' : '📋 All Stops Timings'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setSelectedBusId(bus.id);
+                          setActiveMode('fleet');
+                        }}
+                        className="py-1.5 px-3 bg-blue-600/15 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 rounded-lg text-xs font-bold transition-all"
+                        title="Track live on map"
+                      >
+                        🎯 Track
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setSelectedBusId(bus.id);
+                          setActiveMode('driver');
+                        }}
+                        className="py-1.5 px-3 bg-amber-600/15 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 rounded-lg text-xs font-bold transition-all"
+                        title="Open Driver Cockpit"
+                      >
+                        👨‍✈️ Cockpit
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
