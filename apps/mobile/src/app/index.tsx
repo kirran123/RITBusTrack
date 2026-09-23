@@ -64,6 +64,51 @@ export default function LoginScreen() {
       }
     }
 
+    // Dynamic Credentials Sync Check against localStorage
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        if (role === 'student') {
+          const storedStudentsRaw = localStorage.getItem('bustrack_students_v1');
+          if (storedStudentsRaw) {
+            const storedStudents = JSON.parse(storedStudentsRaw);
+            if (Array.isArray(storedStudents)) {
+              const matchedStudent = storedStudents.find(
+                s => (s.profile?.email || '').toLowerCase() === email.trim().toLowerCase() ||
+                     (s.register_number || '').toLowerCase() === email.trim().toLowerCase()
+              );
+              if (matchedStudent && matchedStudent.password && matchedStudent.password !== password.trim()) {
+                window.alert(`Incorrect password for ${email}. Please check with the transport administrator.`);
+                return;
+              }
+              if (matchedStudent) {
+                localStorage.setItem('bustrack_current_mobile_student', JSON.stringify(matchedStudent));
+              }
+            }
+          }
+        } else if (role === 'staff') {
+          const storedStaffRaw = localStorage.getItem('bustrack_staff_commuters_v1');
+          if (storedStaffRaw) {
+            const storedStaff = JSON.parse(storedStaffRaw);
+            if (Array.isArray(storedStaff)) {
+              const matchedStaff = storedStaff.find(
+                s => (s.email || s.profile?.email || '').toLowerCase() === email.trim().toLowerCase() ||
+                     (s.employee_id || '').toLowerCase() === email.trim().toLowerCase()
+              );
+              if (matchedStaff && matchedStaff.password && matchedStaff.password !== password.trim()) {
+                window.alert(`Incorrect password for ${email}. Please check with the transport administrator.`);
+                return;
+              }
+              if (matchedStaff) {
+                localStorage.setItem('bustrack_current_mobile_staff', JSON.stringify(matchedStaff));
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.log('Mobile login sync check note:', err);
+      }
+    }
+
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'default') {
         await window.Notification.requestPermission();

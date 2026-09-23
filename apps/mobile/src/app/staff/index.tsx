@@ -102,6 +102,30 @@ export default function StaffMobileDashboard() {
   const staffBoardingStop = INITIAL_STOPS[2] || INITIAL_STOPS[0];
 
   useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        const storedCurrent = localStorage.getItem('bustrack_current_mobile_staff');
+        if (storedCurrent) {
+          const parsed = JSON.parse(storedCurrent);
+          if (parsed && parsed.name) {
+            setFacultyProfile(prev => ({
+              ...prev,
+              id: parsed.id || prev.id,
+              name: parsed.name || prev.name,
+              staffId: parsed.employee_id || prev.staffId,
+              designation: parsed.designation || prev.designation,
+              department: parsed.department || prev.department,
+              phone: parsed.phone || prev.phone,
+              email: parsed.email || prev.email,
+              busNumber: parsed.bus?.bus_number || parsed.bus_id || prev.busNumber,
+              boardingStopName: parsed.boarding_stop?.stop_name || prev.boardingStopName,
+              isOnLeave: parsed.is_on_leave || false,
+            }));
+          }
+        }
+      } catch (e) {}
+    }
+
     checkAndFetchStaffLocation();
     checkNotificationPermissionStatus();
 

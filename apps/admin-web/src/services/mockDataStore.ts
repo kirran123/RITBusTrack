@@ -1,5 +1,5 @@
 import { 
-  Bus, Driver, Student, Route, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, COLLEGE_LOCATION, StaffUser 
+  Bus, Driver, Student, Route, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, COLLEGE_LOCATION, StaffUser, StaffCommuter 
 } from '@college-bus/shared';
 
 // 30 Official Real College Bus Routes
@@ -933,6 +933,7 @@ export const INITIAL_STUDENTS: Student[] = [
     department: 'BE Computer Science & Eng.',
     year: 4,
     section: 'A',
+    password: 'student123',
     route_id: 'r1',
     bus_id: 'b1',
     boarding_stop_id: 'st1_1',
@@ -950,6 +951,7 @@ export const INITIAL_STUDENTS: Student[] = [
     department: 'BE Mechanical Engineering',
     year: 4,
     section: 'B',
+    password: 'student123',
     route_id: 'r1',
     bus_id: 'b1',
     boarding_stop_id: 'st1_2',
@@ -967,6 +969,7 @@ export const INITIAL_STUDENTS: Student[] = [
     department: 'B.Tech Information Tech.',
     year: 3,
     section: 'A',
+    password: 'student123',
     route_id: 'r1',
     bus_id: 'b1',
     boarding_stop_id: 'st1_1',
@@ -984,6 +987,7 @@ export const INITIAL_STUDENTS: Student[] = [
     department: 'B.Tech AI & Data Science',
     year: 2,
     section: 'A',
+    password: 'student123',
     route_id: 'r2',
     bus_id: 'b2',
     boarding_stop_id: 'st2_1',
@@ -1001,6 +1005,7 @@ export const INITIAL_STUDENTS: Student[] = [
     department: 'BE Electronics & Comm.',
     year: 3,
     section: 'B',
+    password: 'student123',
     route_id: 'r7',
     bus_id: 'b7',
     boarding_stop_id: 'st7_1',
@@ -1018,6 +1023,7 @@ export const INITIAL_STUDENTS: Student[] = [
     department: 'BE Electrical & Electronics',
     year: 3,
     section: 'A',
+    password: 'student123',
     route_id: 'r17',
     bus_id: 'b15',
     boarding_stop_id: 'st17_1',
@@ -1035,6 +1041,7 @@ export const INITIAL_STUDENTS: Student[] = [
     department: 'BE Civil Engineering',
     year: 2,
     section: 'A',
+    password: 'student123',
     route_id: 'r21',
     bus_id: 'b19',
     boarding_stop_id: 'st21_1',
@@ -1044,6 +1051,89 @@ export const INITIAL_STUDENTS: Student[] = [
     route: INITIAL_ROUTES[18],
     bus: INITIAL_BUSES[18],
     boarding_stop: INITIAL_STOPS[47]
+  }
+];
+
+export const INITIAL_STAFF_COMMUTERS: StaffCommuter[] = [
+  {
+    id: 'sc1',
+    user_id: 'u_sc1',
+    employee_id: 'EMP-FAC-01',
+    name: 'Dr. S. Ganesh',
+    email: 'ganesh.staff@ritrjpm.ac.in',
+    phone: '+91 98421 22334',
+    password: 'staff123',
+    department: 'Computer Science & Engg',
+    designation: 'Professor & Head of Dept',
+    bus_id: 'b1',
+    route_id: 'r1',
+    boarding_stop_id: 'st1_1',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_sc1', auth_user_id: 'auth_sc1', name: 'Dr. S. Ganesh', email: 'ganesh.staff@ritrjpm.ac.in', phone: '+91 98421 22334', role: 'staff', status: 'active' },
+    bus: INITIAL_BUSES[0],
+    route: INITIAL_ROUTES[0],
+    boarding_stop: INITIAL_STOPS[0]
+  },
+  {
+    id: 'sc2',
+    user_id: 'u_sc2',
+    employee_id: 'EMP-FAC-02',
+    name: 'Prof. P. Deepa',
+    email: 'deepa.staff@ritrjpm.ac.in',
+    phone: '+91 94432 55667',
+    password: 'staff123',
+    department: 'Information Technology',
+    designation: 'Associate Professor',
+    bus_id: 'b1',
+    route_id: 'r1',
+    boarding_stop_id: 'st1_2',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_sc2', auth_user_id: 'auth_sc2', name: 'Prof. P. Deepa', email: 'deepa.staff@ritrjpm.ac.in', phone: '+91 94432 55667', role: 'staff', status: 'active' },
+    bus: INITIAL_BUSES[0],
+    route: INITIAL_ROUTES[0],
+    boarding_stop: INITIAL_STOPS[1]
+  },
+  {
+    id: 'sc3',
+    user_id: 'u_sc3',
+    employee_id: 'EMP-FAC-03',
+    name: 'Dr. K. Vijayalakshmi',
+    email: 'vijaya.staff@ritrjpm.ac.in',
+    phone: '+91 97890 33445',
+    password: 'staff123',
+    department: 'Electronics & Comm Engg',
+    designation: 'Assistant Professor (Sr. Gr)',
+    bus_id: 'b7',
+    route_id: 'r7',
+    boarding_stop_id: 'st7_1',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_sc3', auth_user_id: 'auth_sc3', name: 'Dr. K. Vijayalakshmi', email: 'vijaya.staff@ritrjpm.ac.in', phone: '+91 97890 33445', role: 'staff', status: 'active' },
+    bus: INITIAL_BUSES[6],
+    route: INITIAL_ROUTES[6],
+    boarding_stop: INITIAL_STOPS[17]
+  },
+  {
+    id: 'sc4',
+    user_id: 'u_sc4',
+    employee_id: 'EMP-FAC-04',
+    name: 'Mr. M. Selvam',
+    email: 'selvam.staff@ritrjpm.ac.in',
+    phone: '+91 97890 11223',
+    password: 'staff123',
+    department: 'Mechanical Engineering',
+    designation: 'Lab Instructor & Route Coordinator',
+    bus_id: 'b15',
+    route_id: 'r17',
+    boarding_stop_id: 'st17_1',
+    status: 'active',
+    is_on_leave: false,
+    profile: { id: 'u_sc4', auth_user_id: 'auth_sc4', name: 'Mr. M. Selvam', email: 'selvam.staff@ritrjpm.ac.in', phone: '+91 97890 11223', role: 'staff', status: 'active' },
+    bus: INITIAL_BUSES[14],
+    route: INITIAL_ROUTES[14],
+    boarding_stop: INITIAL_STOPS[37]
   }
 ];
 
@@ -1163,3 +1253,5 @@ export const INITIAL_STAFF: StaffUser[] = [
     last_login: new Date().toISOString()
   }
 ];
+
+

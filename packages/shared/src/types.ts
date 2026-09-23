@@ -69,12 +69,41 @@ export interface Student {
   department: string;
   year: number;
   section: string;
+  password?: string;
   route_id?: string | null;
   bus_id?: string | null;
   boarding_stop_id?: string | null;
   status: 'active' | 'inactive';
   is_on_leave?: boolean;
+  leave_date?: string;
+  leave_reason?: string;
   leave_info?: StudentLeave | null;
+  created_at?: string;
+  updated_at?: string;
+  // Joined fields
+  profile?: UserProfile;
+  route?: Route;
+  bus?: Bus;
+  boarding_stop?: Stop;
+}
+
+export interface StaffCommuter {
+  id: string;
+  user_id: string;
+  employee_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  password?: string;
+  department: string;
+  designation: string;
+  bus_id?: string | null;
+  route_id?: string | null;
+  boarding_stop_id?: string | null;
+  status: 'active' | 'inactive';
+  is_on_leave?: boolean;
+  leave_date?: string;
+  leave_reason?: string;
   created_at?: string;
   updated_at?: string;
   // Joined fields

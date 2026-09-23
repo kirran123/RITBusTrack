@@ -20,11 +20,11 @@ import { Settings } from './pages/Settings';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { 
-  UserProfile, Bus, Driver, Student, Route as RouteType, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, StaffUser, SIMULATION_ROUTE_A
+  UserProfile, Bus, Driver, Student, Route as RouteType, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, StaffUser, StaffCommuter, SIMULATION_ROUTE_A
 } from '@college-bus/shared';
 
 import {
-  INITIAL_BUSES, INITIAL_DRIVERS, INITIAL_STUDENTS, INITIAL_ROUTES, INITIAL_STOPS, INITIAL_TRIPS, INITIAL_LOCATIONS, INITIAL_EMERGENCIES, INITIAL_NOTIFICATIONS, INITIAL_STAFF
+  INITIAL_BUSES, INITIAL_DRIVERS, INITIAL_STUDENTS, INITIAL_ROUTES, INITIAL_STOPS, INITIAL_TRIPS, INITIAL_LOCATIONS, INITIAL_EMERGENCIES, INITIAL_NOTIFICATIONS, INITIAL_STAFF, INITIAL_STAFF_COMMUTERS
 } from './services/mockDataStore';
 import { supabase } from './services/supabaseClient';
 
@@ -56,6 +56,7 @@ export const App: React.FC = () => {
   const [buses, setBuses] = useState<Bus[]>(() => loadStorage('bustrack_buses_v1', INITIAL_BUSES));
   const [drivers, setDrivers] = useState<Driver[]>(() => loadStorage('bustrack_drivers_v1', INITIAL_DRIVERS));
   const [students, setStudents] = useState<Student[]>(() => loadStorage('bustrack_students_v1', INITIAL_STUDENTS));
+  const [staffCommuters, setStaffCommuters] = useState<StaffCommuter[]>(() => loadStorage('bustrack_staff_commuters_v1', INITIAL_STAFF_COMMUTERS));
   const [routes, setRoutes] = useState<RouteType[]>(() => loadStorage('bustrack_routes_v1', INITIAL_ROUTES));
   const [stops, setStops] = useState<Stop[]>(() => loadStorage('bustrack_stops_v1', INITIAL_STOPS));
   const [trips, setTrips] = useState<Trip[]>(() => loadStorage('bustrack_trips_v1', INITIAL_TRIPS));
@@ -75,6 +76,7 @@ export const App: React.FC = () => {
   useEffect(() => saveStorage('bustrack_buses_v1', buses), [buses]);
   useEffect(() => saveStorage('bustrack_drivers_v1', drivers), [drivers]);
   useEffect(() => saveStorage('bustrack_students_v1', students), [students]);
+  useEffect(() => saveStorage('bustrack_staff_commuters_v1', staffCommuters), [staffCommuters]);
   useEffect(() => saveStorage('bustrack_routes_v1', routes), [routes]);
   useEffect(() => saveStorage('bustrack_stops_v1', stops), [stops]);
   useEffect(() => saveStorage('bustrack_staff_v1', staffList), [staffList]);
@@ -527,6 +529,63 @@ export const App: React.FC = () => {
     setStudents(prev => prev.filter(s => s.id !== studentId));
   };
 
+  const handleUpdateStudentPassword = (studentId: string, newPass: string) => {
+    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, password: newPass } : s));
+  };
+
+  const handleImportStudentsCSV = (newStudents: Student[]) => {
+    setStudents(prev => [...prev, ...newStudents]);
+  };
+
+  // Staff Commuters (Faculty & Staff Bus Passengers) Handlers
+  const handleSaveStaffCommuter = (commuter: StaffCommuter) => {
+    setStaffCommuters(prev => {
+      const idx = prev.findIndex(c => c.id === commuter.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = commuter;
+        return copy;
+      }
+      return [...prev, commuter];
+    });
+  };
+
+  const handleDeleteStaffCommuter = (commuterId: string) => {
+    setStaffCommuters(prev => prev.filter(c => c.id !== commuterId));
+  };
+
+  const handleToggleStaffCommuterLeave = (commuterId: string) => {
+    let nextState = false;
+    setStaffCommuters(prev => prev.map(c => {
+      if (c.id === commuterId) {
+        nextState = !c.is_on_leave;
+        return {
+          ...c,
+          is_on_leave: nextState,
+          leave_date: nextState ? new Date().toISOString().split('T')[0] : undefined
+        };
+      }
+      return c;
+    }));
+
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('bustrack_cross_client_sync');
+        bc.postMessage({ type: 'staff_leave_toggle', payload: { commuterId, isOnLeave: nextState } });
+        bc.close();
+      }
+      localStorage.setItem('bustrack_cross_sync_event', JSON.stringify({ type: 'staff_leave_toggle', payload: { commuterId, isOnLeave: nextState }, timestamp: Date.now() }));
+    } catch {}
+  };
+
+  const handleUpdateStaffCommuterPassword = (commuterId: string, newPass: string) => {
+    setStaffCommuters(prev => prev.map(c => c.id === commuterId ? { ...c, password: newPass } : c));
+  };
+
+  const handleImportStaffCommutersCSV = (imported: StaffCommuter[]) => {
+    setStaffCommuters(prev => [...prev, ...imported]);
+  };
+
   const handleSubstituteDriver = (busId: string, substituteDriverId: string, reason?: string) => {
     const targetBus = buses.find(b => b.id === busId);
     const subDriver = drivers.find(d => d.id === substituteDriverId);
@@ -763,10 +822,6 @@ export const App: React.FC = () => {
         }).catch(() => {});
       } catch (err) {}
     }
-  };
-
-  const handleImportStudentsCSV = (imported: Student[]) => {
-    setStudents(prev => [...prev, ...imported]);
   };
 
   const handleSaveRoute = async (route: RouteType) => {
@@ -1104,25 +1159,35 @@ export const App: React.FC = () => {
                     onDeleteStudent={handleDeleteStudent}
                     onImportCSV={handleImportStudentsCSV}
                     onToggleStudentLeave={handleToggleStudentLeave}
+                    onUpdateStudentPassword={handleUpdateStudentPassword}
                     currentUser={currentUser}
                     canEdit={canEdit}
                   />
                 </ErrorBoundary>
               } />
 
-              {/* Staff Management & Role-Based Access Control (Super Admin Exclusive) */}
+              {/* Staff Management & Role-Based Access Control */}
               <Route path="/staff" element={
                 currentUser?.role === 'admin' ? (
                   <ErrorBoundary fallbackTitle="Staff Access Center">
                     <StaffPage
                       currentUser={currentUser}
+                      canEdit={canEdit}
                       staffList={staffList}
+                      staffCommuters={staffCommuters}
+                      buses={buses}
                       routes={routes}
+                      stops={stops}
                       onSaveStaff={handleSaveStaff}
                       onDeleteStaff={handleDeleteStaff}
                       onToggleStaffAccess={handleToggleStaffAccess}
                       onUpdateStaffPassword={handleUpdateStaffPassword}
                       onSimulateLoginAsStaff={handleSimulateLoginAsStaff}
+                      onSaveStaffCommuter={handleSaveStaffCommuter}
+                      onDeleteStaffCommuter={handleDeleteStaffCommuter}
+                      onToggleStaffCommuterLeave={handleToggleStaffCommuterLeave}
+                      onUpdateStaffCommuterPassword={handleUpdateStaffCommuterPassword}
+                      onImportStaffCommuterCSV={handleImportStaffCommutersCSV}
                     />
                   </ErrorBoundary>
                 ) : (

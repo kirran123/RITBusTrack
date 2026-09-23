@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Student, Bus, Route, Stop, UserProfile } from '@college-bus/shared';
-import { GraduationCap, Plus, Search, Upload, Edit2, Trash2, X, FileText, Lock } from 'lucide-react';
+import { 
+  GraduationCap, Plus, Search, Upload, Edit2, Trash2, X, FileText, Lock,
+  Key, Eye, EyeOff, Check, Copy, RefreshCw, ShieldCheck
+} from 'lucide-react';
 
 interface StudentsProps {
   students: Student[];
@@ -11,6 +14,7 @@ interface StudentsProps {
   onDeleteStudent: (studentId: string) => void;
   onImportCSV: (newStudents: Student[]) => void;
   onToggleStudentLeave?: (studentId: string) => void;
+  onUpdateStudentPassword?: (studentId: string, newPass: string) => void;
   currentUser?: UserProfile | null;
   canEdit?: boolean;
 }
@@ -24,6 +28,7 @@ export const Students: React.FC<StudentsProps> = ({
   onDeleteStudent,
   onImportCSV,
   onToggleStudentLeave,
+  onUpdateStudentPassword,
   currentUser,
   canEdit,
 }) => {
@@ -33,9 +38,18 @@ export const Students: React.FC<StudentsProps> = ({
   const [isCSVModalOpen, setIsCSVModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
+  // Quick Password Reset Modal State
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordTargetStudent, setPasswordTargetStudent] = useState<Student | null>(null);
+  const [newQuickPassword, setNewQuickPassword] = useState('');
+  const [showQuickPassword, setShowQuickPassword] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
   // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('student123');
+  const [showPassword, setShowPassword] = useState(false);
   const [registerNumber, setRegisterNumber] = useState('');
   const [department, setDepartment] = useState('Computer Science');
   const [year, setYear] = useState(4);
@@ -44,10 +58,29 @@ export const Students: React.FC<StudentsProps> = ({
   const [busId, setBusId] = useState('');
   const [boardingStopId, setBoardingStopId] = useState('');
 
+  const handleCopy = (text: string, key: string) => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
+    }
+  };
+
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let res = 'STU-';
+    for (let i = 0; i < 4; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return res;
+  };
+
   const openCreateModal = () => {
     setEditingStudent(null);
     setName('');
-    setEmail(`student${students.length + 1}@college.edu`);
+    setEmail(`student${students.length + 1}@ritrjpm.ac.in`);
+    setPassword('student123');
+    setShowPassword(false);
     setRegisterNumber(`9536211040${students.length + 10}`);
     setDepartment('Computer Science');
     setYear(4);
@@ -62,6 +95,8 @@ export const Students: React.FC<StudentsProps> = ({
     setEditingStudent(student);
     setName(student.profile?.name || '');
     setEmail(student.profile?.email || '');
+    setPassword(student.password || 'student123');
+    setShowPassword(false);
     setRegisterNumber(student.register_number);
     setDepartment(student.department);
     setYear(student.year);
@@ -70,6 +105,31 @@ export const Students: React.FC<StudentsProps> = ({
     setBusId(student.bus_id || '');
     setBoardingStopId(student.boarding_stop_id || '');
     setIsModalOpen(true);
+  };
+
+  const openPasswordModal = (student: Student) => {
+    setPasswordTargetStudent(student);
+    setNewQuickPassword(student.password || 'student123');
+    setShowQuickPassword(false);
+    setIsPasswordModalOpen(true);
+  };
+
+  const handleSaveQuickPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordTargetStudent) return;
+    const finalPassword = newQuickPassword.trim() || 'student123';
+    
+    if (onUpdateStudentPassword) {
+      onUpdateStudentPassword(passwordTargetStudent.id, finalPassword);
+    } else {
+      const updated: Student = {
+        ...passwordTargetStudent,
+        password: finalPassword,
+      };
+      onSaveStudent(updated);
+    }
+    setIsPasswordModalOpen(false);
+    setPasswordTargetStudent(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -84,6 +144,7 @@ export const Students: React.FC<StudentsProps> = ({
       route_id: routeId || null,
       bus_id: busId || null,
       boarding_stop_id: boardingStopId || null,
+      password: password || 'student123',
       status: 'active',
       profile: {
         id: editingStudent ? editingStudent.user_id : 'u_stu_' + Date.now(),
@@ -356,7 +417,16 @@ export const Students: React.FC<StudentsProps> = ({
                     {/* Actions Toolbar */}
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       {isEditable ? (
-                        <div className="flex items-center justify-end space-x-1">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openPasswordModal(student)}
+                            className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold flex items-center space-x-1 transition-colors"
+                            title="Set Login Password for Student App"
+                          >
+                            <Key className="w-3 h-3" />
+                            <span className="text-[11px] hidden xl:inline">Password</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEditModal(student)}
@@ -391,6 +461,108 @@ export const Students: React.FC<StudentsProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Quick Password Reset Modal */}
+      {isPasswordModalOpen && passwordTargetStudent && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">Student App Password</h2>
+                  <p className="text-xs text-slate-400">
+                    {passwordTargetStudent.profile?.name || passwordTargetStudent.register_number}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsPasswordModalOpen(false)} 
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQuickPassword} className="space-y-4">
+              <div className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl">
+                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                  <span>Student Email / Login ID</span>
+                  <span className="text-[11px] font-mono text-emerald-400">{passwordTargetStudent.register_number}</span>
+                </div>
+                <div className="font-semibold text-white text-xs truncate">
+                  {passwordTargetStudent.profile?.email || `student@ritrjpm.ac.in`}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Set New App Password</label>
+                  <button
+                    type="button"
+                    onClick={() => setNewQuickPassword(generateRandomPassword())}
+                    className="text-[11px] text-sky-400 hover:text-sky-300 font-semibold flex items-center space-x-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Generate Random</span>
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type={showQuickPassword ? 'text' : 'password'}
+                    required
+                    value={newQuickPassword}
+                    onChange={(e) => setNewQuickPassword(e.target.value)}
+                    className="w-full bg-slate-950 text-white text-sm font-mono px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 pr-20"
+                    placeholder="Enter new password"
+                  />
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickPassword(!showQuickPassword)}
+                      className="p-1 text-slate-400 hover:text-white rounded"
+                      title={showQuickPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showQuickPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(newQuickPassword, 'quick-pass')}
+                      className="p-1 text-slate-400 hover:text-white rounded"
+                      title="Copy password"
+                    >
+                      {copiedKey === 'quick-pass' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  The student will use this password alongside their institutional email to log into the mobile bus tracking app.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-sm font-semibold hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 flex items-center space-x-1.5"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Update Password</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* CSV Import Modal */}
       {isCSVModalOpen && (
@@ -452,6 +624,40 @@ export const Students: React.FC<StudentsProps> = ({
                   className="w-full bg-slate-950 text-white text-sm px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500"
                   placeholder="Kavitha S"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-slate-950 text-white text-sm px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500"
+                    placeholder="student@ritrjpm.ac.in"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">App Password</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-slate-950 text-white text-sm font-mono px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 pr-9"
+                      placeholder="student123"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
