@@ -2,12 +2,14 @@
   "name": "admin-web",
   "private": true,
   "version": "1.0.0",
-  "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "desktop": "vite build && electron .",
+    "build:exe": "vite build && electron-builder --win portable --dir"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

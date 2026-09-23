@@ -13,6 +13,10 @@
     "dev:mobile": "npm run start --workspace=apps/mobile",
     "build:admin": "npm run build --workspace=apps/admin-web",
     "build:shared": "npm run build --workspace=packages/shared",
+    "build:apk": "npm run build:apk --workspace=apps/mobile",
+    "build:ios": "npm run build:ios --workspace=apps/mobile",
+    "build:exe": "npm run build:exe --workspace=apps/admin-web",
+    "dev:desktop": "npm run desktop --workspace=apps/admin-web",
     "test": "echo \"Running workspace tests...\" && exit 0"
   },
   "keywords": [
