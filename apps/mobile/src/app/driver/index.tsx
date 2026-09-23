@@ -1049,7 +1049,7 @@ export default function DriverDashboard() {
               <Text style={styles.driverHeroName}>Murugan M</Text>
               <Text style={styles.driverHeroMeta}>Employee ID: DRV-001 &bull; Senior Fleet Master Driver</Text>
               <View style={styles.busAllocationPill}>
-                <Text style={styles.busAllocationPillText}>ASSIGNED BUS: BUS #12 &bull; 54 SEATER</Text>
+                <Text style={styles.busAllocationPillText}>ASSIGNED BUS: BUS-01 &bull; ROUTE 1</Text>
               </View>
             </View>
 

@@ -449,11 +449,11 @@ export default function StudentDashboard() {
             <View style={styles.busSummaryCard}>
               <View style={styles.busSummaryBadge}>
                 <Text style={styles.busSummaryBadgeSub}>BUS</Text>
-                <Text style={styles.busSummaryBadgeNum}>12</Text>
+                <Text style={styles.busSummaryBadgeNum}>{currentStudent.busNumber?.replace('BUS-', '') || '01'}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.busSummaryTitle}>Route 1 &bull; Rajapalayam ➔ Campus</Text>
-                <Text style={styles.busSummaryVehicle}>Vehicle: TN 84 AX 1001 &bull; 40 Seater</Text>
+                <Text style={styles.busSummaryVehicle}>Vehicle: TN 84 AX 1001</Text>
                 <Text style={styles.busSummaryDriver}>Driver: Murugan M (+91 98421 00001)</Text>
               </View>
             </View>
@@ -621,7 +621,7 @@ export default function StudentDashboard() {
               </Text>
               <View style={styles.profileBusHeroBadge}>
                 <Text style={styles.profileBusHeroBadgeText}>
-                  ASSIGNED BUS: {currentStudent.busNumber} &bull; SEAT #18
+                  ASSIGNED BUS: {currentStudent.busNumber || 'BUS-01'}
                 </Text>
               </View>
             </View>
@@ -697,10 +697,6 @@ export default function StudentDashboard() {
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Boarding Stop</Text>
                 <Text style={styles.settingVal}>{currentStudent.boardingStopName}</Text>
-              </View>
-              <View style={styles.settingRow}>
-                <Text style={styles.settingLabel}>Seat Number</Text>
-                <Text style={styles.settingVal}>Seat #18 (Window)</Text>
               </View>
             </View>
 

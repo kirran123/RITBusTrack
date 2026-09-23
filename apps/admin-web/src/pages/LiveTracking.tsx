@@ -1347,7 +1347,7 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                   <span className="text-xs font-mono text-emerald-400">{selectedStudent?.register_number}</span>
                 </div>
                 <div className="text-xs text-slate-400">
-                  Assigned Bus: <strong className="text-amber-400">{selectedBus?.bus_number || 'BUS-01'}</strong> &bull; Seat #18
+                  Assigned Bus: <strong className="text-amber-400">{selectedBus?.bus_number || 'BUS-01'}</strong>
                 </div>
                 <div className="text-xs text-sky-400 font-semibold">
                   Designated Stop: 📍 {selectedStudent?.boarding_stop?.stop_name || 'Gandhi Statue Junction'}
