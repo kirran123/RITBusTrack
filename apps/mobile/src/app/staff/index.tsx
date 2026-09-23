@@ -320,12 +320,7 @@ export default function StaffMobileDashboard() {
             <Text style={{ fontSize: 18 }}>👔</Text>
           </View>
           <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.topAppName}>Faculty Commuter Portal</Text>
-              <View style={styles.topBadge}>
-                <Text style={styles.topBadgeText}>STAFF PASS</Text>
-              </View>
-            </View>
+            <Text style={styles.topAppName}>Faculty Bus Tracking</Text>
             <Text style={styles.topSubtitle}>
               {facultyProfile.name} &bull; {facultyProfile.department}
             </Text>
@@ -745,7 +740,7 @@ export default function StaffMobileDashboard() {
               <View style={styles.busPassHeader}>
                 <View>
                   <Text style={styles.busPassCollege}>RAMCO INSTITUTE OF TECHNOLOGY</Text>
-                  <Text style={styles.busPassType}>OFFICIAL FACULTY BUS COMMUTER PASS</Text>
+                  <Text style={styles.busPassType}>FACULTY BUS TRANSPORT PASS</Text>
                 </View>
                 <View style={styles.busPassSeal}>
                   <Text style={{ fontSize: 16 }}>🏛️</Text>
@@ -903,7 +898,7 @@ export default function StaffMobileDashboard() {
           onPress={() => setActiveTab('profile')}
         >
           <Text style={styles.tabBarIcon}>👤</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'profile' && styles.tabBarLabelActive]}>Pass</Text>
+          <Text style={[styles.tabBarLabel, activeTab === 'profile' && styles.tabBarLabelActive]}>Profile</Text>
         </TouchableOpacity>
       </View>
 

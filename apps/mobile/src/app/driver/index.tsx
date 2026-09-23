@@ -42,6 +42,7 @@ export default function DriverDashboard() {
   const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
   const [showPermModal, setShowPermModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [driverBusNumber, setDriverBusNumber] = useState('BUS-01');
 
   // Real-time Students Roster State
   const [students, setStudents] = useState<BusStudent[]>(studentRosterStore.getStudents('b1'));
@@ -362,7 +363,7 @@ export default function DriverDashboard() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.topAppName}>Driver Cockpit</Text>
               <View style={styles.topBusBadge}>
-                <Text style={styles.topBusBadgeText}>BUS #12</Text>
+                <Text style={styles.topBusBadgeText}>{driverBusNumber}</Text>
               </View>
             </View>
             <Text style={styles.topSub}>Route 1 &bull; TN 84 AX 1001 &bull; Murugan M</Text>
@@ -618,7 +619,7 @@ export default function DriverDashboard() {
               <View style={styles.rosterKpiHeader}>
                 <View>
                   <Text style={styles.rosterKpiTitle}>PASSENGER ROSTER & CAPACITY</Text>
-                  <Text style={styles.rosterKpiSub}>BUS #12 &bull; Route 1 &bull; 54 Passenger Capacity</Text>
+                  <Text style={styles.rosterKpiSub}>{driverBusNumber} &bull; Route 1 &bull; 54 Passenger Capacity</Text>
                 </View>
                 <View style={styles.syncBadge}>
                   <View style={styles.syncDot} />

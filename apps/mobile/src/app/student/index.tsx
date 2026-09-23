@@ -253,7 +253,7 @@ export default function StudentDashboard() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.topAppName}>College Bus Track</Text>
               <View style={styles.topBusNumberBadge}>
-                <Text style={styles.topBusNumberText}>BUS #12</Text>
+                <Text style={styles.topBusNumberText}>{currentStudent.busNumber || 'BUS-01'}</Text>
               </View>
             </View>
             <Text style={styles.topRouteSubtitle}>Route 1 &bull; Rajapalayam ➔ Campus &bull; TN 84 AX 1001</Text>
