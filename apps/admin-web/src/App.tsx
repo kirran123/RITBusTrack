@@ -86,6 +86,74 @@ export const App: React.FC = () => {
   // Cross-Tab / Cross-Window Broadcast Channel for instant local sync
   const [lastLiveBroadcastTime, setLastLiveBroadcastTime] = useState<number>(0);
 
+  // Helper to trigger Super Admin & Admin Staff emergency notifications + audible alarm + desktop push
+  const triggerEmergencySOSAlert = (payload: any) => {
+    if (!payload) return;
+
+    // 1. Update Emergencies list (avoid duplicate IDs)
+    setEmergencies(prev => {
+      const exists = prev.some(e => e.id === payload.id);
+      if (exists) {
+        return prev.map(e => e.id === payload.id ? { ...e, ...payload } : e);
+      }
+      return [payload, ...prev];
+    });
+
+    // 2. Add high-priority unread SystemNotification for Super Admin and Staff
+    const busLabel = payload.bus_id === 'b1' ? 'BUS-01 (TN 67 AM 9785)' : (payload.bus?.bus_number || payload.bus_id || 'BUS-01');
+    const sosNotif: SystemNotification = {
+      id: 'notif_sos_' + Date.now(),
+      title: `🚨 CRITICAL EMERGENCY SOS: ${busLabel}`,
+      message: `${payload.type ? payload.type.toUpperCase() : 'DISTRESS ALERT'}: ${payload.message || 'Distress SOS dispatched by driver Mr. B. Moorthi.'}`,
+      type: 'emergency',
+      priority: 'high',
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    setNotifications(prev => [sosNotif, ...prev]);
+
+    // 3. Desktop / Browser Push Notification for Admin Staff & Super Admin
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(`🚨 CRITICAL EMERGENCY SOS: ${busLabel}`, {
+          body: `${payload.type ? payload.type.toUpperCase() : 'EMERGENCY'}: ${payload.message || 'Driver dispatched emergency SOS distress signal.'}`,
+          icon: '/favicon.ico',
+          tag: 'emergency_sos',
+        });
+      } catch (notifErr) {
+        console.warn('Desktop notification error:', notifErr);
+      }
+    }
+
+    // 4. Web Audio Audible Alarm Chime
+    try {
+      if (typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const audioCtx = new AudioCtx();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.15); // A4
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.3);
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.45);
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.6);
+      }
+    } catch {}
+  };
+
+  // Request browser desktop notification permission on mount for Super Admin & Staff
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     let crossChannel: any = null;
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -133,7 +201,7 @@ export const App: React.FC = () => {
               return updated;
             });
           } else if (data.type === 'emergency_sos') {
-            setEmergencies(prev => [data.payload, ...prev]);
+            triggerEmergencySOSAlert(data.payload);
           }
         };
       } catch (err) {
@@ -192,7 +260,7 @@ export const App: React.FC = () => {
               return updated;
             });
           } else if (data.type === 'emergency_sos') {
-            setEmergencies(prev => [data.payload, ...prev]);
+            triggerEmergencySOSAlert(data.payload);
           }
         } catch {}
       }
@@ -251,8 +319,7 @@ export const App: React.FC = () => {
           });
         })
         .on('broadcast', { event: 'emergency_sos' }, ({ payload }: any) => {
-          if (!payload) return;
-          setEmergencies(prev => [payload, ...prev]);
+          triggerEmergencySOSAlert(payload);
         })
         .on('broadcast', { event: 'leave_toggle' }, ({ payload }: any) => {
           if (!payload || !payload.studentId) return;

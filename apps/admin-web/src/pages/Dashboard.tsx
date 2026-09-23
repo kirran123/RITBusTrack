@@ -143,6 +143,72 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="absolute right-1/3 -top-10 w-48 h-48 bg-indigo-600/10 rounded-full blur-2xl pointer-events-none" />
       </div>
 
+      {/* 1.5 ACTIVE EMERGENCY SOS ALERTS BANNER (For Super Admin & Transport Staff) */}
+      {activeEmergencies.length > 0 && (
+        <div className="bg-gradient-to-r from-rose-950/80 via-red-950/60 to-slate-900 border-2 border-rose-500/80 rounded-3xl p-5 shadow-2xl space-y-4 animate-pulse">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-rose-500/30 pb-3">
+            <div className="flex items-center space-x-3">
+              <span className="p-2.5 rounded-2xl bg-rose-600 text-white shadow-lg shadow-rose-600/50">
+                <AlertTriangle className="w-6 h-6 animate-bounce" />
+              </span>
+              <div>
+                <h3 className="text-base font-black text-rose-200 flex items-center space-x-2">
+                  <span>🚨 ACTIVE CRITICAL EMERGENCY SOS DISPATCHED</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] bg-rose-600 text-white font-black">
+                    {activeEmergencies.length} Active Alert{activeEmergencies.length !== 1 ? 's' : ''}
+                  </span>
+                </h3>
+                <p className="text-xs text-rose-300/90 font-medium">
+                  Bus driver dispatched distress signal. Live tracking coordinates and notifications dispatched to all passengers and admins.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to="/emergency"
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-rose-600/30 flex items-center space-x-2 transition-all"
+            >
+              <span>Manage Emergency</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {activeEmergencies.map((alert) => (
+              <div
+                key={alert.id}
+                className="bg-slate-950/90 p-4 rounded-2xl border border-rose-500/40 flex flex-col justify-between space-y-3"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-black text-xs">
+                      🚨 {alert.type.toUpperCase()}
+                    </span>
+                    <span className="text-xs font-bold text-white">
+                      {alert.bus?.bus_number || (alert.bus_id === 'b1' ? 'BUS-01' : alert.bus_id)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-rose-100 font-semibold mt-1">"{alert.message}"</p>
+                  <p className="text-[11px] text-slate-400">
+                    Location: [{alert.latitude.toFixed(4)}, {alert.longitude.toFixed(4)}] &bull; Reported: {new Date(alert.created_at).toLocaleTimeString()}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                  <span className="text-[11px] text-emerald-400 font-semibold">Driver: Mr. B. Moorthi (+91 98946 68646)</span>
+                  <Link
+                    to="/live"
+                    className="text-xs text-blue-400 font-bold hover:underline flex items-center space-x-1"
+                  >
+                    <span>Track Live Radar</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 2. TEMPORARY SUBSTITUTION & MAINTENANCE NOTICES (If any active) */}
       {hasActiveTemporaryChanges && (
         <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 rounded-3xl p-5 shadow-xl space-y-3.5">

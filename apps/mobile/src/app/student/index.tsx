@@ -22,8 +22,8 @@ import {
   calculateDynamicETA,
   DynamicETA,
 } from '../../services/locationService';
-import { subscribeToTelemetry, subscribeToFleetSwap, fetchLatestBusLocation, BusTelemetryPayload, FleetSwapNotice } from '../../services/supabase';
-import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A } from '@college-bus/shared';
+import { subscribeToTelemetry, subscribeToFleetSwap, subscribeToSOS, fetchLatestBusLocation, BusTelemetryPayload, FleetSwapNotice } from '../../services/supabase';
+import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert } from '@college-bus/shared';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 
 type StudentTab = 'track' | 'stops' | 'alerts' | 'profile';
@@ -35,6 +35,9 @@ export default function StudentDashboard() {
   const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
   const [showPermModal, setShowPermModal] = useState(false);
   const [scheduleType, setScheduleType] = useState<'morning' | 'evening'>('morning');
+
+  // Emergency SOS State
+  const [emergencyAlerts, setEmergencyAlerts] = useState<EmergencyAlert[]>([]);
 
   // Fleet Driver & Bus Swap Notification State
   const [activeSwapNotice, setActiveSwapNotice] = useState<FleetSwapNotice | null>(null);
@@ -139,7 +142,19 @@ export default function StudentDashboard() {
       notificationService.sendPushNotification(notice.title, notice.message, 'swap_alert');
     });
 
-    // 3. Seconds counter for telemetry freshness and dynamic ETA recalibration
+    // 3. Subscribe to Emergency SOS Alerts dispatched by Driver or Transport Admin
+    const unsubSOS = subscribeToSOS((alert: EmergencyAlert) => {
+      setEmergencyAlerts((prev) => [alert, ...prev]);
+      
+      // Deliver High-Priority Push Notification to Mobile Notification Bar
+      notificationService.sendPushNotification(
+        `🚨 EMERGENCY ALERT: ${currentStudent.busNumber || 'BUS-01'}`,
+        alert.message || `An urgent alert (${alert.type?.toUpperCase()}) was reported for your bus. Safety protocols active.`,
+        'emergency_sos'
+      );
+    });
+
+    // 4. Seconds counter for telemetry freshness and dynamic ETA recalibration
     const secTimer = setInterval(() => {
       setLastUpdatedSec((prev) => prev + 1);
     }, 1000);
@@ -147,6 +162,7 @@ export default function StudentDashboard() {
     return () => {
       unsubscribe();
       unsubSwap();
+      unsubSOS();
       clearInterval(secTimer);
     };
   }, []);
@@ -295,6 +311,35 @@ export default function StudentDashboard() {
                 isGranted={hasNotificationPermission}
                 onRequestPermission={handleRequestNotificationPermission}
               />
+            )}
+
+            {/* REAL-TIME EMERGENCY SOS ALERT BANNER */}
+            {emergencyAlerts.length > 0 && (
+              <View style={styles.emergencySosBanner}>
+                <View style={styles.emergencySosHeader}>
+                  <View style={styles.emergencySosIconWrap}>
+                    <Text style={{ fontSize: 20 }}>🚨</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={styles.emergencySosTitle}>
+                        CRITICAL ALERT: {emergencyAlerts[0].type?.toUpperCase() || 'EMERGENCY SOS'}
+                      </Text>
+                      <Text style={styles.emergencySosActiveBadge}>ACTIVE</Text>
+                    </View>
+                    <Text style={styles.emergencySosMsg}>{emergencyAlerts[0].message}</Text>
+                    <Text style={styles.emergencySosMeta}>
+                      Bus: {currentStudent.busNumber || 'BUS-01'} &bull; {new Date(emergencyAlerts[0].created_at).toLocaleTimeString()}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.emergencySosCallBtn}
+                  onPress={() => handleCallHelpline('+919443012345')}
+                >
+                  <Text style={styles.emergencySosCallBtnText}>📞 Call Transport Control Room: +91 94430 12345</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             {/* Designated Route Terminals Banner */}
@@ -558,6 +603,32 @@ export default function StudentDashboard() {
             </View>
 
             <Text style={styles.sectionTitle}>Transport Broadcasts & Delay Notices</Text>
+
+            {/* REAL-TIME EMERGENCY SOS BROADCASTS */}
+            {emergencyAlerts.map((alert) => (
+              <View key={alert.id} style={styles.emergencyNotifCard}>
+                <View style={styles.notifHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.emergencyNotifTitle}>
+                      🚨 EMERGENCY SOS: {alert.type?.toUpperCase() || 'URGENT INCIDENT'}
+                    </Text>
+                  </View>
+                  <Text style={styles.emergencyNotifUrgentBadge}>URGENT</Text>
+                </View>
+                <Text style={styles.emergencyNotifBody}>{alert.message}</Text>
+                <View style={styles.emergencyMetaRow}>
+                  <Text style={styles.emergencyMetaText}>
+                    Bus: <Text style={{ color: '#fca5a5', fontWeight: 'bold' }}>{currentStudent.busNumber || 'BUS-01'}</Text> &bull; Driver: Mr. B. Moorthi &bull; Lat/Lng: [{alert.latitude.toFixed(4)}, {alert.longitude.toFixed(4)}]
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.notifCallEmergencyBtn}
+                  onPress={() => handleCallHelpline('+919443012345')}
+                >
+                  <Text style={styles.notifCallEmergencyBtnText}>📞 Contact Emergency Transport Helpline (+91 94430 12345)</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
 
             {/* REAL-TIME SWAP & VEHICLE CHANGE NOTIFICATIONS */}
             {swapNoticesList.map((notice) => (
@@ -1981,5 +2052,120 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 11,
     fontWeight: '800',
+  },
+  emergencySosBanner: {
+    backgroundColor: '#450a0a',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 2,
+    borderColor: '#ef4444',
+  },
+  emergencySosHeader: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  emergencySosIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#7f1d1d',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emergencySosTitle: {
+    color: '#fecaca',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  emergencySosActiveBadge: {
+    backgroundColor: '#dc2626',
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  emergencySosMsg: {
+    color: '#fee2e2',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  emergencySosMeta: {
+    color: '#f87171',
+    fontSize: 10,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  emergencySosCallBtn: {
+    backgroundColor: '#dc2626',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  emergencySosCallBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  emergencyNotifCard: {
+    backgroundColor: '#2a080c',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#f87171',
+  },
+  emergencyNotifTitle: {
+    color: '#fca5a5',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  emergencyNotifUrgentBadge: {
+    backgroundColor: '#ef4444',
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  emergencyNotifBody: {
+    color: '#fee2e2',
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  emergencyMetaRow: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#450a0a',
+  },
+  emergencyMetaText: {
+    color: '#fca5a5',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  notifCallEmergencyBtn: {
+    backgroundColor: '#b91c1c',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  notifCallEmergencyBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '900',
   },
 });
