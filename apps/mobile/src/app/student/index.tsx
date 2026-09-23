@@ -22,7 +22,7 @@ import {
   calculateDynamicETA,
   DynamicETA,
 } from '../../services/locationService';
-import { subscribeToTelemetry, subscribeToFleetSwap, BusTelemetryPayload, FleetSwapNotice } from '../../services/supabase';
+import { subscribeToTelemetry, subscribeToFleetSwap, fetchLatestBusLocation, BusTelemetryPayload, FleetSwapNotice } from '../../services/supabase';
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A } from '@college-bus/shared';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 
@@ -112,6 +112,13 @@ export default function StudentDashboard() {
 
     checkAndFetchStudentLocation();
     checkNotificationPermissionStatus();
+
+    // 0. Fetch latest recorded live bus location from database
+    fetchLatestBusLocation('b1').then((latest) => {
+      if (latest) {
+        setBusLocation(latest);
+      }
+    }).catch(() => {});
 
     // 1. Subscribe to Live Driver Broadcasts via Supabase Realtime Channel
     const unsubscribe = subscribeToTelemetry((payload: BusTelemetryPayload) => {

@@ -23,7 +23,7 @@ import {
   calculateDynamicETA,
   DynamicETA,
 } from '../../services/locationService';
-import { subscribeToTelemetry, subscribeToFleetSwap, BusTelemetryPayload, FleetSwapNotice } from '../../services/supabase';
+import { subscribeToTelemetry, subscribeToFleetSwap, fetchLatestBusLocation, BusTelemetryPayload, FleetSwapNotice } from '../../services/supabase';
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A } from '@college-bus/shared';
 
 type StaffTab = 'track' | 'stops' | 'alerts' | 'profile';
@@ -128,6 +128,13 @@ export default function StaffMobileDashboard() {
 
     checkAndFetchStaffLocation();
     checkNotificationPermissionStatus();
+
+    // 0. Fetch latest recorded live bus location from database
+    fetchLatestBusLocation('b1').then((latest) => {
+      if (latest) {
+        setBusLocation(latest);
+      }
+    }).catch(() => {});
 
     // 1. Subscribe to Live Driver Broadcasts via Supabase Realtime Channel
     const unsubscribe = subscribeToTelemetry((payload: BusTelemetryPayload) => {
@@ -770,10 +777,6 @@ export default function StaffMobileDashboard() {
                   <Text style={styles.passGridLabel}>Staff Boarding Stop</Text>
                   <Text style={styles.passGridVal}>{facultyProfile.boardingStopName}</Text>
                 </View>
-                <View style={styles.passGridItem}>
-                  <Text style={styles.passGridLabel}>Pass Number</Text>
-                  <Text style={styles.passGridVal}>{facultyProfile.passNumber}</Text>
-                </View>
               </View>
 
               <View style={styles.passFooter}>
@@ -848,17 +851,6 @@ export default function StaffMobileDashboard() {
                   thumbColor={announcementAlerts ? '#3b82f6' : '#64748b'}
                 />
               </View>
-            </View>
-
-            {/* Note Regarding Admin Web Portal */}
-            <View style={styles.adminInfoCard}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <Text style={{ fontSize: 16 }}>🖥️</Text>
-                <Text style={styles.adminInfoTitle}>Note for Operations & Admin Staff</Text>
-              </View>
-              <Text style={styles.adminInfoText}>
-                Fleet management (adding buses, configuring routes, onboarding drivers & students) is managed via the <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>Admin Web Portal</Text> on desktop browsers.
-              </Text>
             </View>
 
             {/* Sign Out Button */}

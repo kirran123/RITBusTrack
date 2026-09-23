@@ -1,4 +1,4 @@
-import { broadcastLeaveToggle, subscribeToLeave } from './supabase';
+import { broadcastLeaveToggle, subscribeToLeave, fetchLiveStudentsFromDB } from './supabase';
 
 export interface BusStudent {
   id: string;
@@ -235,7 +235,35 @@ class StudentRosterStore {
   }
 
   constructor() {
-    // Listen for leave changes from Admin Web / Supabase
+    // 1. Fetch live students from Supabase database
+    fetchLiveStudentsFromDB().then((dbStudents) => {
+      if (dbStudents && dbStudents.length > 0) {
+        const mapped: BusStudent[] = dbStudents.map((as: any, idx: number) => ({
+          id: as.id || `s${idx + 1}`,
+          name: as.profile?.name || as.name || `Student ${idx + 1}`,
+          rollNumber: as.register_number || as.rollNumber || `21IT${String(idx + 10).padStart(3, '0')}`,
+          department: as.department || 'B.Tech Information Tech.',
+          year: as.year || 3,
+          section: as.section || 'A',
+          boardingStopId: as.boarding_stop_id || as.boardingStopId || 'st1',
+          boardingStopName: as.boarding_stop?.stop_name || as.boardingStopName || 'Old Bus Stand, RJPM (Stop 1)',
+          phone: as.profile?.phone || as.phone || '+91 98421 00000',
+          email: as.profile?.email || as.email || 'student@ritrjpm.ac.in',
+          busId: as.bus_id || as.busId || 'b1',
+          busNumber: as.bus?.bus_number || as.busNumber || 'BUS-01',
+          routeId: as.route_id || as.routeId || 'r1',
+          isBoarded: false,
+          isOnLeave: Boolean(as.is_on_leave || as.isOnLeave),
+          leaveDate: as.leave_date || as.leaveDate || (as.is_on_leave ? 'Today' : undefined),
+          leaveReason: as.leave_reason || as.leaveReason || undefined,
+          avatarBg: idx % 2 === 0 ? '#059669' : '#2563eb'
+        }));
+        this.students = mapped;
+        this.notify();
+      }
+    }).catch(() => {});
+
+    // 2. Listen for leave changes from Admin Web / Supabase
     try {
       subscribeToLeave((payload) => {
         this.students = this.students.map((s) =>

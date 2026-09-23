@@ -2,20 +2,25 @@ import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import { GPSCoordinate, EmergencyAlert } from '@college-bus/shared';
 
-// Read Supabase credentials with fallback
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+// Read Supabase credentials with fallback to live production project
+const supabaseUrl = 
+  process.env.EXPO_PUBLIC_SUPABASE_URL || 
+  'https://ztsmxehwjyriyihypppu.supabase.co';
+
+const supabaseAnonKey = 
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0c214ZWh3anlyaXlpaHlwcHB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MTA4NTMsImV4cCI6MjEwNTQ4Njg1M30.16sn2O8c1HGA6lJTD0TbWYG9lvnHFrhU6-fZXlbmwi4';
 
 export const isLiveBackendConfigured = Boolean(
   supabaseUrl && 
   supabaseAnonKey && 
-  !supabaseUrl.includes('demo')
+  !supabaseUrl.includes('placeholder')
 );
 
 // Initialize Supabase Client
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder-anon-key',
+  supabaseUrl, 
+  supabaseAnonKey,
   {
     auth: {
       persistSession: true,
@@ -359,5 +364,49 @@ export function subscribeToTrip(listener: TripListener) {
   };
 }
 
+/**
+ * Fetch the latest live GPS coordinate of a bus from the Supabase database
+ */
+export async function fetchLatestBusLocation(busId: string = 'b1'): Promise<GPSCoordinate | null> {
+  try {
+    const { data, error } = await supabase
+      .from('current_bus_locations')
+      .select('*')
+      .eq('bus_id', busId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) return null;
+    return {
+      latitude: Number(data.latitude),
+      longitude: Number(data.longitude),
+      speed: Number(data.speed || 0),
+      heading: Number(data.heading || 0),
+      accuracy: Number(data.accuracy || 4),
+      timestamp: data.updated_at,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch registered live students from the Supabase database
+ */
+export async function fetchLiveStudentsFromDB(): Promise<any[] | null> {
+  try {
+    const { data, error } = await supabase
+      .from('students')
+      .select('*, profile:profiles(*), boarding_stop:stops(*), bus:buses(*)');
+
+    if (error || !data || data.length === 0) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 // Auto-initialize realtime channel on load
 initRealtimeChannel();
+
