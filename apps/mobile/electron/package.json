@@ -1,0 +1,7 @@
+{
+  "name": "college-bus-mobile-app",
+  "version": "1.0.0",
+  "description": "College Bus Mobile App - Student, Driver & Staff",
+  "author": "College Transport System Team",
+  "main": "main.cjs"
+}

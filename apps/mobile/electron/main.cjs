@@ -54,7 +54,10 @@ function startLocalServer(distPath) {
 }
 
 async function createWindow() {
-  const distPath = path.join(__dirname, '..', 'dist');
+  let distPath = path.join(__dirname, 'dist');
+  if (!fs.existsSync(distPath)) {
+    distPath = path.join(__dirname, '..', 'dist');
+  }
   const port = await startLocalServer(distPath);
 
   const win = new BrowserWindow({
