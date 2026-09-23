@@ -16,14 +16,15 @@ export type MobilePortalRole = 'driver' | 'student' | 'staff';
 export default function LoginScreen() {
   const router = useRouter();
   const [role, setRole] = useState<MobilePortalRole>('driver');
-  const [email, setEmail] = useState('driver@ritrjpm.ac.in');
+  const [phone, setPhone] = useState('9894668646');
+  const [email, setEmail] = useState('kishore.it@ritrjpm.ac.in');
   const [password, setPassword] = useState('driver123');
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSelectRole = (r: MobilePortalRole) => {
     setRole(r);
     if (r === 'driver') {
-      setEmail('moorthi.driver@ritrjpm.ac.in');
+      setPhone('9894668646');
       setPassword('driver123');
     } else if (r === 'student') {
       setEmail('kishore.it@ritrjpm.ac.in');
@@ -35,6 +36,34 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    if (role === 'driver') {
+      if (!phone || phone.trim().length < 8) {
+        if (Platform.OS === 'web') {
+          window.alert('Please enter a valid driver phone number (e.g. 9894668646)');
+        }
+        return;
+      }
+      if (!password || password.trim().length === 0) {
+        if (Platform.OS === 'web') {
+          window.alert('Please enter your driver password');
+        }
+        return;
+      }
+    } else {
+      if (!email || !email.includes('@')) {
+        if (Platform.OS === 'web') {
+          window.alert('Please enter a valid institutional email address');
+        }
+        return;
+      }
+      if (!password || password.trim().length === 0) {
+        if (Platform.OS === 'web') {
+          window.alert('Please enter your password');
+        }
+        return;
+      }
+    }
+
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'default') {
         await window.Notification.requestPermission();
@@ -132,11 +161,11 @@ export default function LoginScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={styles.driverName}>Driver Portal</Text>
                   <View style={styles.busBadge}>
-                    <Text style={styles.busBadgeText}>30 BUSES ACTIVE</Text>
+                    <Text style={styles.busBadgeText}>PHONE & PASSWORD LOGIN</Text>
                   </View>
                 </View>
                 <Text style={styles.driverMeta}>
-                  Live Cockpit &bull; Turn-by-Turn Waypoints & Student Roster
+                  Log in with your registered phone number & password configured by transport admin.
                 </Text>
               </View>
             </View>
@@ -151,7 +180,7 @@ export default function LoginScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={styles.driverName}>Student Bus Tracker</Text>
                   <View style={styles.busBadgeBlue}>
-                    <Text style={styles.busBadgeTextBlue}>LIVE RADAR</Text>
+                    <Text style={styles.busBadgeTextBlue}>EMAIL & PASSWORD</Text>
                   </View>
                 </View>
                 <Text style={styles.driverMeta}>
@@ -170,7 +199,7 @@ export default function LoginScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={styles.driverName}>Staff Commuter</Text>
                   <View style={styles.busBadgeAmber}>
-                    <Text style={styles.busBadgeTextAmber}>FACULTY ACCESS</Text>
+                    <Text style={styles.busBadgeTextAmber}>EMAIL & PASSWORD</Text>
                   </View>
                 </View>
                 <Text style={styles.driverMeta}>
@@ -182,31 +211,49 @@ export default function LoginScreen() {
 
           <Text style={styles.inputSectionTitle}>LOGIN CREDENTIALS</Text>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>
-              {role === 'driver'
-                ? 'Driver Employee Email / ID'
-                : role === 'student'
-                ? 'Student Institutional Email'
-                : 'Staff Member Email'}
-            </Text>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.inputIcon}>{role === 'driver' ? '👨‍✈️' : role === 'student' ? '✉️' : '👔'}</Text>
-              <TextInput
-                style={styles.textInput}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="user@ritrjpm.ac.in"
-                placeholderTextColor="#64748b"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+          {role === 'driver' ? (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Driver Registered Phone Number</Text>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputIcon}>📱</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="9894668646"
+                  placeholderTextColor="#64748b"
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
             </View>
-          </View>
+          ) : (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>
+                {role === 'student' ? 'Student Institutional Email' : 'Staff Member Email'}
+              </Text>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputIcon}>{role === 'student' ? '🎓' : '👔'}</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder={role === 'student' ? 'kishore.it@ritrjpm.ac.in' : 'ganesh.staff@ritrjpm.ac.in'}
+                  placeholderTextColor="#64748b"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            </View>
+          )}
 
           <View style={styles.inputGroup}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.inputLabel}>Password</Text>
+              <Text style={styles.inputLabel}>
+                {role === 'driver' ? 'Driver App Password' : 'Password'}
+              </Text>
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Text style={styles.showPassText}>{showPassword ? 'Hide' : 'Show'}</Text>
               </TouchableOpacity>
@@ -236,7 +283,7 @@ export default function LoginScreen() {
           >
             <Text style={styles.submitBtnText}>
               {role === 'driver'
-                ? 'Sign In & Launch Driver Cockpit'
+                ? 'Sign In with Phone & Launch Cockpit'
                 : role === 'student'
                 ? 'Sign In as Student'
                 : 'Sign In as Staff Commuter'}

@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS public.drivers (
     employee_id VARCHAR(100) UNIQUE NOT NULL,
     license_number VARCHAR(100) NOT NULL,
     phone VARCHAR(50) NOT NULL,
+    password VARCHAR(255) DEFAULT 'driver123',
     assigned_bus_id UUID, -- Foreign key constraint added later to prevent circular dependency
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
     created_at TIMESTAMPTZ DEFAULT NOW(),

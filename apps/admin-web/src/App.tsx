@@ -46,8 +46,8 @@ const saveStorage = <T,>(key: string, data: T): void => {
 };
 
 export const App: React.FC = () => {
-  // Authentication State: Always starts at Login (reloading page stays on Login)
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  // Authentication State: Persisted in localStorage so reloading stays logged in
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => loadStorage<UserProfile | null>('bustrack_auth_user', null));
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -64,7 +64,14 @@ export const App: React.FC = () => {
   const [notifications, setNotifications] = useState<SystemNotification[]>(() => loadStorage('bustrack_notifications_v1', INITIAL_NOTIFICATIONS));
   const [staffList, setStaffList] = useState<StaffUser[]>(() => loadStorage('bustrack_staff_v1', INITIAL_STAFF));
 
-  // Auto-Save Effect Watchers (Preserves all additions/edits across page reloads)
+  // Auto-Save Effect Watchers (Preserves all state & auth across page reloads)
+  useEffect(() => {
+    if (currentUser) {
+      saveStorage('bustrack_auth_user', currentUser);
+    } else {
+      localStorage.removeItem('bustrack_auth_user');
+    }
+  }, [currentUser]);
   useEffect(() => saveStorage('bustrack_buses_v1', buses), [buses]);
   useEffect(() => saveStorage('bustrack_drivers_v1', drivers), [drivers]);
   useEffect(() => saveStorage('bustrack_students_v1', students), [students]);

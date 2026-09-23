@@ -90,6 +90,7 @@ export interface Driver {
   employee_id: string;
   license_number: string;
   phone: string;
+  password?: string;
   assigned_bus_id?: string | null;
   status: 'active' | 'inactive';
   created_at?: string;

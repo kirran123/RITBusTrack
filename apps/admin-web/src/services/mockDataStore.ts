@@ -404,6 +404,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-01',
     license_number: 'TN-67-2015-001',
     phone: '+91 9894668646',
+    password: 'driver123',
     assigned_bus_id: 'b1',
     status: 'active',
     profile: { id: 'u_dr1', auth_user_id: 'auth_dr1', name: 'Mr. B. Moorthi', email: 'moorthi.driver@ritrjpm.ac.in', phone: '+91 9894668646', role: 'driver', status: 'active' }
@@ -414,6 +415,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-02',
     license_number: 'TN-67-2016-002',
     phone: '+91 9786470807',
+    password: 'driver123',
     assigned_bus_id: 'b2',
     status: 'active',
     profile: { id: 'u_dr2', auth_user_id: 'auth_dr2', name: 'Mr. A. Gurumoorthy', email: 'gurumoorthy.driver@ritrjpm.ac.in', phone: '+91 9786470807', role: 'driver', status: 'active' }
@@ -424,6 +426,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-03',
     license_number: 'TN-67-2014-003',
     phone: '+91 9787764316',
+    password: 'driver123',
     assigned_bus_id: 'b3',
     status: 'active',
     profile: { id: 'u_dr3', auth_user_id: 'auth_dr3', name: 'Mr. M. Muthuvelpandi', email: 'muthuvelpandi.driver@ritrjpm.ac.in', phone: '+91 9787764316', role: 'driver', status: 'active' }
@@ -434,6 +437,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-04',
     license_number: 'TN-67-2017-004',
     phone: '+91 9944414028',
+    password: 'driver123',
     assigned_bus_id: 'b4',
     status: 'active',
     profile: { id: 'u_dr4', auth_user_id: 'auth_dr4', name: 'Mr. C. Rameshwaran', email: 'rameshwaran.driver@ritrjpm.ac.in', phone: '+91 9944414028', role: 'driver', status: 'active' }
@@ -444,6 +448,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-05',
     license_number: 'TN-67-2018-005',
     phone: '+91 9487297578',
+    password: 'driver123',
     assigned_bus_id: 'b5',
     status: 'active',
     profile: { id: 'u_dr5', auth_user_id: 'auth_dr5', name: 'Mr. G. Murugan', email: 'murugan.driver@ritrjpm.ac.in', phone: '+91 9487297578', role: 'driver', status: 'active' }
@@ -454,6 +459,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-06',
     license_number: 'TN-84-2015-006',
     phone: '+91 8883477365',
+    password: 'driver123',
     assigned_bus_id: 'b6',
     status: 'active',
     profile: { id: 'u_dr6', auth_user_id: 'auth_dr6', name: 'Mr. S. Mariyappan', email: 'mariyappan.driver@ritrjpm.ac.in', phone: '+91 8883477365', role: 'driver', status: 'active' }
@@ -464,6 +470,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-07',
     license_number: 'TN-84-2016-007',
     phone: '+91 9025242536',
+    password: 'driver123',
     assigned_bus_id: 'b7',
     status: 'active',
     profile: { id: 'u_dr7', auth_user_id: 'auth_dr7', name: 'Mr. C. Sundarraj', email: 'sundarraj.driver@ritrjpm.ac.in', phone: '+91 9025242536', role: 'driver', status: 'active' }
@@ -474,6 +481,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-08',
     license_number: 'TN-84-2017-008',
     phone: '+91 9791561199',
+    password: 'driver123',
     assigned_bus_id: 'b8',
     status: 'active',
     profile: { id: 'u_dr8', auth_user_id: 'auth_dr8', name: 'Mr. K. Raju', email: 'raju.driver@ritrjpm.ac.in', phone: '+91 9791561199', role: 'driver', status: 'active' }
@@ -484,6 +492,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-09',
     license_number: 'TN-84-2018-009',
     phone: '+91 9942359928',
+    password: 'driver123',
     assigned_bus_id: 'b9',
     status: 'active',
     profile: { id: 'u_dr9', auth_user_id: 'auth_dr9', name: 'Mr. K. Sankar', email: 'sankar.driver@ritrjpm.ac.in', phone: '+91 9942359928', role: 'driver', status: 'active' }
@@ -494,6 +503,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-10',
     license_number: 'TN-84-2019-010',
     phone: '+91 9791025181',
+    password: 'driver123',
     assigned_bus_id: 'b10',
     status: 'active',
     profile: { id: 'u_dr10', auth_user_id: 'auth_dr10', name: 'Mr. P. Muneeswaran', email: 'muneeswaran.driver@ritrjpm.ac.in', phone: '+91 9791025181', role: 'driver', status: 'active' }
@@ -504,6 +514,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-11',
     license_number: 'TN-84-2019-011',
     phone: '+91 9080228810',
+    password: 'driver123',
     assigned_bus_id: 'b11',
     status: 'active',
     profile: { id: 'u_dr11', auth_user_id: 'auth_dr11', name: 'Mr. G. Vishnuvaradhan', email: 'vishnu.driver@ritrjpm.ac.in', phone: '+91 9080228810', role: 'driver', status: 'active' }
@@ -514,6 +525,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-12',
     license_number: 'TN-84-2018-012',
     phone: '+91 9655463237',
+    password: 'driver123',
     assigned_bus_id: 'b12',
     status: 'active',
     profile: { id: 'u_dr12', auth_user_id: 'auth_dr12', name: 'Mr. V. Pulugandi', email: 'pulugandi.driver@ritrjpm.ac.in', phone: '+91 9655463237', role: 'driver', status: 'active' }
@@ -524,6 +536,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-13',
     license_number: 'TN-84-2017-013',
     phone: '+91 8870815821',
+    password: 'driver123',
     assigned_bus_id: 'b13',
     status: 'active',
     profile: { id: 'u_dr13', auth_user_id: 'auth_dr13', name: 'Mr. G. Muthukumar', email: 'muthukumar.driver@ritrjpm.ac.in', phone: '+91 8870815821', role: 'driver', status: 'active' }
@@ -534,6 +547,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-14',
     license_number: 'TN-84-2016-014',
     phone: '+91 8143987207',
+    password: 'driver123',
     assigned_bus_id: 'b14',
     status: 'active',
     profile: { id: 'u_dr14', auth_user_id: 'auth_dr14', name: 'Mr. M. Gurunathan', email: 'gurunathan.driver@ritrjpm.ac.in', phone: '+91 8143987207', role: 'driver', status: 'active' }
@@ -544,6 +558,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-15',
     license_number: 'TN-84-2015-015',
     phone: '+91 9787506114',
+    password: 'driver123',
     assigned_bus_id: 'b15',
     status: 'active',
     profile: { id: 'u_dr15', auth_user_id: 'auth_dr15', name: 'Mr. M. Paramasivam', email: 'paramasivam.driver@ritrjpm.ac.in', phone: '+91 9787506114', role: 'driver', status: 'active' }
@@ -554,6 +569,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-16',
     license_number: 'TN-84-2017-016',
     phone: '+91 8056457883',
+    password: 'driver123',
     assigned_bus_id: 'b16',
     status: 'active',
     profile: { id: 'u_dr16', auth_user_id: 'auth_dr16', name: 'Mr. P. Balamurugan', email: 'balamurugan.driver@ritrjpm.ac.in', phone: '+91 8056457883', role: 'driver', status: 'active' }
@@ -564,6 +580,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-17',
     license_number: 'TN-84-2016-017',
     phone: '+91 9655717809',
+    password: 'driver123',
     assigned_bus_id: 'b17',
     status: 'active',
     profile: { id: 'u_dr17', auth_user_id: 'auth_dr17', name: 'Mr. S. Kannan', email: 'kannan.driver@ritrjpm.ac.in', phone: '+91 9655717809', role: 'driver', status: 'active' }
@@ -574,6 +591,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-18',
     license_number: 'TN-84-2018-018',
     phone: '+91 9626768029',
+    password: 'driver123',
     assigned_bus_id: 'b18',
     status: 'active',
     profile: { id: 'u_dr18', auth_user_id: 'auth_dr18', name: 'Kumar K', email: 'kumar.driver@ritrjpm.ac.in', phone: '+91 9626768029', role: 'driver', status: 'active' }
@@ -584,6 +602,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-19',
     license_number: 'TN-84-2019-019',
     phone: '+91 9655578154',
+    password: 'driver123',
     assigned_bus_id: 'b19',
     status: 'active',
     profile: { id: 'u_dr19', auth_user_id: 'auth_dr19', name: 'Mr. R. Pandiyaraj', email: 'pandiyaraj.driver@ritrjpm.ac.in', phone: '+91 9655578154', role: 'driver', status: 'active' }
@@ -594,6 +613,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-20',
     license_number: 'TN-84-2020-020',
     phone: '+91 9787772803',
+    password: 'driver123',
     assigned_bus_id: 'b20',
     status: 'active',
     profile: { id: 'u_dr20', auth_user_id: 'auth_dr20', name: 'Mr. S. Jayaganesan', email: 'jayaganesan.driver@ritrjpm.ac.in', phone: '+91 9787772803', role: 'driver', status: 'active' }
@@ -604,6 +624,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-21',
     license_number: 'TN-84-2021-021',
     phone: '+91 9500318042',
+    password: 'driver123',
     assigned_bus_id: 'b21',
     status: 'active',
     profile: { id: 'u_dr21', auth_user_id: 'auth_dr21', name: 'Mr. R. Yogeshkumar', email: 'yogeshkumar.driver@ritrjpm.ac.in', phone: '+91 9500318042', role: 'driver', status: 'active' }
@@ -614,6 +635,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-22',
     license_number: 'TN-84-2015-022',
     phone: '+91 9487257513',
+    password: 'driver123',
     assigned_bus_id: 'b22',
     status: 'active',
     profile: { id: 'u_dr22', auth_user_id: 'auth_dr22', name: 'Mr. R. Selvakumar', email: 'selvakumar.driver@ritrjpm.ac.in', phone: '+91 9487257513', role: 'driver', status: 'active' }
@@ -624,6 +646,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-23',
     license_number: 'TN-84-2016-023',
     phone: '+91 9442534601',
+    password: 'driver123',
     assigned_bus_id: 'b23',
     status: 'active',
     profile: { id: 'u_dr23', auth_user_id: 'auth_dr23', name: 'Mr. R. Sivakumar', email: 'sivakumar.driver@ritrjpm.ac.in', phone: '+91 9442534601', role: 'driver', status: 'active' }
@@ -634,6 +657,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-24',
     license_number: 'TN-84-2017-024',
     phone: '+91 9884824131',
+    password: 'driver123',
     assigned_bus_id: 'b24',
     status: 'active',
     profile: { id: 'u_dr24', auth_user_id: 'auth_dr24', name: 'Mr. N. Ganesan', email: 'ganesan.driver@ritrjpm.ac.in', phone: '+91 9884824131', role: 'driver', status: 'active' }
@@ -644,6 +668,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-25',
     license_number: 'TN-84-2018-025',
     phone: '+91 6379437127',
+    password: 'driver123',
     assigned_bus_id: 'b25',
     status: 'active',
     profile: { id: 'u_dr25', auth_user_id: 'auth_dr25', name: 'Mr. G. Senthil Kumar', email: 'gsenthil.driver@ritrjpm.ac.in', phone: '+91 6379437127', role: 'driver', status: 'active' }
@@ -654,6 +679,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-26',
     license_number: 'TN-84-2019-026',
     phone: '+91 9585271800',
+    password: 'driver123',
     assigned_bus_id: 'b26',
     status: 'active',
     profile: { id: 'u_dr26', auth_user_id: 'auth_dr26', name: 'Mr. R. Kalimuthu', email: 'kalimuthu.driver@ritrjpm.ac.in', phone: '+91 9585271800', role: 'driver', status: 'active' }
@@ -664,6 +690,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-27',
     license_number: 'TN-84-2020-027',
     phone: '+91 9940842108',
+    password: 'driver123',
     assigned_bus_id: 'b27',
     status: 'active',
     profile: { id: 'u_dr27', auth_user_id: 'auth_dr27', name: 'Mr. K. Senthil Kumar', email: 'ksenthil.driver@ritrjpm.ac.in', phone: '+91 9940842108', role: 'driver', status: 'active' }
@@ -674,6 +701,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-28',
     license_number: 'TN-84-2021-028',
     phone: '+91 7867027589',
+    password: 'driver123',
     assigned_bus_id: 'b28',
     status: 'active',
     profile: { id: 'u_dr28', auth_user_id: 'auth_dr28', name: 'Mr. R. Kalamegam', email: 'kalamegam.driver@ritrjpm.ac.in', phone: '+91 7867027589', role: 'driver', status: 'active' }
@@ -684,6 +712,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-29',
     license_number: 'TN-84-2022-029',
     phone: '+91 9585875780',
+    password: 'driver123',
     assigned_bus_id: 'b29',
     status: 'active',
     profile: { id: 'u_dr29', auth_user_id: 'auth_dr29', name: 'Mr. S. Velmurugan', email: 'velmurugan.driver@ritrjpm.ac.in', phone: '+91 9585875780', role: 'driver', status: 'active' }
@@ -694,6 +723,7 @@ export const INITIAL_DRIVERS: Driver[] = [
     employee_id: 'EMP-DRV-30',
     license_number: 'TN-84-2023-030',
     phone: '+91 7092454418',
+    password: 'driver123',
     assigned_bus_id: 'b30',
     status: 'active',
     profile: { id: 'u_dr30', auth_user_id: 'auth_dr30', name: 'Mr. A. Muthukrishnan', email: 'muthukrishnan.driver@ritrjpm.ac.in', phone: '+91 7092454418', role: 'driver', status: 'active' }
