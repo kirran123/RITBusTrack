@@ -1128,23 +1128,6 @@ export default function DriverDashboard() {
               </View>
             </View>
 
-            {/* GPS Diagnostics */}
-            <Text style={styles.sectionHeader}>GPS & Telemetry Diagnostics</Text>
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>GPS Sensor Quality</Text>
-                <Text style={[styles.infoVal, { color: signal.color }]}>{signal.label}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Heartbeat Sync Rate</Text>
-                <Text style={styles.infoVal}>60s Periodic Broadcast</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Realtime Channel</Text>
-                <Text style={styles.infoVal}>bus_tracking_live (Supabase)</Text>
-              </View>
-            </View>
-
             {/* Sign out */}
             <TouchableOpacity style={styles.signOutBtn} onPress={() => router.replace('/')}>
               <Text style={styles.signOutText}>Sign Out &bull; Switch Portal</Text>
