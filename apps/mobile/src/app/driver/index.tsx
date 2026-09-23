@@ -1093,24 +1093,6 @@ export default function DriverDashboard() {
               </View>
             </View>
 
-            {/* Performance & Safety Rating Strip */}
-            <View style={styles.driverRatingCard}>
-              <View style={styles.ratingStat}>
-                <Text style={styles.ratingVal}>⭐ 4.98</Text>
-                <Text style={styles.ratingLabel}>SAFETY RATING</Text>
-              </View>
-              <View style={styles.ratingDivider} />
-              <View style={styles.ratingStat}>
-                <Text style={styles.ratingVal}>420</Text>
-                <Text style={styles.ratingLabel}>TRIPS COMPLETED</Text>
-              </View>
-              <View style={styles.ratingDivider} />
-              <View style={styles.ratingStat}>
-                <Text style={styles.ratingVal}>99.4%</Text>
-                <Text style={styles.ratingLabel}>ON-TIME RATE</Text>
-              </View>
-            </View>
-
             {/* Active Duty Shift Timetable */}
             <Text style={styles.sectionHeader}>Assigned Duty Shifts</Text>
             <View style={styles.shiftCard}>
