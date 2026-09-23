@@ -17,6 +17,7 @@ export interface LocationTrackerConfig {
   tripId: string;
   busNumber?: string;
   driverName?: string;
+  shift?: 'morning' | 'evening';
   intervalMs?: number;
   useSimulation?: boolean;
   onLocationUpdate: (coord: GPSCoordinate, distanceTravelledKm: number) => void;
@@ -185,8 +186,8 @@ export function calculateDynamicETA(
   };
 }
 
-// Detailed intermediate waypoints along Route 1 (Rajapalayam New Bus Stand ➔ Gandhi Statue ➔ PACR Mill ➔ Samsigapuram Rd ➔ RIT Main Gate)
-const ROUTE_1_WAYPOINTS = [
+// Morning Route 1 (Rajapalayam Stand ➔ Gandhi Statue ➔ PACR Mill ➔ Samsigapuram Rd ➔ RIT Main Gate)
+const ROUTE_1_MORNING_WAYPOINTS = [
   { lat: 9.447500, lng: 77.545000, speed: 0, heading: 42, stopIdx: 0 },
   { lat: 9.447620, lng: 77.545180, speed: 18, heading: 42, stopIdx: 0 },
   { lat: 9.447780, lng: 77.545390, speed: 27, heading: 44, stopIdx: 0 },
@@ -216,6 +217,39 @@ const ROUTE_1_WAYPOINTS = [
   { lat: 9.451850, lng: 77.552800, speed: 28, heading: 36, stopIdx: 4 },
   { lat: 9.451950, lng: 77.553200, speed: 14, heading: 35, stopIdx: 4 },
   { lat: 9.452000, lng: 77.553500, speed: 0, heading: 0, stopIdx: 4 }, // College Main Gate Terminal
+];
+
+// Evening Reverse Route 1 (RIT Main Gate ➔ Samsigapuram Rd ➔ PACR Mill ➔ Gandhi Statue ➔ Rajapalayam Stand)
+const ROUTE_1_EVENING_WAYPOINTS = [
+  { lat: 9.452000, lng: 77.553500, speed: 0, heading: 215, stopIdx: 0 }, // College Main Gate Hub
+  { lat: 9.451950, lng: 77.553200, speed: 16, heading: 215, stopIdx: 0 },
+  { lat: 9.451850, lng: 77.552800, speed: 26, heading: 216, stopIdx: 0 },
+  { lat: 9.451700, lng: 77.552300, speed: 35, heading: 215, stopIdx: 0 },
+  { lat: 9.451520, lng: 77.551800, speed: 33, heading: 214, stopIdx: 0 },
+  { lat: 9.451350, lng: 77.551350, speed: 22, heading: 212, stopIdx: 1 },
+  { lat: 9.451200, lng: 77.551000, speed: 0, heading: 210, stopIdx: 1 }, // Samsigapuram Road Turn Stop
+  { lat: 9.451080, lng: 77.550780, speed: 24, heading: 210, stopIdx: 1 },
+  { lat: 9.450950, lng: 77.550450, speed: 34, heading: 211, stopIdx: 1 },
+  { lat: 9.450780, lng: 77.550050, speed: 30, heading: 212, stopIdx: 1 },
+  { lat: 9.450620, lng: 77.549720, speed: 18, heading: 213, stopIdx: 2 },
+  { lat: 9.450500, lng: 77.549500, speed: 0, heading: 215, stopIdx: 2 }, // PACR Mill Circle Stop
+  { lat: 9.450400, lng: 77.549380, speed: 14, heading: 215, stopIdx: 2 },
+  { lat: 9.450250, lng: 77.549200, speed: 28, heading: 215, stopIdx: 2 },
+  { lat: 9.450000, lng: 77.548850, speed: 36, heading: 215, stopIdx: 2 },
+  { lat: 9.449750, lng: 77.548450, speed: 37, heading: 216, stopIdx: 2 },
+  { lat: 9.449500, lng: 77.548050, speed: 33, heading: 217, stopIdx: 3 },
+  { lat: 9.449300, lng: 77.547700, speed: 26, heading: 218, stopIdx: 3 },
+  { lat: 9.449120, lng: 77.547400, speed: 15, heading: 218, stopIdx: 3 },
+  { lat: 9.449000, lng: 77.547200, speed: 0, heading: 220, stopIdx: 3 }, // Gandhi Statue Stop
+  { lat: 9.448900, lng: 77.547050, speed: 16, heading: 220, stopIdx: 3 },
+  { lat: 9.448750, lng: 77.546820, speed: 25, heading: 221, stopIdx: 3 },
+  { lat: 9.448550, lng: 77.546500, speed: 32, heading: 223, stopIdx: 3 },
+  { lat: 9.448350, lng: 77.546200, speed: 35, heading: 225, stopIdx: 3 },
+  { lat: 9.448150, lng: 77.545900, speed: 34, heading: 226, stopIdx: 4 },
+  { lat: 9.447950, lng: 77.545620, speed: 30, heading: 225, stopIdx: 4 },
+  { lat: 9.447780, lng: 77.545390, speed: 25, heading: 224, stopIdx: 4 },
+  { lat: 9.447620, lng: 77.545180, speed: 16, heading: 222, stopIdx: 4 },
+  { lat: 9.447500, lng: 77.545000, speed: 0, heading: 0, stopIdx: 4 }, // Rajapalayam New Bus Stand Terminal
 ];
 
 class LocationTracker {
@@ -339,6 +373,7 @@ class LocationTracker {
       tripId,
       busNumber = 'BUS-01',
       driverName = 'Mr. B. Moorthi',
+      shift = 'morning',
       intervalMs = 2000, // 2-second dynamic telemetry refresh
       onLocationUpdate,
       onError,
@@ -350,8 +385,10 @@ class LocationTracker {
     this.waypointIndex = 0;
     this.hasNativeMovement = false;
 
+    const activeWaypoints = shift === 'evening' ? ROUTE_1_EVENING_WAYPOINTS : ROUTE_1_MORNING_WAYPOINTS;
+
     // Initial starting coordinate
-    const startPoint = ROUTE_1_WAYPOINTS[0];
+    const startPoint = activeWaypoints[0];
     const initialCoord: GPSCoordinate = {
       latitude: startPoint.lat,
       longitude: startPoint.lng,
@@ -450,12 +487,12 @@ class LocationTracker {
 
       const prevIndex = this.waypointIndex;
       // Advance to next waypoint if not reached the terminal
-      if (this.waypointIndex < ROUTE_1_WAYPOINTS.length - 1) {
+      if (this.waypointIndex < activeWaypoints.length - 1) {
         this.waypointIndex += 1;
       }
 
-      const prevPt = ROUTE_1_WAYPOINTS[prevIndex];
-      const curPt = ROUTE_1_WAYPOINTS[this.waypointIndex];
+      const prevPt = activeWaypoints[prevIndex];
+      const curPt = activeWaypoints[this.waypointIndex];
 
       // Calculate incremental distance travelled
       const deltaKm = calculateDistanceKm(prevPt.lat, prevPt.lng, curPt.lat, curPt.lng);
@@ -463,15 +500,15 @@ class LocationTracker {
 
       // Add realistic speed micro-fluctuations (e.g. ±2 km/h around base speed)
       let dynamicSpeed = curPt.speed;
-      if (dynamicSpeed > 0 && this.waypointIndex < ROUTE_1_WAYPOINTS.length - 1) {
+      if (dynamicSpeed > 0 && this.waypointIndex < activeWaypoints.length - 1) {
         const jitter = (Math.random() * 4) - 2; // -2 to +2
         dynamicSpeed = Math.max(15, Math.min(45, Math.round(curPt.speed + jitter)));
       }
 
       // Calculate accurate road bearing
       let bearing = curPt.heading;
-      if (this.waypointIndex < ROUTE_1_WAYPOINTS.length - 1) {
-        const nextPt = ROUTE_1_WAYPOINTS[this.waypointIndex + 1];
+      if (this.waypointIndex < activeWaypoints.length - 1) {
+        const nextPt = activeWaypoints[this.waypointIndex + 1];
         bearing = calculateBearing(curPt.lat, curPt.lng, nextPt.lat, nextPt.lng);
       }
 

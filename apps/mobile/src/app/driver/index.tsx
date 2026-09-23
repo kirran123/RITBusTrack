@@ -29,6 +29,112 @@ import { GPSCoordinate, INITIAL_STOPS, EmergencyType, EmergencyAlert } from '@co
 
 type DriverTab = 'nav' | 'students' | 'cockpit' | 'sos' | 'profile';
 
+const MORNING_ROUTE_STOPS: Stop[] = [
+  {
+    id: 'stop_1',
+    route_id: 'r1',
+    stop_name: 'Rajapalayam New Bus Stand',
+    latitude: 9.4475,
+    longitude: 77.5450,
+    stop_order: 1,
+    estimated_arrival: '07:45 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_2',
+    route_id: 'r1',
+    stop_name: 'Gandhi Statue Junction',
+    latitude: 9.4490,
+    longitude: 77.5472,
+    stop_order: 2,
+    estimated_arrival: '07:52 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_3',
+    route_id: 'r1',
+    stop_name: 'PACR Mill Circle',
+    latitude: 9.4505,
+    longitude: 77.5495,
+    stop_order: 3,
+    estimated_arrival: '08:00 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_4',
+    route_id: 'r1',
+    stop_name: 'Samsigapuram Road Turn',
+    latitude: 9.4512,
+    longitude: 77.5510,
+    stop_order: 4,
+    estimated_arrival: '08:08 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_5',
+    route_id: 'r1',
+    stop_name: 'College Main Gate (Campus Hub)',
+    latitude: 9.4520,
+    longitude: 77.5535,
+    stop_order: 5,
+    estimated_arrival: '08:20 AM',
+    status: 'active',
+  },
+];
+
+const EVENING_ROUTE_STOPS: Stop[] = [
+  {
+    id: 'stop_5',
+    route_id: 'r1',
+    stop_name: 'College Main Gate (Campus Hub)',
+    latitude: 9.4520,
+    longitude: 77.5535,
+    stop_order: 1,
+    estimated_arrival: '04:30 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_4',
+    route_id: 'r1',
+    stop_name: 'Samsigapuram Road Turn',
+    latitude: 9.4512,
+    longitude: 77.5510,
+    stop_order: 2,
+    estimated_arrival: '04:42 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_3',
+    route_id: 'r1',
+    stop_name: 'PACR Mill Circle',
+    latitude: 9.4505,
+    longitude: 77.5495,
+    stop_order: 3,
+    estimated_arrival: '04:55 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_2',
+    route_id: 'r1',
+    stop_name: 'Gandhi Statue Junction',
+    latitude: 9.4490,
+    longitude: 77.5472,
+    stop_order: 4,
+    estimated_arrival: '05:08 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_1',
+    route_id: 'r1',
+    stop_name: 'Rajapalayam New Bus Stand',
+    latitude: 9.4475,
+    longitude: 77.5450,
+    stop_order: 5,
+    estimated_arrival: '05:25 PM',
+    status: 'active',
+  },
+];
+
 export default function DriverDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<DriverTab>('nav');
@@ -63,7 +169,7 @@ export default function DriverDashboard() {
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed && (parsed.name || parsed.profile?.name)) {
-            setDriverProfile(prev => ({
+            setDriverProfile((prev) => ({
               ...prev,
               id: parsed.id || prev.id,
               name: parsed.profile?.name || parsed.name || prev.name,
@@ -71,7 +177,8 @@ export default function DriverDashboard() {
               phone: parsed.phone || parsed.profile?.phone || prev.phone,
               licenseNumber: parsed.license_number || prev.licenseNumber,
               busNumber: parsed.bus?.bus_number || parsed.bus_number || prev.busNumber,
-              registrationNumber: parsed.bus?.registration_number || parsed.registration_number || prev.registrationNumber,
+              registrationNumber:
+                parsed.bus?.registration_number || parsed.registration_number || prev.registrationNumber,
               routeName: parsed.route_name || prev.routeName,
             }));
             if (parsed.bus?.bus_number || parsed.bus_number) {
@@ -97,17 +204,14 @@ export default function DriverDashboard() {
   }, []);
 
   // Active stops sequence based on shift
-  const currentStops = shift === 'evening'
-    ? [...INITIAL_STOPS].reverse()
-    : INITIAL_STOPS;
+  const currentStops = shift === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
 
   // Live Telemetry state
-  const [currentLoc, setCurrentLoc] = useState<GPSCoordinate | null>({
-    latitude: 9.4475,
-    longitude: 77.545,
-    speed: 0,
-    heading: 0,
-    accuracy: 3.5,
+  const [currentLoc, setCurrentLoc] = useState<GPSCoordinate | null>(() => {
+    const isEve = new Date().getHours() >= 13;
+    return isEve
+      ? { latitude: 9.4520, longitude: 77.5535, speed: 0, heading: 215, accuracy: 3.5 }
+      : { latitude: 9.4475, longitude: 77.5450, speed: 0, heading: 42, accuracy: 3.5 };
   });
   const [distanceTravelledKm, setDistanceTravelledKm] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -209,13 +313,14 @@ export default function DriverDashboard() {
       tripId: 'trip_' + Date.now(),
       busNumber: driverProfile.busNumber || 'BUS-01',
       driverName: driverProfile.name || 'Mr. B. Moorthi',
+      shift,
       useSimulation,
       onLocationUpdate: (coord, distKm) => {
         setCurrentLoc(coord);
         setDistanceTravelledKm(distKm);
 
         // Auto-advance stop checklist and passenger boarding when passing stops
-        INITIAL_STOPS.slice(0, 5).forEach((stop, sIdx) => {
+        currentStops.slice(0, 5).forEach((stop, sIdx) => {
           const d = calculateDistanceKm(coord.latitude, coord.longitude, stop.latitude, stop.longitude);
           if (d <= 0.06 && sIdx > 0) {
             setCompletedStopIds((prev) => (prev.includes(stop.id) ? prev : [...prev, stop.id]));
@@ -296,8 +401,8 @@ export default function DriverDashboard() {
       driver_id: 'dr1',
       type,
       message,
-      latitude: currentLoc?.latitude || 9.4475,
-      longitude: currentLoc?.longitude || 77.545,
+      latitude: currentLoc?.latitude || (shift === 'evening' ? 9.4520 : 9.4475),
+      longitude: currentLoc?.longitude || (shift === 'evening' ? 77.5535 : 77.5450),
       status: 'ACTIVE',
       created_at: new Date().toISOString(),
     };
@@ -317,13 +422,13 @@ export default function DriverDashboard() {
   const signal = getSignalQuality(currentLoc?.accuracy);
 
   // Dynamic Next Stop & Proximity Calculations
-  const isAllStopsReached = isTripActive && (currentStopIdx >= INITIAL_STOPS.length - 1 || completedStopIds.length >= INITIAL_STOPS.length);
-  let targetStopIdx = Math.min(currentStopIdx, INITIAL_STOPS.length - 1);
+  const isAllStopsReached = isTripActive && (currentStopIdx >= currentStops.length - 1 || completedStopIds.length >= currentStops.length);
+  let targetStopIdx = Math.min(currentStopIdx, currentStops.length - 1);
   if (currentLoc && currentStopIdx === 0 && !isTripActive) {
     targetStopIdx = 1; // When at start terminal ready to depart, next target is stop #2
   }
-  const nextStop = INITIAL_STOPS[targetStopIdx];
-  const isFinalStop = targetStopIdx === INITIAL_STOPS.length - 1;
+  const nextStop = currentStops[targetStopIdx];
+  const isFinalStop = targetStopIdx === currentStops.length - 1;
   const rawDist = currentLoc
     ? calculateDistanceKm(currentLoc.latitude, currentLoc.longitude, nextStop.latitude, nextStop.longitude)
     : 1.4;
@@ -459,6 +564,12 @@ export default function DriverDashboard() {
           onPress={() => {
             setShift('morning');
             setCurrentStopIdx(0);
+            setCompletedStopIds([]);
+            setDistanceTravelledKm(0);
+            setElapsedSeconds(0);
+            if (!isTripActive) {
+              setCurrentLoc({ latitude: 9.4475, longitude: 77.5450, speed: 0, heading: 42, accuracy: 3.5 });
+            }
           }}
           style={[styles.shiftSelectBtn, shift === 'morning' && styles.shiftSelectBtnActiveMorning]}
           activeOpacity={0.8}
@@ -473,6 +584,12 @@ export default function DriverDashboard() {
           onPress={() => {
             setShift('evening');
             setCurrentStopIdx(0);
+            setCompletedStopIds([]);
+            setDistanceTravelledKm(0);
+            setElapsedSeconds(0);
+            if (!isTripActive) {
+              setCurrentLoc({ latitude: 9.4520, longitude: 77.5535, speed: 0, heading: 215, accuracy: 3.5 });
+            }
           }}
           style={[styles.shiftSelectBtn, shift === 'evening' && styles.shiftSelectBtnActiveEvening]}
           activeOpacity={0.8}
@@ -606,7 +723,7 @@ export default function DriverDashboard() {
                 busNumber="BUS-01"
                 routeNumber="Route 1"
                 routeColor="#2563eb"
-                stops={INITIAL_STOPS.slice(0, 5)}
+                stops={currentStops.slice(0, 5)}
                 boardingStop={nextStop}
                 height={260}
               />
@@ -879,7 +996,9 @@ export default function DriverDashboard() {
                 </View>
                 <Text style={styles.standbyTitle}>Ready for Departure</Text>
                 <Text style={styles.standbyDesc}>
-                  Verify passenger boarding at Rajapalayam Stand and tap START TRIP to begin live satellite telemetry broadcast.
+                  {shift === 'evening'
+                    ? 'Verify passenger boarding at RIT College Campus Hub and tap START TRIP to begin live satellite telemetry broadcast towards town drop points.'
+                    : 'Verify passenger boarding at Rajapalayam Stand and tap START TRIP to begin live satellite telemetry broadcast.'}
                 </Text>
 
                 <TouchableOpacity style={styles.startTripBtn} onPress={handleStartTrip}>
@@ -952,7 +1071,7 @@ export default function DriverDashboard() {
                 </View>
               </View>
 
-              {INITIAL_STOPS.slice(0, 5).map((stop, idx) => {
+              {currentStops.slice(0, 5).map((stop, idx) => {
                 const isCompleted = completedStopIds.includes(stop.id);
                 const isCurrent = currentStopIdx === idx;
 
