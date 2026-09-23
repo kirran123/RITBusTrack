@@ -9,7 +9,9 @@
     "web": "expo start --web",
     "build:apk": "npx eas-cli build -p android --profile preview",
     "build:ios": "npx eas-cli build -p ios --profile preview",
-    "export:web": "expo export --platform web"
+    "export:web": "expo export --platform web",
+    "desktop": "npx expo export -p web && electron .",
+    "build:exe": "npx expo export -p web && npx -y electron-packager . \"College Bus Mobile App\" --platform=win32 --arch=x64 --out=../../dist-mobile-exe --overwrite --prune=false"
   },
   "dependencies": {
     "@college-bus/shared": "file:../../packages/shared",

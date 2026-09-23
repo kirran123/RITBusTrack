@@ -7,6 +7,7 @@ package-lock.json
 # Build Outputs
 dist/
 dist-exe/
+dist-mobile-exe/
 release/
 build/
 .output/

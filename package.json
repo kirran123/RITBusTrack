@@ -15,8 +15,9 @@
     "build:shared": "npm run build --workspace=packages/shared",
     "build:apk": "npm run build:apk --workspace=apps/mobile",
     "build:ios": "npm run build:ios --workspace=apps/mobile",
-    "build:exe": "npm run build --workspace=apps/admin-web && npx -y electron-packager ./apps/admin-web \"College Bus Track\" --platform=win32 --arch=x64 --out=dist-exe --overwrite --prune=true",
-    "dev:desktop": "npm run desktop --workspace=apps/admin-web",
+    "build:exe": "npm run export:web --workspace=apps/mobile && npx -y electron-packager ./apps/mobile \"College Bus Mobile App\" --platform=win32 --arch=x64 --out=dist-mobile-exe --electron-version=44.4.5 --overwrite --prune=false",
+    "build:admin-exe": "npm run build --workspace=apps/admin-web && npx -y electron-packager ./apps/admin-web \"College Bus Track\" --platform=win32 --arch=x64 --out=dist-exe --overwrite --prune=true",
+    "dev:desktop": "npm run desktop --workspace=apps/mobile",
     "test": "echo \"Running workspace tests...\" && exit 0"
   },
   "keywords": [
