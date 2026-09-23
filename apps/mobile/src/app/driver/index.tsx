@@ -232,39 +232,48 @@ export default function DriverDashboard() {
   };
 
   const handleEndTrip = () => {
-    Alert.alert(
-      'End Trip Confirmation',
-      'Complete this bus trip and finalize driver route log?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm & Complete',
-          style: 'destructive',
-          onPress: () => {
-            locationTracker.stopTracking();
-            setIsTripActive(false);
+    const doComplete = () => {
+      locationTracker.stopTracking();
+      setIsTripActive(false);
 
-            const avgSpd =
-              elapsedSeconds > 0
-                ? Math.round(distanceTravelledKm / (elapsedSeconds / 3600))
-                : 0;
+      const avgSpd =
+        elapsedSeconds > 0
+          ? Math.round(distanceTravelledKm / (Math.max(1, elapsedSeconds) / 3600))
+          : 0;
 
-            setTripSummary({
-              duration: formatTimer(elapsedSeconds),
-              distance: formatDistance(distanceTravelledKm),
-              avgSpeed: avgSpd,
-              startTime: new Date(Date.now() - elapsedSeconds * 1000).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              }),
-              endTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            });
+      setTripSummary({
+        duration: formatTimer(elapsedSeconds),
+        distance: formatDistance(distanceTravelledKm),
+        avgSpeed: avgSpd,
+        startTime: new Date(Date.now() - elapsedSeconds * 1000).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        endTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
 
-            setShowSummaryModal(true);
+      setShowSummaryModal(true);
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Complete this bus trip and finalize driver route log?');
+      if (confirmed) {
+        doComplete();
+      }
+    } else {
+      Alert.alert(
+        'End Trip Confirmation',
+        'Complete this bus trip and finalize driver route log?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm & Complete',
+            style: 'destructive',
+            onPress: doComplete,
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleDispatchSOS = async (type: EmergencyType, message: string) => {
@@ -295,15 +304,20 @@ export default function DriverDashboard() {
   const signal = getSignalQuality(currentLoc?.accuracy);
 
   // Dynamic Next Stop & Proximity Calculations
-  let targetStopIdx = currentStopIdx;
+  const isAllStopsReached = currentStopIdx >= INITIAL_STOPS.length || completedStopIds.length >= INITIAL_STOPS.length;
+  let targetStopIdx = Math.min(currentStopIdx, INITIAL_STOPS.length - 1);
   if (currentLoc && currentStopIdx === 0 && !isTripActive) {
     targetStopIdx = 1; // When at start terminal ready to depart, next target is stop #2
   }
-  const nextStop = INITIAL_STOPS[Math.min(targetStopIdx, INITIAL_STOPS.length - 1)];
+  const nextStop = INITIAL_STOPS[targetStopIdx];
+  const isFinalStop = targetStopIdx === INITIAL_STOPS.length - 1;
   const rawDist = currentLoc
     ? calculateDistanceKm(currentLoc.latitude, currentLoc.longitude, nextStop.latitude, nextStop.longitude)
     : 1.4;
-  const distToNextStop = rawDist < 0.05 && currentStopIdx === 0 && !isTripActive ? 1.4 : Math.max(0.05, rawDist);
+
+  const isAtStop = completedStopIds.includes(nextStop.id) || rawDist <= 0.08 || isAllStopsReached;
+  const distToNextStop = isAtStop ? 0 : (rawDist < 0.05 && currentStopIdx === 0 && !isTripActive ? 1.4 : rawDist);
+
   const nextStopETA = calculateDynamicETA(
     distToNextStop,
     currentLoc?.speed || 0,
@@ -609,39 +623,65 @@ export default function DriverDashboard() {
 
               <View style={styles.cardDivider} />
 
-              <View style={styles.nextStopHeaderRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.nextStopPrefix}>
-                    NEXT STOP ({Math.min(currentStopIdx + 1, 5)}/5) &bull; BUS-01
-                  </Text>
-                  <Text style={styles.nextStopName}>{nextStop.stop_name}</Text>
-                  <Text style={styles.nextStopEtaText}>
-                    {formatDistance(distToNextStop)} ahead &bull; Arrival: {nextStopETA.arrivalTimeStr} ({nextStopETA.statusLabel})
-                  </Text>
+              {/* Dynamic Stop Status Banner */}
+              {isAllStopsReached ? (
+                <View style={styles.nextStopHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.nextStopPrefix, { color: '#10b981' }]}>
+                      🏁 FINAL TERMINAL REACHED (5/5) &bull; BUS-01
+                    </Text>
+                    <Text style={styles.nextStopName}>College Main Gate (Campus Hub)</Text>
+                    <Text style={[styles.nextStopEtaText, { color: '#34d399', fontWeight: 'bold' }]}>
+                      0 m &bull; Arrived at Campus Destination
+                    </Text>
+                  </View>
 
-                  {/* Warning if any student at next stop is on leave */}
-                  {studentsAtNextStopOnLeave.length > 0 && (
-                    <View style={styles.nextStopLeaveNotice}>
-                      <Text style={styles.nextStopLeaveText}>
-                        ⚠️ {studentsAtNextStopOnLeave.map((s) => s.name).join(', ')} marked on leave at this stop.
+                  <TouchableOpacity
+                    style={[styles.reachedBtn, { backgroundColor: '#10b981' }]}
+                    onPress={handleEndTrip}
+                  >
+                    <Text style={styles.reachedBtnText}>FINISH{'\n'}TRIP</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.nextStopHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nextStopPrefix}>
+                      {isFinalStop ? 'FINAL STOP (5/5)' : `NEXT STOP (${Math.min(currentStopIdx + 1, 5)}/5)`} &bull; BUS-01
+                    </Text>
+                    <Text style={styles.nextStopName}>{nextStop.stop_name}</Text>
+                    <Text style={styles.nextStopEtaText}>
+                      {isAtStop
+                        ? `0 m ahead \u2022 Arrived at ${nextStop.stop_name}`
+                        : `${formatDistance(distToNextStop)} ahead \u2022 Arrival: ${nextStopETA.arrivalTimeStr} (${nextStopETA.statusLabel})`}
+                    </Text>
+
+                    {/* Warning if any student at next stop is on leave */}
+                    {studentsAtNextStopOnLeave.length > 0 && (
+                      <View style={styles.nextStopLeaveNotice}>
+                        <Text style={styles.nextStopLeaveText}>
+                          ⚠️ {studentsAtNextStopOnLeave.map((s) => s.name).join(', ')} marked on leave at this stop.
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {isTripActive ? (
+                    <TouchableOpacity
+                      style={styles.reachedBtn}
+                      onPress={() => handleMarkStopReached(nextStop.id, currentStopIdx)}
+                    >
+                      <Text style={styles.reachedBtnText}>
+                        {isFinalStop ? 'MARK\nARRIVED' : 'MARK\nARRIVED'}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.startTripQuickBtn} onPress={handleStartTrip}>
+                      <Text style={styles.startTripQuickText}>START{'\n'}TRIP</Text>
+                    </TouchableOpacity>
                   )}
                 </View>
-
-                {isTripActive ? (
-                  <TouchableOpacity
-                    style={styles.reachedBtn}
-                    onPress={() => handleMarkStopReached(nextStop.id, currentStopIdx)}
-                  >
-                    <Text style={styles.reachedBtnText}>MARK{'\n'}ARRIVED</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity style={styles.startTripQuickBtn} onPress={handleStartTrip}>
-                    <Text style={styles.startTripQuickText}>START{'\n'}TRIP</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              )}
 
               <View style={styles.mapQuickActionRow}>
                 <TouchableOpacity style={styles.mapSosQuickBtn} onPress={() => setActiveTab('sos')}>
