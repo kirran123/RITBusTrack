@@ -31,6 +31,11 @@
     "scheme": "college-bus-track",
     "web": {
       "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7fa1a5b8-cdfc-4637-a6d7-e389c869bb41"
+      }
     }
   }
 }

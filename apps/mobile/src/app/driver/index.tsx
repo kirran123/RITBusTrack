@@ -213,6 +213,15 @@ export default function DriverDashboard() {
       onLocationUpdate: (coord, distKm) => {
         setCurrentLoc(coord);
         setDistanceTravelledKm(distKm);
+
+        // Auto-advance stop checklist and passenger boarding when passing stops
+        INITIAL_STOPS.slice(0, 5).forEach((stop, sIdx) => {
+          const d = calculateDistanceKm(coord.latitude, coord.longitude, stop.latitude, stop.longitude);
+          if (d <= 0.06 && sIdx > 0) {
+            setCompletedStopIds((prev) => (prev.includes(stop.id) ? prev : [...prev, stop.id]));
+            setCurrentStopIdx((prev) => Math.max(prev, sIdx));
+          }
+        });
       },
       onError: (err) => {
         Alert.alert('GPS Notice', err);
