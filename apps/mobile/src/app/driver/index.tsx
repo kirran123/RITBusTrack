@@ -1059,12 +1059,22 @@ export default function DriverDashboard() {
               </TouchableOpacity>
             ))}
 
-            <Text style={styles.sectionHeader}>Campus Emergency Contacts</Text>
-            <TouchableOpacity style={styles.hotlineCard} onPress={() => handleCallHelpline('+919443012345')}>
-              <Text style={{ fontSize: 22 }}>📞</Text>
+            <Text style={styles.sectionHeader}>Campus Transport Authority & Security</Text>
+            
+            <TouchableOpacity style={styles.hotlineCard} onPress={() => handleCallHelpline('+919629284690')}>
+              <Text style={{ fontSize: 22 }}>👨‍💼</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.hotlineTitle}>Transport Control Office</Text>
-                <Text style={styles.hotlinePhone}>+91 94430 12345 &bull; 24/7 Operations</Text>
+                <Text style={styles.hotlineTitle}>Transport Incharge: N.Govindaraju</Text>
+                <Text style={styles.hotlinePhone}>Mob.No: +91 96292 84690 &bull; Transport Head</Text>
+              </View>
+              <Text style={styles.callPill}>CALL</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.hotlineCard} onPress={() => handleCallHelpline('+919715540479')}>
+              <Text style={{ fontSize: 22 }}>👨‍🏫</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.hotlineTitle}>Transport Coordinator: L.Karthikeyan</Text>
+                <Text style={styles.hotlinePhone}>AP/Mech &bull; Mob.No: +91 97155 40479</Text>
               </View>
               <Text style={styles.callPill}>CALL</Text>
             </TouchableOpacity>
@@ -1145,6 +1155,38 @@ export default function DriverDashboard() {
                 <Text style={styles.infoLabel}>Driver Contact</Text>
                 <Text style={styles.infoVal}>{driverProfile.phone}</Text>
               </View>
+            </View>
+
+            {/* Transport Authority & Coordinator Contacts */}
+            <Text style={styles.sectionHeader}>Transport Incharge & Coordinator</Text>
+            <View style={styles.infoCard}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}
+                onPress={() => handleCallHelpline('+919629284690')}
+              >
+                <View>
+                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>Mr. N. Govindaraju (Transport Incharge)</Text>
+                  <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>Mob.No: +91 96292 84690</Text>
+                </View>
+                <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '900' }}>CALL</Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.infoRowDivider} />
+
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}
+                onPress={() => handleCallHelpline('+919715540479')}
+              >
+                <View>
+                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>Mr. L. Karthikeyan (AP/Mech)</Text>
+                  <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>Transport Coordinator &bull; Mob.No: +91 97155 40479</Text>
+                </View>
+                <View style={{ backgroundColor: '#0284c7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '900' }}>CALL</Text>
+                </View>
+              </TouchableOpacity>
             </View>
 
             {/* Sign out */}

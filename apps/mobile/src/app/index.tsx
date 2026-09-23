@@ -9,6 +9,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Alert,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -303,6 +304,45 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Transport Help Desk & Incharge Contacts */}
+        <View style={styles.helplineCard}>
+          <Text style={styles.helplineCardTitle}>Transport Help Desk & Coordinators</Text>
+          
+          <TouchableOpacity
+            style={styles.contactItemRow}
+            onPress={() => Linking.openURL('tel:+919629284690')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.contactIconWrap}>
+              <Text style={{ fontSize: 16 }}>👨‍💼</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactName}>N.Govindaraju (Transport Incharge)</Text>
+              <Text style={styles.contactPhone}>Mob.No: +91 96292 84690</Text>
+            </View>
+            <View style={styles.contactCallPill}>
+              <Text style={styles.contactCallPillText}>CALL</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.contactItemRow, { marginTop: 8 }]}
+            onPress={() => Linking.openURL('tel:+919715540479')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.contactIconWrap, { backgroundColor: '#0369a1' }]}>
+              <Text style={{ fontSize: 16 }}>👨‍🏫</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactName}>L.Karthikeyan (AP/Mech)</Text>
+              <Text style={styles.contactPhone}>Transport Coordinator &bull; Mob.No: +91 97155 40479</Text>
+            </View>
+            <View style={[styles.contactCallPill, { backgroundColor: '#0284c7' }]}>
+              <Text style={styles.contactCallPillText}>CALL</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Footer info & Developer Credit */}
         <View style={styles.footerContainer}>
           <Text style={styles.footerCollege}>Ramco Institute of Technology &bull; Transport Wing</Text>
@@ -579,5 +619,61 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  helplineCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  helplineCardTitle: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  contactItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#020617',
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    gap: 10,
+  },
+  contactIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#1e3a8a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contactName: {
+    color: '#ffffff',
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  contactPhone: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  contactCallPill: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  contactCallPillText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '900',
   },
 });

@@ -219,7 +219,7 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleCallHelpline = (phone: string = '+919443012345') => {
+  const handleCallHelpline = (phone: string = '+919629284690') => {
     Linking.openURL(`tel:${phone}`);
   };
 
@@ -335,9 +335,9 @@ export default function StudentDashboard() {
                 </View>
                 <TouchableOpacity
                   style={styles.emergencySosCallBtn}
-                  onPress={() => handleCallHelpline('+919443012345')}
+                  onPress={() => handleCallHelpline('+919629284690')}
                 >
-                  <Text style={styles.emergencySosCallBtnText}>📞 Call Transport Control Room: +91 94430 12345</Text>
+                  <Text style={styles.emergencySosCallBtnText}>📞 Call Transport Incharge: N.Govindaraju (+91 96292 84690)</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -623,9 +623,9 @@ export default function StudentDashboard() {
                 </View>
                 <TouchableOpacity
                   style={styles.notifCallEmergencyBtn}
-                  onPress={() => handleCallHelpline('+919443012345')}
+                  onPress={() => handleCallHelpline('+919629284690')}
                 >
-                  <Text style={styles.notifCallEmergencyBtnText}>📞 Contact Emergency Transport Helpline (+91 94430 12345)</Text>
+                  <Text style={styles.notifCallEmergencyBtnText}>📞 Contact Transport Incharge: N.Govindaraju (+91 96292 84690)</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -808,13 +808,23 @@ export default function StudentDashboard() {
               </View>
             </View>
 
-            {/* Emergency Helpline Section */}
-            <Text style={styles.settingsSectionTitle}>Emergency & Support</Text>
-            <TouchableOpacity style={styles.helplineBtn} onPress={() => handleCallHelpline()}>
-              <Text style={styles.helplineIcon}>📞</Text>
+            {/* Emergency & Transport Coordinator Helpline Section */}
+            <Text style={styles.settingsSectionTitle}>Transport Support & Helplines</Text>
+            
+            <TouchableOpacity style={styles.helplineBtn} onPress={() => handleCallHelpline('+919629284690')}>
+              <Text style={styles.helplineIcon}>👨‍💼</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.helplineTitle}>Transport Control Helpline</Text>
-                <Text style={styles.helplinePhone}>+91 94430 12345 &bull; 24/7 Campus Dispatch</Text>
+                <Text style={styles.helplineTitle}>Transport Incharge: N.Govindaraju</Text>
+                <Text style={styles.helplinePhone}>Mob.No: +91 96292 84690 &bull; Transport Head</Text>
+              </View>
+              <Text style={styles.callTag}>CALL</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.helplineBtn, { marginTop: 8 }]} onPress={() => handleCallHelpline('+919715540479')}>
+              <Text style={styles.helplineIcon}>👨‍🏫</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.helplineTitle}>Transport Coordinator: L.Karthikeyan</Text>
+                <Text style={styles.helplinePhone}>AP/Mech &bull; Mob.No: +91 97155 40479</Text>
               </View>
               <Text style={styles.callTag}>CALL</Text>
             </TouchableOpacity>
