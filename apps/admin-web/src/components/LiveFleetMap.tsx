@@ -41,23 +41,22 @@ const createBusMarkerIcon = (
           background: #0b1329;
           color: white;
           border: ${isSelected ? '2px solid #38bdf8' : `1.5px solid ${color}`};
-          padding: 2px 7px;
+          padding: 2.5px 8px;
           border-radius: 20px;
           font-weight: 800;
-          font-size: 10.5px;
-          letter-spacing: 0.2px;
+          font-size: 11px;
+          letter-spacing: 0.3px;
           box-shadow: 0 4px 14px rgba(0,0,0,0.6);
           white-space: nowrap;
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 5px;
           transform: scale(${isSelected ? 1.08 : 1.0});
           transition: transform 0.15s ease;
         ">
           <span style="color: ${color}; font-size: 11px;">🚌</span>
           <span>BUS ${shortNumber}</span>
           ${standbyTag}
-          ${speed > 0 ? `<span style="color: #10b981; font-size: 9px; font-family: monospace; font-weight: 900; background: rgba(16,185,129,0.18); padding: 0.5px 3.5px; border-radius: 4px;">${Math.round(speed)}k</span>` : ''}
         </div>
 
         <!-- Puck Dot Pointer -->

@@ -361,7 +361,7 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
 
         // 4. Moving Bus Marker
         var busIcon = L.divIcon({
-          html: '<div class="bus-marker-wrap"><div class="bus-badge"><span>🚌 ${busNumber}</span><span style="color:#10b981;font-size:9px;">${speed}k</span></div><div class="bus-icon-circle">🚌</div></div>',
+          html: '<div class="bus-marker-wrap"><div class="bus-badge"><span>🚌 ${busNumber}</span></div><div class="bus-icon-circle">🚌</div></div>',
           className: '',
           iconSize: [80, 48],
           iconAnchor: [40, 48]
