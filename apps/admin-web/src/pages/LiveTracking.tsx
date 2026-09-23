@@ -52,7 +52,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { parseGoogleMapsLink, parseGoogleMapsDirections } from '../lib/googleMapsParser';
 
 const ROUTE_COLOR_PRESETS = [
-  { label: 'Royal Blue (Bus 12)', color: '#2563eb' },
+  { label: 'Royal Blue (Bus 01)', color: '#2563eb' },
   { label: 'Emerald Green (Bus 02)', color: '#10b981' },
   { label: 'Amber Gold (Bus 03)', color: '#f59e0b' },
   { label: 'Violet Purple (Bus 04)', color: '#8b5cf6' },
@@ -200,7 +200,7 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
 
   // Students on this bus
   const busStudents = students.filter(
-    (s) => s.bus_id === selectedBus?.id || (!s.bus_id && selectedBus?.bus_number === 'BUS 12')
+    (s) => s.bus_id === selectedBus?.id || (!s.bus_id && (selectedBus?.bus_number === 'BUS-01' || selectedBus?.id === 'b1'))
   );
 
   const onLeaveStudents = busStudents.filter((s) => s.is_on_leave);
@@ -844,8 +844,8 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                 const route = routes.find((r) => r.id === bus.route_id);
                 const driver = drivers.find((d) => d.id === bus.assigned_driver_id);
                 const color = route?.route_color || '#2563eb';
-                const countStudents = students.filter((s) => s.bus_id === bus.id || (!s.bus_id && bus.bus_number === 'BUS 12')).length;
-                const leaveCount = students.filter((s) => (s.bus_id === bus.id || (!s.bus_id && bus.bus_number === 'BUS 12')) && s.is_on_leave).length;
+                const countStudents = students.filter((s) => s.bus_id === bus.id || (!s.bus_id && (bus.bus_number === 'BUS-01' || bus.id === 'b1'))).length;
+                const leaveCount = students.filter((s) => (s.bus_id === bus.id || (!s.bus_id && (bus.bus_number === 'BUS-01' || bus.id === 'b1'))) && s.is_on_leave).length;
 
                 return (
                   <div
@@ -1347,7 +1347,7 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                   <span className="text-xs font-mono text-emerald-400">{selectedStudent?.register_number}</span>
                 </div>
                 <div className="text-xs text-slate-400">
-                  Assigned Bus: <strong className="text-amber-400">BUS 12</strong> &bull; Seat #18
+                  Assigned Bus: <strong className="text-amber-400">{selectedBus?.bus_number || 'BUS-01'}</strong> &bull; Seat #18
                 </div>
                 <div className="text-xs text-sky-400 font-semibold">
                   Designated Stop: 📍 {selectedStudent?.boarding_stop?.stop_name || 'Gandhi Statue Junction'}

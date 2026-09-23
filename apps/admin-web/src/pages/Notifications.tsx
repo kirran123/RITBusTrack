@@ -207,7 +207,7 @@ export const Notifications: React.FC<NotificationsProps> = ({
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="w-full bg-slate-950 text-white text-sm px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500"
-                    placeholder="e.g. Bus 12 Morning Delay - 15 Mins"
+                    placeholder="e.g. Bus 01 Morning Delay - 15 Mins"
                   />
                 </div>
 
@@ -290,7 +290,7 @@ export const Notifications: React.FC<NotificationsProps> = ({
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     className="w-full bg-slate-950 text-white text-sm p-3.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 leading-relaxed"
-                    placeholder="Type your alert details here (e.g. Bus 12 has started the return evening trip from campus)..."
+                    placeholder="Type your alert details here (e.g. Bus 01 has started the return evening trip from campus)..."
                   />
                 </div>
 

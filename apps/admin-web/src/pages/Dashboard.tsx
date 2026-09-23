@@ -505,7 +505,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">Assigned Bus:</span>
                       <span className="font-extrabold text-amber-400">
-                        {bus?.bus_number || leaveInfo?.bus_number || 'BUS 12'}
+                        {bus?.bus_number || leaveInfo?.bus_number || 'BUS-01'}
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-800/60">

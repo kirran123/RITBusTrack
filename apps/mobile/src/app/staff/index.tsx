@@ -69,7 +69,7 @@ export default function StaffMobileDashboard() {
     boardingStopName: 'PACR Mill Circle (Stop 3)',
     phone: '+91 94432 87654',
     email: 'kanthimathi.ece@college.edu',
-    busNumber: 'BUS 12',
+    busNumber: 'BUS-01',
     routeId: 'Route 1 (Rajapalayam - RIT)',
     passNumber: 'FAC-PASS-2024-88',
     isOnLeave: false,
@@ -287,7 +287,7 @@ export default function StaffMobileDashboard() {
 
     notificationService.sendPushNotification(
       '🚌 Staff Attendance Restored',
-      `You are scheduled to board Bus 12 at ${staffBoardingStop.stop_name} today.`,
+      `You are scheduled to board ${facultyProfile.busNumber || 'BUS-01'} at ${staffBoardingStop.stop_name} today.`,
       'arrival'
     );
 
@@ -495,7 +495,7 @@ export default function StaffMobileDashboard() {
                     {activeSwapNotice?.substituteDriverName || 'Murugan M'}
                   </Text>
                   <Text style={styles.driverRole}>
-                    {activeSwapNotice?.type === 'driver_swap' ? 'Assigned Substitute Driver' : 'Primary Route Driver'} &bull; Bus 12
+                    {activeSwapNotice?.type === 'driver_swap' ? 'Assigned Substitute Driver' : 'Primary Route Driver'} &bull; {facultyProfile.busNumber || 'BUS-01'}
                   </Text>
                   <Text style={styles.driverPhone}>
                     {activeSwapNotice?.substituteDriverPhone || '+91 98421 00001'}
@@ -559,7 +559,7 @@ export default function StaffMobileDashboard() {
                   <Text style={styles.routeHeaderSub}>Via Gandhi Statue &bull; PACR Mill &bull; Samsigapuram Rd</Text>
                 </View>
                 <View style={styles.busTagPill}>
-                  <Text style={styles.busTagPillText}>BUS 12</Text>
+                  <Text style={styles.busTagPillText}>{facultyProfile.busNumber || 'BUS-01'}</Text>
                 </View>
               </View>
             </View>
@@ -655,7 +655,7 @@ export default function StaffMobileDashboard() {
             {swapNoticesList.length === 0 ? (
               <View style={styles.emptyAlertBox}>
                 <Text style={styles.emptyAlertText}>
-                  🟢 No active bus or driver swaps. Regular Bus 12 & Driver Murugan are on duty.
+                  🟢 No active bus or driver swaps. Regular {facultyProfile.busNumber || 'BUS-01'} & Driver Murugan are on duty.
                 </Text>
               </View>
             ) : (
@@ -927,7 +927,7 @@ export default function StaffMobileDashboard() {
             </View>
 
             <Text style={styles.modalSub}>
-              Select the date you will not be traveling on <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>Bus 12</Text>.
+              Select the date you will not be traveling on <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>{facultyProfile.busNumber || 'BUS-01'}</Text>.
             </Text>
 
             <View style={styles.dateSelectorRow}>

@@ -25,7 +25,7 @@ interface OSMMapViewProps {
 export const OSMMapView: React.FC<OSMMapViewProps> = ({
   busLocation = { latitude: 9.449, longitude: 77.5472, speed: 30, heading: 45 },
   userLocation,
-  busNumber = 'BUS 12',
+  busNumber = 'BUS-01',
   routeNumber = 'Route 1',
   routeColor = '#2563eb', // Default Route 1 Royal Electric Blue
   stops = [],

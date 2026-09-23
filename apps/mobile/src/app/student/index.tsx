@@ -79,6 +79,37 @@ export default function StudentDashboard() {
   const boardingStop = INITIAL_STOPS[0];
 
   useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        const storedCurrent = localStorage.getItem('bustrack_current_mobile_student');
+        if (storedCurrent) {
+          const parsed = JSON.parse(storedCurrent);
+          if (parsed && (parsed.name || parsed.profile?.name)) {
+            setCurrentStudent({
+              id: parsed.id || 's3',
+              name: parsed.profile?.name || parsed.name || 'Kishore ST',
+              rollNumber: parsed.register_number || parsed.rollNumber || '21IT045',
+              department: parsed.department || 'B.Tech Information Tech.',
+              year: parsed.year || 3,
+              section: parsed.section || 'A',
+              boardingStopId: parsed.boarding_stop_id || parsed.boardingStopId || 'st1',
+              boardingStopName: parsed.boarding_stop?.stop_name || parsed.boardingStopName || 'Old Bus Stand, RJPM (Stop 1)',
+              phone: parsed.profile?.phone || parsed.phone || '+91 98421 23456',
+              email: parsed.profile?.email || parsed.email || 'kishore.it@ritrjpm.ac.in',
+              busId: parsed.bus_id || parsed.busId || 'b1',
+              busNumber: parsed.bus?.bus_number || parsed.busNumber || (parsed.bus_id === 'b1' ? 'BUS-01' : 'BUS-01'),
+              routeId: parsed.route_id || parsed.routeId || 'r1',
+              isBoarded: false,
+              isOnLeave: Boolean(parsed.is_on_leave),
+              leaveDate: parsed.leave_date,
+              leaveReason: parsed.leave_reason,
+              avatarBg: '#059669',
+            });
+          }
+        }
+      } catch (e) {}
+    }
+
     checkAndFetchStudentLocation();
     checkNotificationPermissionStatus();
 
@@ -336,7 +367,7 @@ export default function StudentDashboard() {
               <OSMMapView
                 busLocation={busLocation}
                 userLocation={studentLocation}
-                busNumber={activeSwapNotice?.replacementBusNumber || "BUS 12"}
+                busNumber={activeSwapNotice?.replacementBusNumber || currentStudent.busNumber || "BUS-01"}
                 routeNumber="Route 1"
                 routeColor="#2563eb"
                 stops={INITIAL_STOPS.slice(0, 5)}
@@ -352,7 +383,7 @@ export default function StudentDashboard() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <View style={[styles.busNumberHeroChip, activeSwapNotice?.type === 'bus_swap' && { backgroundColor: '#7c3aed' }]}>
                       <Text style={styles.busNumberHeroChipText}>
-                        {activeSwapNotice?.replacementBusNumber || 'BUS 12'}
+                        {activeSwapNotice?.replacementBusNumber || currentStudent.busNumber || 'BUS-01'}
                       </Text>
                     </View>
                     {activeSwapNotice?.type === 'bus_swap' && (
@@ -453,7 +484,7 @@ export default function StudentDashboard() {
               </Text>
             </View>
 
-            <Text style={styles.sectionTitle}>Bus 12 &bull; Stop Sequence & Dynamic Timings</Text>
+            <Text style={styles.sectionTitle}>{currentStudent.busNumber || 'BUS-01'} &bull; Stop Sequence & Dynamic Timings</Text>
 
             {INITIAL_STOPS.slice(0, 5).map((stop, idx) => {
               const isBoarding = stop.id === boardingStop.id;
@@ -514,7 +545,7 @@ export default function StudentDashboard() {
           <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 16 }}>
             {/* Bus Alert Header */}
             <View style={styles.busAlertInfoBox}>
-              <Text style={styles.busAlertInfoText}>Showing notifications for <Text style={{ color: '#f59e0b', fontWeight: '900' }}>BUS 12</Text> (Route 1)</Text>
+              <Text style={styles.busAlertInfoText}>Showing notifications for <Text style={{ color: '#f59e0b', fontWeight: '900' }}>{currentStudent.busNumber || 'BUS-01'}</Text> (Route 1)</Text>
             </View>
 
             <Text style={styles.sectionTitle}>Transport Broadcasts & Delay Notices</Text>
@@ -545,12 +576,12 @@ export default function StudentDashboard() {
             <View style={styles.notifCard}>
               <View style={styles.notifHeader}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.notifTitle}>🚌 BUS 12 Departed</Text>
+                  <Text style={styles.notifTitle}>🚌 {currentStudent.busNumber || 'BUS-01'} Departed</Text>
                 </View>
                 <Text style={styles.notifTime}>Just now</Text>
               </View>
               <Text style={styles.notifBody}>
-                Bus 12 (TN 84 AX 1001) has departed Rajapalayam New Bus Stand on time. Next pickup is at Gandhi Statue Junction.
+                {currentStudent.busNumber || 'BUS-01'} (TN 84 AX 1001) has departed Old Bus Stand, RJPM on time. Next pickup is at Gandhi Statue Junction.
               </Text>
             </View>
 
@@ -560,7 +591,7 @@ export default function StudentDashboard() {
                 <Text style={styles.notifTime}>15 mins ago</Text>
               </View>
               <Text style={styles.notifBody}>
-                Slow moving traffic reported near Alangulam Junction due to road maintenance for Bus 12 & Bus 14. Expect 4-6 minutes delay.
+                Traffic clearance active on Route 1. Bus operating with optimal telemetry dispatch.
               </Text>
             </View>
 
@@ -570,7 +601,7 @@ export default function StudentDashboard() {
                 <Text style={styles.notifTime}>Today 08:00 AM</Text>
               </View>
               <Text style={styles.notifBody}>
-                Evening return bus (BUS 12) will depart from the Main Campus Circle sharply at 04:45 PM after laboratory sessions.
+                Evening return bus ({currentStudent.busNumber || 'BUS-01'}) will depart from the Main Campus Circle sharply at 04:45 PM after laboratory sessions.
               </Text>
             </View>
           </ScrollView>
@@ -679,7 +710,7 @@ export default function StudentDashboard() {
               <View style={styles.switchRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.switchTitle}>Proximity Walk Alerts</Text>
-                  <Text style={styles.switchSub}>Notify when Bus 12 is 2 stops away</Text>
+                  <Text style={styles.switchSub}>Notify when {currentStudent.busNumber || 'BUS-01'} is 2 stops away</Text>
                 </View>
                 <Switch
                   value={proximityAlerts}
@@ -691,7 +722,7 @@ export default function StudentDashboard() {
               <View style={styles.switchRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.switchTitle}>Service Delay Broadcasts</Text>
-                  <Text style={styles.switchSub}>Instant alerts for Bus 12 schedule shifts</Text>
+                  <Text style={styles.switchSub}>Instant alerts for {currentStudent.busNumber || 'BUS-01'} schedule shifts</Text>
                 </View>
                 <Switch
                   value={delayAlerts}

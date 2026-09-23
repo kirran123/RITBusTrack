@@ -167,7 +167,7 @@ export default function DriverDashboard() {
     const success = await locationTracker.startTracking({
       busId: 'b1',
       tripId: 'trip_' + Date.now(),
-      busNumber: 'BUS 12',
+      busNumber: 'BUS-01',
       driverName: 'Murugan M',
       useSimulation,
       onLocationUpdate: (coord, distKm) => {
@@ -529,7 +529,7 @@ export default function DriverDashboard() {
             <View style={styles.compactMapWrapper}>
               <OSMMapView
                 busLocation={currentLoc}
-                busNumber="BUS 12"
+                busNumber="BUS-01"
                 routeNumber="Route 1"
                 routeColor="#2563eb"
                 stops={INITIAL_STOPS.slice(0, 5)}
@@ -565,7 +565,7 @@ export default function DriverDashboard() {
               <View style={styles.nextStopHeaderRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.nextStopPrefix}>
-                    NEXT STOP ({Math.min(currentStopIdx + 1, 5)}/5) &bull; BUS 12
+                    NEXT STOP ({Math.min(currentStopIdx + 1, 5)}/5) &bull; BUS-01
                   </Text>
                   <Text style={styles.nextStopName}>{nextStop.stop_name}</Text>
                   <Text style={styles.nextStopEtaText}>
@@ -872,7 +872,7 @@ export default function DriverDashboard() {
               <View style={styles.activeCockpit}>
                 <View style={styles.cockpitHeader}>
                   <View>
-                    <Text style={styles.cockpitTitle}>TRIP IN PROGRESS &bull; BUS 12</Text>
+                    <Text style={styles.cockpitTitle}>TRIP IN PROGRESS &bull; BUS-01</Text>
                     <Text style={styles.timerText}>Duration: {formatTimer(elapsedSeconds)}</Text>
                   </View>
                   <View style={styles.transmittingBadge}>
@@ -1104,7 +1104,7 @@ export default function DriverDashboard() {
                 <Text style={styles.infoLabel}>Assigned Bus Number</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <View style={styles.busPillSmall}>
-                    <Text style={styles.busPillSmallText}>BUS 12</Text>
+                    <Text style={styles.busPillSmallText}>BUS-01</Text>
                   </View>
                   <Text style={styles.infoVal}>TN 84 AX 1001</Text>
                 </View>
@@ -1229,7 +1229,7 @@ export default function DriverDashboard() {
               <Text style={{ fontSize: 32 }}>🏆</Text>
             </View>
             <Text style={styles.summaryTitle}>Trip Completed Successfully</Text>
-            <Text style={styles.summaryRoute}>Route 1 &bull; BUS 12 (TN 84 AX 1001)</Text>
+            <Text style={styles.summaryRoute}>Route 1 &bull; BUS-01 (TN 84 AX 1001)</Text>
 
             <View style={styles.summaryGrid}>
               <View style={styles.summaryBox}>

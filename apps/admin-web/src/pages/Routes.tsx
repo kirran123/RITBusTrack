@@ -34,7 +34,7 @@ import {
 import { parseGoogleMapsLink, parseGoogleMapsDirections, resolveLocationInput } from '../lib/googleMapsParser';
 
 const ROUTE_COLOR_PRESETS = [
-  { label: 'Royal Blue (Bus 12)', color: '#2563eb' },
+  { label: 'Royal Blue (Bus 01)', color: '#2563eb' },
   { label: 'Emerald Green (Bus 02)', color: '#10b981' },
   { label: 'Amber Gold (Bus 03)', color: '#f59e0b' },
   { label: 'Violet Purple (Bus 04)', color: '#8b5cf6' },

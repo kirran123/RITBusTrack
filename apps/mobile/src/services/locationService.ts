@@ -289,7 +289,7 @@ class LocationTracker {
     const {
       busId,
       tripId,
-      busNumber = 'BUS 12',
+      busNumber = 'BUS-01',
       driverName = 'Murugan M',
       intervalMs = DEFAULT_TRACKING_INTERVAL_MS,
       useSimulation = false,
