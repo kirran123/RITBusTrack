@@ -6,9 +6,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-android:
+  build-android-apk:
     name: Build Android APK (Bus Track)
     runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: https://ztsmxehwjyriyihypppu.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0c214ZWh3anlyaXlpaHlwcHB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MTA4NTMsImV4cCI6MjEwNTQ4Njg1M30.16sn2O8c1HGA6lJTD0TbWYG9lvnHFrhU6-fZXlbmwi4
+      CI: 1
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -17,7 +21,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Setup Java JDK 17
         uses: actions/setup-java@v4
@@ -25,36 +28,50 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK Environment
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
 
-      - name: Install Monorepo Dependencies
-        run: npm ci
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build Shared Types Package
+        run: npm run build:shared
+
+      - name: Create Mobile Environment Config
+        run: |
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ env.EXPO_PUBLIC_SUPABASE_URL }}" > apps/mobile/.env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ env.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> apps/mobile/.env
 
       - name: Generate Native Android Project (Expo Prebuild)
         working-directory: apps/mobile
-        run: npx expo prebuild --platform android --clean
-        env:
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: npx expo prebuild --platform android --clean --no-install
 
-      - name: Build Android APK with Gradle
+      - name: Compile Bus Track APK with Gradle
         working-directory: apps/mobile/android
         run: |
-          ./gradlew assembleDebug
-          mkdir -p ../../../dist-mobile-apk
-          cp app/build/outputs/apk/debug/app-debug.apk ../../../dist-mobile-apk/Bus-Track.apk
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Upload Bus Track Android APK Artifact
+      - name: Stage APK for Download
+        run: |
+          mkdir -p output-apk
+          cp apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk output-apk/Bus-Track.apk
+
+      - name: Upload Bus Track APK (Direct Download)
         uses: actions/upload-artifact@v4
         with:
           name: Bus-Track-Android-APK
-          path: dist-mobile-apk/Bus-Track.apk
+          path: output-apk/Bus-Track.apk
           retention-days: 30
 
-  build-ios:
+  build-ios-package:
     name: Export iOS App Package (Bus Track)
     runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: https://ztsmxehwjyriyihypppu.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0c214ZWh3anlyaXlpaHlwcHB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MTA4NTMsImV4cCI6MjEwNTQ4Njg1M30.16sn2O8c1HGA6lJTD0TbWYG9lvnHFrhU6-fZXlbmwi4
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -63,22 +80,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
-      - name: Export Mobile Standalone Web App & iOS PWA Bundle
+      - name: Build Shared Types Package
+        run: npm run build:shared
+
+      - name: Export Standalone Web & iOS Package
         working-directory: apps/mobile
         run: |
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ env.EXPO_PUBLIC_SUPABASE_URL }}" > .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ env.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
           npx expo export --platform web
-          mkdir -p ../../dist-mobile-ios
-          cp -r dist/* ../../dist-mobile-ios/
 
-      - name: Upload Bus Track iOS Web Package
+      - name: Upload Bus Track iOS Package
         uses: actions/upload-artifact@v4
         with:
           name: Bus-Track-iOS-Package
-          path: dist-mobile-ios/
+          path: apps/mobile/dist/
           retention-days: 30
-
