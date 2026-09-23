@@ -1419,14 +1419,7 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                     </div>
                   </div>
 
-                  {/* Walking Time to Stop */}
-                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center space-x-3">
-                    <span className="text-xl">🚶</span>
-                    <div className="flex-1">
-                      <div className="text-xs font-bold text-white">4 mins walking distance</div>
-                      <div className="text-[11px] text-slate-400">320 meters from current location to {studentStop?.stop_name || 'stop'}</div>
-                    </div>
-                  </div>
+
                 </div>
               );
             })()}

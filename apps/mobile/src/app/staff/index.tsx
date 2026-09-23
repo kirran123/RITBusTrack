@@ -451,24 +451,7 @@ export default function StaffMobileDashboard() {
                 </View>
               </View>
 
-              {/* Walking & Proximity Guidance */}
-              <View style={styles.guidanceStrip}>
-                <View style={styles.guidanceItem}>
-                  <Text style={styles.guidanceIcon}>🚶</Text>
-                  <View>
-                    <Text style={styles.guidanceVal}>{walkingDistanceFormatted}</Text>
-                    <Text style={styles.guidanceLabel}>Walk from Current Location</Text>
-                  </View>
-                </View>
-                <View style={styles.guidanceDivider} />
-                <View style={styles.guidanceItem}>
-                  <Text style={styles.guidanceIcon}>⏱️</Text>
-                  <View>
-                    <Text style={styles.guidanceVal}>~{walkingMinutes} mins walk</Text>
-                    <Text style={styles.guidanceLabel}>Leave in {Math.max(1, dynamicETA.etaMinutes - walkingMinutes)} mins</Text>
-                  </View>
-                </View>
-              </View>
+
 
               {/* Traffic / Delay Condition */}
               <View style={styles.trafficStrip}>

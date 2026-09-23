@@ -1,3 +1,5 @@
+import { broadcastLeaveToggle, subscribeToLeave } from './supabase';
+
 export interface BusStudent {
   id: string;
   name: string;
@@ -200,6 +202,25 @@ class StudentRosterStore {
     return this.getStudents(busId).filter((s) => s.isOnLeave);
   }
 
+  constructor() {
+    // Listen for leave changes from Admin Web / Supabase
+    try {
+      subscribeToLeave((payload) => {
+        this.students = this.students.map((s) =>
+          s.id === payload.studentId
+            ? {
+                ...s,
+                isOnLeave: payload.isOnLeave,
+                leaveReason: payload.isOnLeave ? (payload.reason || 'Leave Applied') : undefined,
+                leaveDate: payload.isOnLeave ? (payload.leaveDate || 'Today') : undefined,
+              }
+            : s
+        );
+        this.notify();
+      });
+    } catch {}
+  }
+
   setStudentLeave(
     studentId: string,
     isOnLeave: boolean,
@@ -217,6 +238,11 @@ class StudentRosterStore {
         : s
     );
     this.notify();
+
+    // Broadcast update to Admin Web and Supabase
+    try {
+      broadcastLeaveToggle({ studentId, isOnLeave, reason, leaveDate });
+    } catch {}
   }
 
   addStudent(student: BusStudent) {

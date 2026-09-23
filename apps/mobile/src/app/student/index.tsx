@@ -374,16 +374,8 @@ export default function StudentDashboard() {
                     </View>
                   </View>
                   <Text style={styles.radarDistanceText}>
-                    {formatDistance(distanceBusToStopKm)} to your stop &bull; GPS: {lastUpdatedSec < 60 ? `${lastUpdatedSec}s ago` : `${Math.floor(lastUpdatedSec / 60)}m ago`} (1m cycle)
+                    {formatDistance(distanceBusToStopKm)} to your stop &bull; Live GPS: {lastUpdatedSec < 60 ? `${lastUpdatedSec}s ago` : `${Math.floor(lastUpdatedSec / 60)}m ago`}
                   </Text>
-                </View>
-
-                <View style={styles.walkPill}>
-                  <Text style={styles.walkIcon}>🚶</Text>
-                  <View>
-                    <Text style={styles.walkTime}>{walkingMinutes} mins walk</Text>
-                    <Text style={styles.walkDist}>{formatDistance(distanceToBoardingStopKm)} away</Text>
-                  </View>
                 </View>
               </View>
 

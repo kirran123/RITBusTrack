@@ -81,6 +81,98 @@ export const App: React.FC = () => {
   useEffect(() => saveStorage('bustrack_emergencies_v1', emergencies), [emergencies]);
   useEffect(() => saveStorage('bustrack_notifications_v1', notifications), [notifications]);
 
+  // Cross-Tab / Cross-Window Broadcast Channel for instant local sync
+  const [lastLiveBroadcastTime, setLastLiveBroadcastTime] = useState<number>(0);
+
+  useEffect(() => {
+    let crossChannel: any = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        crossChannel = new BroadcastChannel('bustrack_cross_client_sync');
+        crossChannel.onmessage = (event: MessageEvent) => {
+          const data = event.data;
+          if (!data || !data.type) return;
+
+          if (data.type === 'location_update') {
+            const payload = data.payload;
+            if (!payload || !payload.busId || !payload.coordinate) return;
+            setLastLiveBroadcastTime(Date.now());
+            setLocations(prev => {
+              const existingIdx = prev.findIndex(l => l.bus_id === payload.busId);
+              const updatedLoc: CurrentBusLocation = {
+                id: 'loc_' + payload.busId,
+                bus_id: payload.busId,
+                trip_id: payload.tripId,
+                latitude: payload.coordinate.latitude,
+                longitude: payload.coordinate.longitude,
+                speed: payload.coordinate.speed || 0,
+                heading: payload.coordinate.heading || 0,
+                updated_at: new Date().toISOString()
+              };
+              if (existingIdx >= 0) {
+                const copy = [...prev];
+                copy[existingIdx] = updatedLoc;
+                return copy;
+              }
+              return [...prev, updatedLoc];
+            });
+          } else if (data.type === 'leave_toggle') {
+            const { studentId, isOnLeave } = data.payload;
+            setStudents(prev => prev.map(s => s.id === studentId ? { ...s, is_on_leave: isOnLeave } : s));
+          } else if (data.type === 'emergency_sos') {
+            setEmergencies(prev => [data.payload, ...prev]);
+          }
+        };
+      } catch (err) {
+        console.warn('BroadcastChannel setup note:', err);
+      }
+    }
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'bustrack_cross_sync_event' && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          if (data.type === 'location_update') {
+            const payload = data.payload;
+            if (!payload || !payload.busId || !payload.coordinate) return;
+            setLastLiveBroadcastTime(Date.now());
+            setLocations(prev => {
+              const existingIdx = prev.findIndex(l => l.bus_id === payload.busId);
+              const updatedLoc: CurrentBusLocation = {
+                id: 'loc_' + payload.busId,
+                bus_id: payload.busId,
+                trip_id: payload.tripId,
+                latitude: payload.coordinate.latitude,
+                longitude: payload.coordinate.longitude,
+                speed: payload.coordinate.speed || 0,
+                heading: payload.coordinate.heading || 0,
+                updated_at: new Date().toISOString()
+              };
+              if (existingIdx >= 0) {
+                const copy = [...prev];
+                copy[existingIdx] = updatedLoc;
+                return copy;
+              }
+              return [...prev, updatedLoc];
+            });
+          } else if (data.type === 'leave_toggle') {
+            const { studentId, isOnLeave } = data.payload;
+            setStudents(prev => prev.map(s => s.id === studentId ? { ...s, is_on_leave: isOnLeave } : s));
+          } else if (data.type === 'emergency_sos') {
+            setEmergencies(prev => [data.payload, ...prev]);
+          }
+        } catch {}
+      }
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+
+    return () => {
+      if (crossChannel) crossChannel.close();
+      window.removeEventListener('storage', handleStorageEvent);
+    };
+  }, []);
+
   // Supabase Realtime Live GPS Synchronization with Mobile Driver App
   useEffect(() => {
     if (!supabase) return;
@@ -93,6 +185,7 @@ export const App: React.FC = () => {
       channel
         .on('broadcast', { event: 'location_update' }, ({ payload }: any) => {
           if (!payload || !payload.busId || !payload.coordinate) return;
+          setLastLiveBroadcastTime(Date.now());
 
           setLocations(prev => {
             const existingIdx = prev.findIndex(l => l.bus_id === payload.busId);
@@ -119,6 +212,10 @@ export const App: React.FC = () => {
           if (!payload) return;
           setEmergencies(prev => [payload, ...prev]);
         })
+        .on('broadcast', { event: 'leave_toggle' }, ({ payload }: any) => {
+          if (!payload || !payload.studentId) return;
+          setStudents(prev => prev.map(s => s.id === payload.studentId ? { ...s, is_on_leave: payload.isOnLeave } : s));
+        })
         .subscribe((status) => {
           console.log('📡 Supabase Live GPS Channel Status:', status);
         });
@@ -131,10 +228,15 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Live Simulation Timer for Demo Mode
+  // Live Simulation Timer for Demo Mode (Pauses when live mobile app driver is actively transmitting!)
   useEffect(() => {
     let simIndex = 0;
     const timer = setInterval(() => {
+      // If mobile driver is broadcasting live GPS, don't overwrite with mock simulation
+      if (Date.now() - lastLiveBroadcastTime < 25000) {
+        return;
+      }
+
       simIndex = (simIndex + 1) % SIMULATION_ROUTE_A.length;
       const point = SIMULATION_ROUTE_A[simIndex];
 
@@ -153,7 +255,7 @@ export const App: React.FC = () => {
     }, 4000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [lastLiveBroadcastTime]);
 
   // CRUD Handlers
   const handleSaveBus = (bus: Bus) => {
@@ -345,16 +447,40 @@ export const App: React.FC = () => {
   };
 
   const handleToggleStudentLeave = (studentId: string) => {
+    let nextState = false;
     setStudents(prev => prev.map(s => {
       if (s.id === studentId) {
+        nextState = !s.is_on_leave;
         return {
           ...s,
-          is_on_leave: !s.is_on_leave,
-          leave_date: !s.is_on_leave ? new Date().toISOString().split('T')[0] : undefined
+          is_on_leave: nextState,
+          leave_date: nextState ? new Date().toISOString().split('T')[0] : undefined
         };
       }
       return s;
     }));
+
+    // Broadcast across BroadcastChannel & localStorage
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('bustrack_cross_client_sync');
+        bc.postMessage({ type: 'leave_toggle', payload: { studentId, isOnLeave: nextState } });
+        bc.close();
+      }
+      localStorage.setItem('bustrack_cross_sync_event', JSON.stringify({ type: 'leave_toggle', payload: { studentId, isOnLeave: nextState }, timestamp: Date.now() }));
+    } catch {}
+
+    if (supabase) {
+      try {
+        const channel = supabase.channel('bus_tracking_live');
+        channel.send({
+          type: 'broadcast',
+          event: 'leave_toggle',
+          payload: { studentId, isOnLeave: nextState }
+        }).catch(() => {});
+        supabase.from('students').update({ is_on_leave: nextState }).eq('id', studentId).catch(() => {});
+      } catch {}
+    }
   };
 
   const handleDeleteStudent = (studentId: string) => {
