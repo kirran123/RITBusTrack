@@ -294,11 +294,16 @@ export default function DriverDashboard() {
 
   const signal = getSignalQuality(currentLoc?.accuracy);
 
-  // Next Stop calculations
-  const nextStop = INITIAL_STOPS[Math.min(currentStopIdx, INITIAL_STOPS.length - 1)];
-  const distToNextStop = currentLoc
+  // Dynamic Next Stop & Proximity Calculations
+  let targetStopIdx = currentStopIdx;
+  if (currentLoc && currentStopIdx === 0 && !isTripActive) {
+    targetStopIdx = 1; // When at start terminal ready to depart, next target is stop #2
+  }
+  const nextStop = INITIAL_STOPS[Math.min(targetStopIdx, INITIAL_STOPS.length - 1)];
+  const rawDist = currentLoc
     ? calculateDistanceKm(currentLoc.latitude, currentLoc.longitude, nextStop.latitude, nextStop.longitude)
-    : 1.2;
+    : 1.4;
+  const distToNextStop = rawDist < 0.05 && currentStopIdx === 0 && !isTripActive ? 1.4 : Math.max(0.05, rawDist);
   const nextStopETA = calculateDynamicETA(
     distToNextStop,
     currentLoc?.speed || 0,
@@ -655,45 +660,6 @@ export default function DriverDashboard() {
         {/* ================= TAB 2: STUDENTS MANIFEST & PASSENGER ROSTER ================= */}
         {activeTab === 'students' && (
           <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 14 }}>
-            {/* Total Count & Capacity KPI Card */}
-            <View style={styles.rosterKpiCard}>
-              <View style={styles.rosterKpiHeader}>
-                <View>
-                  <Text style={styles.rosterKpiTitle}>PASSENGER ROSTER & CAPACITY</Text>
-                  <Text style={styles.rosterKpiSub}>{driverBusNumber} &bull; Route 1 &bull; 54 Passenger Capacity</Text>
-                </View>
-                <View style={styles.syncBadge}>
-                  <View style={styles.syncDot} />
-                  <Text style={styles.syncText}>ADMIN SYNCED</Text>
-                </View>
-              </View>
-
-              <View style={styles.rosterGrid}>
-                <View style={styles.rosterStatBox}>
-                  <Text style={styles.rosterStatVal}>{students.length}</Text>
-                  <Text style={styles.rosterStatLabel}>TOTAL ENROLLED</Text>
-                </View>
-                <View style={styles.rosterStatBox}>
-                  <Text style={[styles.rosterStatVal, { color: '#10b981' }]}>
-                    {boardedStudentsCount}
-                  </Text>
-                  <Text style={styles.rosterStatLabel}>BOARDED (STOP PASSED)</Text>
-                </View>
-                <View style={styles.rosterStatBox}>
-                  <Text style={[styles.rosterStatVal, { color: '#f59e0b' }]}>
-                    {awaitingStudentsCount}
-                  </Text>
-                  <Text style={styles.rosterStatLabel}>AWAITING PICKUP</Text>
-                </View>
-                <View style={styles.rosterStatBox}>
-                  <Text style={[styles.rosterStatVal, { color: '#f43f5e' }]}>
-                    {onLeaveCount}
-                  </Text>
-                  <Text style={styles.rosterStatLabel}>ON LEAVE TODAY</Text>
-                </View>
-              </View>
-            </View>
-
             {/* Auto Boarding Info Pill */}
             <View style={styles.autoBoardInfoBox}>
               <Text style={{ fontSize: 13, marginRight: 6 }}>ℹ️</Text>
@@ -851,49 +817,6 @@ export default function DriverDashboard() {
                 />
               </View>
             )}
-
-            {/* Telemetry Sensor Mode Switcher */}
-            <View style={styles.modeCard}>
-              <View style={styles.modeHeader}>
-                <Text style={styles.modeTitle}>GPS Telemetry Engine</Text>
-                <View style={[styles.signalPill, { borderColor: signal.color }]}>
-                  <View style={[styles.signalDot, { backgroundColor: signal.color }]} />
-                  <Text style={[styles.signalText, { color: signal.color }]}>{signal.label}</Text>
-                </View>
-              </View>
-
-              <View style={styles.modeToggleRow}>
-                <TouchableOpacity
-                  style={[styles.modeToggleBtn, !useSimulation && styles.modeToggleBtnActive]}
-                  onPress={() => {
-                    if (isTripActive) {
-                      Alert.alert('Trip Active', 'Please end current trip before switching GPS source.');
-                      return;
-                    }
-                    setUseSimulation(false);
-                  }}
-                >
-                  <Text style={[styles.modeToggleText, !useSimulation && styles.modeToggleTextActive]}>
-                    📡 Real Device GPS
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modeToggleBtn, useSimulation && styles.modeToggleBtnActive]}
-                  onPress={() => {
-                    if (isTripActive) {
-                      Alert.alert('Trip Active', 'Please end current trip before switching GPS source.');
-                      return;
-                    }
-                    setUseSimulation(true);
-                  }}
-                >
-                  <Text style={[styles.modeToggleText, useSimulation && styles.modeToggleTextActive]}>
-                    🎮 Route Simulation
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
 
             {/* Trip Standby or Active Control Box */}
             {!isTripActive ? (
