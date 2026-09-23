@@ -6,6 +6,8 @@ package-lock.json
 
 # Build Outputs
 dist/
+dist-exe/
+release/
 build/
 .output/
 .turbo/

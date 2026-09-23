@@ -2,6 +2,8 @@
   "name": "admin-web",
   "private": true,
   "version": "1.0.0",
+  "description": "College Bus Tracking Fleet Command Center",
+  "author": "College Transport System Team",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
@@ -28,9 +30,28 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.19",
+    "electron": "44.4.5",
+    "electron-builder": "^26.15.3",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.4.5",
     "vite": "^5.2.11"
+  },
+  "build": {
+    "appId": "com.college.bustrack.admin",
+    "productName": "College Bus Track",
+    "electronVersion": "44.4.5",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
   }
 }
