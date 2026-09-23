@@ -244,6 +244,8 @@ export default function DriverDashboard() {
     const doComplete = () => {
       locationTracker.stopTracking();
       setIsTripActive(false);
+      setCurrentStopIdx(0);
+      setCompletedStopIds([]);
 
       const avgSpd =
         elapsedSeconds > 0
@@ -254,13 +256,15 @@ export default function DriverDashboard() {
         duration: formatTimer(elapsedSeconds),
         distance: formatDistance(distanceTravelledKm),
         avgSpeed: avgSpd,
-        startTime: new Date(Date.now() - elapsedSeconds * 1000).toLocaleTimeString([], {
+        startTime: new Date(Date.now() - Math.max(1, elapsedSeconds) * 1000).toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
         }),
         endTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       });
 
+      setDistanceTravelledKm(0);
+      setElapsedSeconds(0);
       setShowSummaryModal(true);
     };
 
@@ -313,7 +317,7 @@ export default function DriverDashboard() {
   const signal = getSignalQuality(currentLoc?.accuracy);
 
   // Dynamic Next Stop & Proximity Calculations
-  const isAllStopsReached = currentStopIdx >= INITIAL_STOPS.length || completedStopIds.length >= INITIAL_STOPS.length;
+  const isAllStopsReached = isTripActive && (currentStopIdx >= INITIAL_STOPS.length - 1 || completedStopIds.length >= INITIAL_STOPS.length);
   let targetStopIdx = Math.min(currentStopIdx, INITIAL_STOPS.length - 1);
   if (currentLoc && currentStopIdx === 0 && !isTripActive) {
     targetStopIdx = 1; // When at start terminal ready to depart, next target is stop #2
@@ -1267,7 +1271,17 @@ export default function DriverDashboard() {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.closeSummaryBtn} onPress={() => setShowSummaryModal(false)}>
+            <TouchableOpacity
+              style={styles.closeSummaryBtn}
+              onPress={() => {
+                setShowSummaryModal(false);
+                setIsTripActive(false);
+                setCurrentStopIdx(0);
+                setCompletedStopIds([]);
+                setDistanceTravelledKm(0);
+                setElapsedSeconds(0);
+              }}
+            >
               <Text style={styles.closeSummaryBtnText}>Acknowledge & Close Log</Text>
             </TouchableOpacity>
           </View>
