@@ -263,24 +263,39 @@ class LocationTracker {
 
   async checkPermissions(): Promise<LocationPermissionResult> {
     try {
+      if (Platform.OS === 'web') {
+        let isGranted = true;
+        if (typeof navigator !== 'undefined' && 'permissions' in navigator && navigator.permissions) {
+          try {
+            const status = await (navigator.permissions as any).query({ name: 'geolocation' });
+            isGranted = status.state === 'granted';
+          } catch {}
+        }
+        return {
+          foregroundStatus: isGranted ? Location.PermissionStatus.GRANTED : Location.PermissionStatus.UNDETERMINED,
+          isServicesEnabled: true,
+          granted: isGranted,
+        };
+      }
+
       const isServicesEnabled = await Location.hasServicesEnabledAsync().catch(() => true);
-      const foreground = await Location.getForegroundPermissionsAsync().catch(() => ({ status: Location.PermissionStatus.GRANTED }));
+      const foreground = await Location.getForegroundPermissionsAsync().catch(() => ({ status: Location.PermissionStatus.UNDETERMINED }));
 
       let backgroundStatus: Location.PermissionStatus | undefined;
-      if (Platform.OS !== 'web') {
-        try {
-          const bg = await Location.getBackgroundPermissionsAsync();
-          backgroundStatus = bg.status;
-        } catch {
-          // Background permissions check may not be supported on all targets
-        }
+      try {
+        const bg = await Location.getBackgroundPermissionsAsync();
+        backgroundStatus = bg.status;
+      } catch {
+        // Background permissions check may not be supported on all targets
       }
+
+      const isGranted = foreground.status === Location.PermissionStatus.GRANTED;
 
       return {
         foregroundStatus: foreground.status,
         backgroundStatus,
-        isServicesEnabled: true,
-        granted: true,
+        isServicesEnabled,
+        granted: isGranted,
       };
     } catch (err: any) {
       console.warn('Error checking location permissions:', err);
@@ -294,12 +309,23 @@ class LocationTracker {
 
   async requestForegroundPermission(): Promise<boolean> {
     try {
-      if (Platform.OS === 'web') return true;
-      const { status } = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: Location.PermissionStatus.GRANTED }));
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+          return new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              () => resolve(true),
+              () => resolve(false),
+              { enableHighAccuracy: true, timeout: 6000 }
+            );
+          });
+        }
+        return true;
+      }
+      const { status } = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: Location.PermissionStatus.DENIED }));
       return status === Location.PermissionStatus.GRANTED;
     } catch (err) {
       console.error('Failed to request foreground location permission:', err);
-      return true;
+      return false;
     }
   }
 
@@ -347,8 +373,8 @@ class LocationTracker {
       }
 
       return {
-        latitude: ROUTE_1_WAYPOINTS[0].lat,
-        longitude: ROUTE_1_WAYPOINTS[0].lng,
+        latitude: ROUTE_1_MORNING_WAYPOINTS[0].lat,
+        longitude: ROUTE_1_MORNING_WAYPOINTS[0].lng,
         speed: 0,
         heading: 42,
         accuracy: 3.5,
@@ -357,8 +383,8 @@ class LocationTracker {
     } catch (err) {
       console.warn('Failed to obtain current position:', err);
       return {
-        latitude: ROUTE_1_WAYPOINTS[0].lat,
-        longitude: ROUTE_1_WAYPOINTS[0].lng,
+        latitude: ROUTE_1_MORNING_WAYPOINTS[0].lat,
+        longitude: ROUTE_1_MORNING_WAYPOINTS[0].lng,
         speed: 0,
         heading: 42,
         accuracy: 3.5,
@@ -412,7 +438,7 @@ class LocationTracker {
       status: 'active',
     });
 
-    // Attempt Native Hardware GPS Watcher in background if on real device
+    // Attempt Real Device Hardware GPS Watcher
     if (Platform.OS !== 'web') {
       try {
         Location.watchPositionAsync(
@@ -474,6 +500,62 @@ class LocationTracker {
         });
       } catch (e) {
         console.log('Native GPS setup notice:', e);
+      }
+    } else if (typeof navigator !== 'undefined' && navigator.geolocation && 'watchPosition' in navigator.geolocation) {
+      try {
+        const watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            if (!this.isTracking) return;
+            const speedKmH = pos.coords.speed ? Math.max(0, pos.coords.speed * 3.6) : 0;
+            if (speedKmH > 2) {
+              this.hasNativeMovement = true;
+              let heading = pos.coords.heading || 0;
+              if (this.lastCoord) {
+                const dist = calculateDistanceKm(
+                  this.lastCoord.latitude,
+                  this.lastCoord.longitude,
+                  pos.coords.latitude,
+                  pos.coords.longitude
+                );
+                if (dist > 0.003) {
+                  this.totalDistanceKm += dist;
+                  heading = calculateBearing(
+                    this.lastCoord.latitude,
+                    this.lastCoord.longitude,
+                    pos.coords.latitude,
+                    pos.coords.longitude
+                  );
+                }
+              }
+
+              const coord: GPSCoordinate = {
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                speed: speedKmH,
+                heading,
+                accuracy: pos.coords.accuracy || 3.5,
+                timestamp: new Date(pos.timestamp).toISOString(),
+              };
+
+              this.lastCoord = coord;
+              onLocationUpdate(coord, this.totalDistanceKm);
+              broadcastBusTelemetry({
+                busId,
+                tripId,
+                coordinate: coord,
+                busNumber,
+                driverName,
+                distanceKm: this.totalDistanceKm,
+                status: 'active',
+              });
+            }
+          },
+          (err) => console.log('Web GPS watch standby:', err),
+          { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
+        );
+        this.subscription = { remove: () => navigator.geolocation.clearWatch(watchId) } as any;
+      } catch (e) {
+        console.log('Web geolocation watch setup notice:', e);
       }
     }
 

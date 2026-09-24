@@ -31,5 +31,8 @@
     "openstreetmap"
   ],
   "author": "College Transport System Team",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "expo": "^57.0.25"
+  }
 }

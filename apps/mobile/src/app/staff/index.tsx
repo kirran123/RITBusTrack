@@ -139,6 +139,26 @@ export default function StaffMobileDashboard() {
       }
     }).catch(() => {});
 
+    // Periodic live database sync fallback (every 3s)
+    const pollTimer = setInterval(async () => {
+      try {
+        const latest = await fetchLatestBusLocation('b1');
+        if (latest && latest.latitude && latest.longitude) {
+          setBusLocation((prev) => {
+            if (
+              Math.abs(prev.latitude - latest.latitude) > 0.00005 ||
+              Math.abs(prev.longitude - latest.longitude) > 0.00005 ||
+              prev.speed !== latest.speed
+            ) {
+              setLastUpdatedSec(1);
+              return latest;
+            }
+            return prev;
+          });
+        }
+      } catch {}
+    }, 3000);
+
     // 1. Subscribe to Live Driver Broadcasts via Supabase Realtime Channel
     const unsubscribe = subscribeToTelemetry((payload: BusTelemetryPayload) => {
       setBusLocation(payload.coordinate);
@@ -180,6 +200,7 @@ export default function StaffMobileDashboard() {
       unsubSwap();
       unsubSOS();
       clearInterval(secTimer);
+      clearInterval(pollTimer);
     };
   }, []);
 

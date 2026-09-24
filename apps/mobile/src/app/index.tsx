@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,19 +11,35 @@ import {
   KeyboardAvoidingView,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-
+import { locationTracker } from '../services/locationService';
+import { notificationService } from '../services/notificationService';
 
 export type MobilePortalRole = 'driver' | 'student' | 'staff';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [role, setRole] = useState<MobilePortalRole>('driver');
-  const [phone, setPhone] = useState('9894668646');
-  const [email, setEmail] = useState('kishore.it@ritrjpm.ac.in');
-  const [password, setPassword] = useState('driver123');
+  const [role, setRole] = useState<MobilePortalRole>('student');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Request permissions smoothly on startup
+  useEffect(() => {
+    (async () => {
+      try {
+        await locationTracker.requestForegroundPermission();
+        await notificationService.requestPermission();
+      } catch (e) {
+        console.log('Permission setup:', e);
+      }
+    })();
+  }, []);
 
   const showAlert = (title: string, message: string) => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.alert === 'function') {
@@ -33,90 +49,121 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSelectRole = (r: MobilePortalRole) => {
-    setRole(r);
-    if (r === 'driver') {
-      setPhone('9894668646');
-      setPassword('driver123');
-    } else if (r === 'student') {
-      setEmail('kishore.it@ritrjpm.ac.in');
-      setPassword('student123');
-    } else {
-      setEmail('ganesh.staff@ritrjpm.ac.in');
-      setPassword('staff123');
-    }
+  const handleRoleChange = (selectedRole: MobilePortalRole) => {
+    setRole(selectedRole);
+    setPhone('');
+    setEmail('');
+    setPassword('');
   };
 
   const handleLogin = async () => {
+    // 1. Validation
     if (role === 'driver') {
-      if (!phone || phone.trim().length < 8) {
-        showAlert('Invalid Input', 'Please enter a valid driver phone number (e.g. 9894668646)');
+      if (!phone.trim() || phone.trim().length < 8) {
+        showAlert('Invalid Phone', 'Please enter your registered mobile number.');
         return;
       }
-      if (!password || password.trim().length === 0) {
-        showAlert('Invalid Input', 'Please enter your driver password');
+      if (!password.trim()) {
+        showAlert('Invalid Password', 'Please enter your password.');
         return;
       }
     } else {
-      if (!email || !email.includes('@')) {
-        showAlert('Invalid Input', 'Please enter a valid institutional email address');
+      if (!email.trim() || !email.includes('@')) {
+        showAlert('Invalid Email', 'Please enter your registered institutional email address.');
         return;
       }
-      if (!password || password.trim().length === 0) {
-        showAlert('Invalid Input', 'Please enter your password');
+      if (!password.trim()) {
+        showAlert('Invalid Password', 'Please enter your password.');
         return;
       }
     }
 
-    // Dynamic Credentials Sync Check against localStorage (Web Only)
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-      try {
+    setIsSubmitting(true);
+
+    try {
+      // Ensure GPS & notification access is prompted
+      await locationTracker.requestForegroundPermission();
+      await notificationService.requestPermission();
+
+      // Sync user profile state (Web & Mobile local session)
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
         if (role === 'student') {
           const storedStudentsRaw = localStorage.getItem('bustrack_students_v1');
+          let matchedStudent: any = null;
           if (storedStudentsRaw) {
-            const storedStudents = JSON.parse(storedStudentsRaw);
-            if (Array.isArray(storedStudents)) {
-              const matchedStudent = storedStudents.find(
-                s => (s.profile?.email || '').toLowerCase() === email.trim().toLowerCase() ||
-                     (s.register_number || '').toLowerCase() === email.trim().toLowerCase()
-              );
-              if (matchedStudent && matchedStudent.password && matchedStudent.password !== password.trim()) {
-                showAlert('Authentication Failed', `Incorrect password for ${email}. Please check with the transport administrator.`);
-                return;
+            try {
+              const list = JSON.parse(storedStudentsRaw);
+              if (Array.isArray(list)) {
+                matchedStudent = list.find(
+                  (s: any) =>
+                    (s.profile?.email || s.email || '').toLowerCase() === email.trim().toLowerCase() ||
+                    (s.register_number || s.rollNumber || '').toLowerCase() === email.trim().toLowerCase()
+                );
+                if (matchedStudent && matchedStudent.password && matchedStudent.password !== password.trim()) {
+                  showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
+                  setIsSubmitting(false);
+                  return;
+                }
               }
-              if (matchedStudent) {
-                localStorage.setItem('bustrack_current_mobile_student', JSON.stringify(matchedStudent));
-              }
-            }
+            } catch {}
           }
+          if (!matchedStudent) {
+            matchedStudent = {
+              id: 'st_' + Date.now(),
+              name: email.split('@')[0].toUpperCase(),
+              email: email.trim(),
+              register_number: '953621104023',
+              department: 'Information Technology',
+              year: 4,
+              bus_number: 'BUS-01',
+              boarding_stop: 'Gandhi Statue Junction (Stop 2)',
+            };
+          }
+          localStorage.setItem('bustrack_current_mobile_student', JSON.stringify(matchedStudent));
         } else if (role === 'staff') {
           const storedStaffRaw = localStorage.getItem('bustrack_staff_commuters_v1');
+          let matchedStaff: any = null;
           if (storedStaffRaw) {
-            const storedStaff = JSON.parse(storedStaffRaw);
-            if (Array.isArray(storedStaff)) {
-              const matchedStaff = storedStaff.find(
-                s => (s.email || s.profile?.email || '').toLowerCase() === email.trim().toLowerCase() ||
-                     (s.employee_id || '').toLowerCase() === email.trim().toLowerCase()
-              );
-              if (matchedStaff && matchedStaff.password && matchedStaff.password !== password.trim()) {
-                showAlert('Authentication Failed', `Incorrect password for ${email}. Please check with the transport administrator.`);
-                return;
+            try {
+              const list = JSON.parse(storedStaffRaw);
+              if (Array.isArray(list)) {
+                matchedStaff = list.find(
+                  (s: any) =>
+                    (s.email || s.profile?.email || '').toLowerCase() === email.trim().toLowerCase() ||
+                    (s.employee_id || '').toLowerCase() === email.trim().toLowerCase()
+                );
+                if (matchedStaff && matchedStaff.password && matchedStaff.password !== password.trim()) {
+                  showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
+                  setIsSubmitting(false);
+                  return;
+                }
               }
-              if (matchedStaff) {
-                localStorage.setItem('bustrack_current_mobile_staff', JSON.stringify(matchedStaff));
-              }
-            }
+            } catch {}
           }
+          if (!matchedStaff) {
+            matchedStaff = {
+              id: 'fac_' + Date.now(),
+              name: email.split('@')[0].toUpperCase(),
+              email: email.trim(),
+              employee_id: 'EMP-STAFF-04',
+              department: 'Faculty Commuter',
+              designation: 'Faculty Member',
+              bus_number: 'BUS-01',
+              boarding_stop: 'PACR Mill Circle (Stop 3)',
+            };
+          }
+          localStorage.setItem('bustrack_current_mobile_staff', JSON.stringify(matchedStaff));
         } else if (role === 'driver') {
           const storedDriversRaw = localStorage.getItem('bustrack_drivers_v1');
           let matchedDriver: any = null;
           if (storedDriversRaw) {
             try {
-              const storedDrivers = JSON.parse(storedDriversRaw);
-              if (Array.isArray(storedDrivers)) {
-                matchedDriver = storedDrivers.find(
-                  d => (d.phone || d.profile?.phone || '').replace(/\D/g, '').includes(phone.trim().replace(/\D/g, '')) ||
-                       (d.employee_id || '').toLowerCase() === phone.trim().toLowerCase()
+              const list = JSON.parse(storedDriversRaw);
+              if (Array.isArray(list)) {
+                matchedDriver = list.find(
+                  (d: any) =>
+                    (d.phone || d.profile?.phone || '').replace(/\D/g, '').includes(phone.trim().replace(/\D/g, '')) ||
+                    (d.employee_id || '').toLowerCase() === phone.trim().toLowerCase()
                 );
               }
             } catch {}
@@ -124,9 +171,9 @@ export default function LoginScreen() {
           if (!matchedDriver) {
             matchedDriver = {
               id: 'dr1',
-              name: 'Mr. B. Moorthi',
+              name: 'Driver (' + phone.trim() + ')',
               employee_id: 'EMP-DRV-01',
-              phone: '+91 9894668646',
+              phone: phone.trim(),
               license_number: 'TN-67-2015-001',
               bus_number: 'BUS-01',
               registration_number: 'TN 67 AM 9785',
@@ -135,114 +182,101 @@ export default function LoginScreen() {
           }
           localStorage.setItem('bustrack_current_mobile_driver', JSON.stringify(matchedDriver));
         }
-      } catch (err) {
-        console.log('Mobile login sync check note:', err);
       }
-    }
 
-    try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window && window.Notification && window.Notification.permission === 'default') {
-        await window.Notification.requestPermission();
+      // Navigate to destination
+      if (role === 'driver') {
+        router.push('/driver');
+      } else if (role === 'student') {
+        router.push('/student');
+      } else {
+        router.push('/staff');
       }
-    } catch (e) {
-      console.log('Login permission priming:', e);
-    }
-
-    if (role === 'driver') {
-      router.push('/driver');
-    } else if (role === 'student') {
-      router.push('/student');
-    } else {
-      router.push('/staff');
+    } catch (err) {
+      console.error('Login error:', err);
+      showAlert('Error', 'An unexpected error occurred during sign-in.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#080c14' }}
+      style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Top College Branding */}
+        {/* Brand Header */}
         <View style={styles.header}>
-          <View style={styles.logoGlow}>
-            <View style={styles.iconRing}>
-              <Image
-                source={require('../../assets/icon.png')}
-                style={{ width: 62, height: 62, borderRadius: 20 }}
-                resizeMode="cover"
-              />
-            </View>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../../assets/icon.png')}
+              style={styles.logoImage}
+              resizeMode="cover"
+            />
           </View>
-
-          <Text style={styles.collegeName}>Ramco Institute of Technology</Text>
-
-          <Text style={styles.title}>Bus Tracking Portal</Text>
-          <Text style={styles.subtitle}>Autonomous GPS Telemetry & Passenger Transit Network</Text>
-
-          <View style={styles.engineBadge}>
-            <View style={styles.engineDot} />
-            <Text style={styles.engineText}>LIVE GPS TRANSIT NETWORK &bull; CONNECTED</Text>
-          </View>
+          <Text style={styles.collegeTitle}>RAMCO INSTITUTE OF TECHNOLOGY</Text>
+          <Text style={styles.appTitle}>Bus Track</Text>
+          <Text style={styles.appSubtitle}>Live Campus Transport & GPS Fleet Tracking</Text>
         </View>
 
-        {/* Access Portal Selector */}
-        <View style={styles.roleCard}>
-          <Text style={styles.sectionHeader}>SELECT SIGN-IN PORTAL</Text>
-          <View style={styles.roleGrid}>
-            <TouchableOpacity
-              onPress={() => handleSelectRole('driver')}
-              style={[styles.roleBtn, role === 'driver' && styles.roleBtnActiveDriver]}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.roleIcon}>👨‍✈️</Text>
-              <Text style={[styles.roleBtnText, role === 'driver' && styles.roleBtnTextActive]}>
-                DRIVER
-              </Text>
-              {role === 'driver' && <View style={styles.activePillGreen} />}
-            </TouchableOpacity>
+        {/* Role Switcher Tabs */}
+        <View style={styles.segmentedControl}>
+          <TouchableOpacity
+            style={[styles.segmentBtn, role === 'student' && styles.segmentBtnActiveStudent]}
+            onPress={() => handleRoleChange('student')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segmentText, role === 'student' && styles.segmentTextActive]}>
+              Student
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => handleSelectRole('student')}
-              style={[styles.roleBtn, role === 'student' && styles.roleBtnActiveStudent]}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.roleIcon}>🎓</Text>
-              <Text style={[styles.roleBtnText, role === 'student' && styles.roleBtnTextActive]}>
-                STUDENT
-              </Text>
-              {role === 'student' && <View style={styles.activePillBlue} />}
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentBtn, role === 'staff' && styles.segmentBtnActiveStaff]}
+            onPress={() => handleRoleChange('staff')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segmentText, role === 'staff' && styles.segmentTextActive]}>
+              Staff
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => handleSelectRole('staff')}
-              style={[styles.roleBtn, role === 'staff' && styles.roleBtnActiveStaff]}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.roleIcon}>👔</Text>
-              <Text style={[styles.roleBtnText, role === 'staff' && styles.roleBtnTextActive]}>
-                STAFF
-              </Text>
-              {role === 'staff' && <View style={styles.activePillAmber} />}
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.segmentBtn, role === 'driver' && styles.segmentBtnActiveDriver]}
+            onPress={() => handleRoleChange('driver')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segmentText, role === 'driver' && styles.segmentTextActive]}>
+              Driver
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Sign In Form Card */}
-        <View style={styles.authCard}>
+        {/* Login Form Card */}
+        <View style={styles.formCard}>
+          <Text style={styles.cardHeader}>
+            {role === 'driver'
+              ? 'Driver Sign In'
+              : role === 'student'
+              ? 'Student Sign In'
+              : 'Staff Sign In'}
+          </Text>
+
           {role === 'driver' ? (
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Driver Phone Number</Text>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputIcon}>📱</Text>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Mobile Phone Number</Text>
+              <View style={styles.inputContainer}>
+                <Text style={styles.fieldIcon}>📱</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={styles.input}
                   value={phone}
                   onChangeText={setPhone}
-                  placeholder="9894668646"
+                  placeholder="Enter 10-digit mobile number"
                   placeholderTextColor="#64748b"
                   keyboardType="phone-pad"
                   autoCapitalize="none"
@@ -251,17 +285,21 @@ export default function LoginScreen() {
               </View>
             </View>
           ) : (
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                {role === 'student' ? 'Student College Email' : 'Staff Member Email'}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>
+                {role === 'student' ? 'Institutional Email' : 'Staff Email Address'}
               </Text>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputIcon}>{role === 'student' ? '🎓' : '👔'}</Text>
+              <View style={styles.inputContainer}>
+                <Text style={styles.fieldIcon}>{role === 'student' ? '🎓' : '✉️'}</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={styles.input}
                   value={email}
                   onChangeText={setEmail}
-                  placeholder={role === 'student' ? 'student@ritrjpm.ac.in' : 'staff@ritrjpm.ac.in'}
+                  placeholder={
+                    role === 'student'
+                      ? 'e.g. name@ritrjpm.ac.in'
+                      : 'e.g. staff@ritrjpm.ac.in'
+                  }
                   placeholderTextColor="#64748b"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -271,94 +309,111 @@ export default function LoginScreen() {
             </View>
           )}
 
-          <View style={styles.inputGroup}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={styles.inputLabel}>Password</Text>
+          <View style={styles.fieldGroup}>
+            <View style={styles.passwordLabelRow}>
+              <Text style={styles.fieldLabel}>Password</Text>
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Text style={styles.showPassText}>{showPassword ? 'Hide' : 'Show'}</Text>
+                <Text style={styles.togglePassText}>{showPassword ? 'Hide' : 'Show'}</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.inputIcon}>🔒</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.fieldIcon}>🔒</Text>
               <TextInput
-                style={styles.textInput}
+                style={styles.input}
                 value={password}
                 onChangeText={setPassword}
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 placeholderTextColor="#64748b"
                 secureTextEntry={!showPassword}
               />
             </View>
           </View>
 
+          {/* Remember Me & Help Row */}
+          <View style={styles.optionsRow}>
+            <TouchableOpacity
+              style={styles.rememberMeRow}
+              onPress={() => setRememberMe(!rememberMe)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.rememberMeText}>Remember me</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() =>
+                showAlert(
+                  'Need Help?',
+                  'For password resets or login assistance, please contact the Transport Office coordinator.'
+                )
+              }
+            >
+              <Text style={styles.forgotPassText}>Forgot password?</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Sign In Button */}
           <TouchableOpacity
             style={[
-              styles.submitBtn,
-              role === 'driver' && styles.submitBtnDriver,
-              role === 'student' && styles.submitBtnStudent,
-              role === 'staff' && styles.submitBtnStaff,
+              styles.signInButton,
+              role === 'driver'
+                ? styles.signInButtonDriver
+                : role === 'staff'
+                ? styles.signInButtonStaff
+                : styles.signInButtonStudent,
+              isSubmitting && { opacity: 0.7 },
             ]}
             onPress={handleLogin}
+            disabled={isSubmitting}
             activeOpacity={0.85}
           >
-            <Text style={styles.submitBtnText}>
-              {role === 'driver'
-                ? 'Sign In as Driver'
-                : role === 'student'
-                ? 'Sign In as Student'
-                : 'Sign In as Staff'}
-            </Text>
+            {isSubmitting ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <Text style={styles.signInButtonText}>Sign In</Text>
+            )}
           </TouchableOpacity>
         </View>
 
-        {/* Transport Help Desk & Incharge Contacts */}
-        <View style={styles.helplineCard}>
-          <Text style={styles.helplineCardTitle}>Transport Help Desk & Coordinators</Text>
-          
-          <TouchableOpacity
-            style={styles.contactItemRow}
-            onPress={() => Linking.openURL('tel:+919629284690')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.contactIconWrap}>
-              <Text style={{ fontSize: 16 }}>👨‍💼</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.contactName}>N.Govindaraju (Transport Incharge)</Text>
-              <Text style={styles.contactPhone}>Mob.No: +91 96292 84690</Text>
-            </View>
-            <View style={styles.contactCallPill}>
-              <Text style={styles.contactCallPillText}>CALL</Text>
-            </View>
-          </TouchableOpacity>
+        {/* Transport Help Hotline */}
+        <View style={styles.supportCard}>
+          <Text style={styles.supportTitle}>Transport Support Desk</Text>
+          <View style={styles.supportList}>
+            <TouchableOpacity
+              style={styles.supportItem}
+              onPress={() => Linking.openURL('tel:+919629284690')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.supportItemIcon}>
+                <Text style={{ fontSize: 14 }}>📞</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.supportName}>N. Govindaraju (Transport Incharge)</Text>
+                <Text style={styles.supportPhone}>+91 96292 84690</Text>
+              </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.contactItemRow, { marginTop: 8 }]}
-            onPress={() => Linking.openURL('tel:+919715540479')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.contactIconWrap, { backgroundColor: '#0369a1' }]}>
-              <Text style={{ fontSize: 16 }}>👨‍🏫</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.contactName}>L.Karthikeyan (AP/Mech)</Text>
-              <Text style={styles.contactPhone}>Transport Coordinator &bull; Mob.No: +91 97155 40479</Text>
-            </View>
-            <View style={[styles.contactCallPill, { backgroundColor: '#0284c7' }]}>
-              <Text style={styles.contactCallPillText}>CALL</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer info & Developer Credit */}
-        <View style={styles.footerContainer}>
-          <Text style={styles.footerCollege}>Ramco Institute of Technology &bull; Transport Wing</Text>
-          <View style={styles.creditBox}>
-            <Text style={styles.creditAuthor}>
-              Designed and Developed by <Text style={styles.creditAuthorHighlight}>Kirran S T</Text>
-            </Text>
-            <Text style={styles.creditDept}>Department of Information Technology</Text>
+            <TouchableOpacity
+              style={styles.supportItem}
+              onPress={() => Linking.openURL('tel:+919715540479')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.supportItemIcon}>
+                <Text style={{ fontSize: 14 }}>📞</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.supportName}>L. Karthikeyan (Coordinator)</Text>
+                <Text style={styles.supportPhone}>+91 97155 40479</Text>
+              </View>
+            </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Ramco Institute of Technology &bull; Transport Wing</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -366,321 +421,284 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
+    flex: 1,
+    backgroundColor: '#0a0e17',
+  },
+  scrollContent: {
     flexGrow: 1,
-    padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 54 : 36,
-    paddingBottom: 40,
-    backgroundColor: '#080c14',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 44,
+    paddingBottom: 32,
+    alignItems: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  logoGlow: {
-    shadowColor: '#2563eb',
-    shadowOpacity: 0.6,
-    shadowRadius: 18,
-    elevation: 10,
-    marginBottom: 10,
-  },
-  iconRing: {
-    width: 68,
-    height: 68,
-    borderRadius: 22,
-    backgroundColor: '#0f172a',
+  logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: '#131d2e',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#3b82f6',
-  },
-  collegeName: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 0.4,
-    marginTop: 2,
-  },
-  subtitle: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 4,
-    textAlign: 'center',
-    maxWidth: 320,
-  },
-  engineBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#020617',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
-    marginTop: 12,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  engineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#10b981',
-  },
-  engineText: {
-    color: '#10b981',
-    fontSize: 9.5,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  roleCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 14,
-  },
-  sectionHeader: {
-    color: '#64748b',
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  roleGrid: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  roleBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    borderRadius: 14,
-    backgroundColor: '#020617',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    position: 'relative',
-  },
-  roleBtnActiveDriver: {
-    backgroundColor: '#064e3b',
-    borderColor: '#10b981',
-  },
-  roleBtnActiveStudent: {
-    backgroundColor: '#1e3a8a',
-    borderColor: '#3b82f6',
-  },
-  roleBtnActiveStaff: {
-    backgroundColor: '#451a03',
-    borderColor: '#f59e0b',
-  },
-  roleIcon: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  roleBtnText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#94a3b8',
-    textAlign: 'center',
-    letterSpacing: 0.2,
-  },
-  roleBtnTextActive: {
-    color: '#ffffff',
-    fontWeight: '900',
-  },
-  activePillGreen: {
-    width: 14,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#10b981',
-    marginTop: 4,
-  },
-  activePillBlue: {
-    width: 14,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#38bdf8',
-    marginTop: 4,
-  },
-  activePillAmber: {
-    width: 14,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#f59e0b',
-    marginTop: 4,
-  },
-  authCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    shadowColor: '#000000',
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#2563eb',
+    shadowColor: '#2563eb',
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
     elevation: 8,
   },
-  inputGroup: {
-    marginBottom: 14,
+  logoImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
   },
-  inputLabel: {
+  collegeTitle: {
+    fontSize: 11,
+    fontWeight: '800',
     color: '#94a3b8',
-    fontSize: 11.5,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  appTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#ffffff',
+    marginTop: 4,
+    letterSpacing: 0.3,
+  },
+  appSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: '#131d2e',
+    borderRadius: 14,
+    padding: 4,
+    width: '100%',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  segmentBtnActiveStudent: {
+    backgroundColor: '#2563eb',
+    shadowColor: '#2563eb',
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  segmentBtnActiveStaff: {
+    backgroundColor: '#d97706',
+    shadowColor: '#d97706',
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  segmentBtnActiveDriver: {
+    backgroundColor: '#059669',
+    shadowColor: '#059669',
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  segmentText: {
+    fontSize: 13,
     fontWeight: '700',
+    color: '#94a3b8',
+  },
+  segmentTextActive: {
+    color: '#ffffff',
+    fontWeight: '900',
+  },
+  formCard: {
+    width: '100%',
+    backgroundColor: '#111827',
+    borderRadius: 20,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#1f293d',
+    shadowColor: '#000000',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+    marginBottom: 20,
+  },
+  cardHeader: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#f8fafc',
+    marginBottom: 18,
+  },
+  fieldGroup: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94a3b8',
     marginBottom: 6,
   },
-  showPassText: {
-    color: '#38bdf8',
+  passwordLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  togglePassText: {
     fontSize: 11,
     fontWeight: '700',
+    color: '#38bdf8',
   },
-  inputWrapper: {
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#020617',
-    borderRadius: 14,
+    backgroundColor: '#0a0e17',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#1e293b',
     paddingHorizontal: 12,
   },
-  inputIcon: {
-    fontSize: 14,
+  fieldIcon: {
+    fontSize: 15,
     marginRight: 8,
   },
-  textInput: {
+  input: {
     flex: 1,
     color: '#ffffff',
     paddingVertical: 12,
-    fontSize: 13.5,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
   },
-  submitBtn: {
-    borderRadius: 16,
-    paddingVertical: 14,
+  optionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  submitBtnDriver: {
-    backgroundColor: '#059669',
-    shadowColor: '#10b981',
-  },
-  submitBtnStudent: {
-    backgroundColor: '#2563eb',
-    shadowColor: '#3b82f6',
-  },
-  submitBtnStaff: {
-    backgroundColor: '#d97706',
-    shadowColor: '#f59e0b',
-  },
-  submitBtnText: {
-    color: '#ffffff',
-    fontWeight: '900',
-    fontSize: 13.5,
-    letterSpacing: 0.4,
-  },
-  footerContainer: {
-    alignItems: 'center',
-    marginTop: 24,
-    gap: 4,
-  },
-  footerCollege: {
-    color: '#64748b',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  creditBox: {
-    alignItems: 'center',
-    marginTop: 4,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#1e293b',
-    width: '100%',
-  },
-  creditAuthor: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  creditAuthorHighlight: {
-    color: '#38bdf8',
-    fontWeight: '900',
-  },
-  creditDept: {
-    color: '#64748b',
-    fontSize: 9.5,
-    fontWeight: '700',
     marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginBottom: 20,
   },
-  helplineCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
-    padding: 16,
-    marginTop: 18,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  helplineCardTitle: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
-  },
-  contactItemRow: {
+  rememberMeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#020617',
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: '#475569',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    backgroundColor: '#0a0e17',
+  },
+  checkboxChecked: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  checkmark: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  rememberMeText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  forgotPassText: {
+    fontSize: 12,
+    color: '#38bdf8',
+    fontWeight: '600',
+  },
+  signInButton: {
     borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signInButtonStudent: {
+    backgroundColor: '#2563eb',
+  },
+  signInButtonStaff: {
+    backgroundColor: '#d97706',
+  },
+  signInButtonDriver: {
+    backgroundColor: '#059669',
+  },
+  signInButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  supportCard: {
+    width: '100%',
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#1f293d',
+    marginBottom: 20,
+  },
+  supportTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+  },
+  supportList: {
+    gap: 8,
+  },
+  supportItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0a0e17',
+    borderRadius: 10,
     padding: 10,
     borderWidth: 1,
     borderColor: '#1e293b',
-    gap: 10,
   },
-  contactIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#1e3a8a',
+  supportItemIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#1e293b',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 10,
   },
-  contactName: {
-    color: '#ffffff',
-    fontSize: 12.5,
-    fontWeight: '800',
-  },
-  contactPhone: {
-    color: '#38bdf8',
-    fontSize: 11,
+  supportName: {
+    fontSize: 12,
     fontWeight: '700',
-    marginTop: 2,
+    color: '#f8fafc',
   },
-  contactCallPill: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+  supportPhone: {
+    fontSize: 11,
+    color: '#38bdf8',
+    fontWeight: '600',
+    marginTop: 1,
   },
-  contactCallPillText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '900',
+  footer: {
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  footerText: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '600',
   },
 });

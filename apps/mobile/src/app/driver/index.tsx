@@ -25,7 +25,7 @@ import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
 import { notificationService } from '../../services/notificationService';
-import { GPSCoordinate, INITIAL_STOPS, EmergencyType, EmergencyAlert } from '@college-bus/shared';
+import { GPSCoordinate, INITIAL_STOPS, EmergencyType, EmergencyAlert, Stop } from '@college-bus/shared';
 
 type DriverTab = 'nav' | 'students' | 'cockpit' | 'sos' | 'profile';
 
@@ -1268,7 +1268,7 @@ export default function DriverDashboard() {
                 </View>
               </TouchableOpacity>
 
-              <View style={styles.infoRowDivider} />
+              <View style={{ height: 1, backgroundColor: '#1e293b', marginVertical: 6 }} />
 
               <TouchableOpacity
                 style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}
