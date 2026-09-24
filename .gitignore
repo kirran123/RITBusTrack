@@ -8,6 +8,8 @@ package-lock.json
 dist/
 dist-exe/
 dist-mobile-exe/
+dist-apk/
+*.apk
 release/
 build/
 .output/
