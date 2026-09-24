@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   TouchableOpacity,
   TextInput,
@@ -12,6 +13,7 @@ import {
   Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+
 
 export type MobilePortalRole = 'driver' | 'student' | 'staff';
 
@@ -168,11 +170,16 @@ export default function LoginScreen() {
         <View style={styles.header}>
           <View style={styles.logoGlow}>
             <View style={styles.iconRing}>
-              <Text style={{ fontSize: 32 }}>🚌</Text>
+              <Image
+                source={require('../../assets/icon.png')}
+                style={{ width: 62, height: 62, borderRadius: 20 }}
+                resizeMode="cover"
+              />
             </View>
           </View>
 
           <Text style={styles.collegeName}>Ramco Institute of Technology</Text>
+
           <Text style={styles.title}>Bus Tracking Portal</Text>
           <Text style={styles.subtitle}>Autonomous GPS Telemetry & Passenger Transit Network</Text>
 

@@ -48,23 +48,31 @@ jobs:
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: Compile Bus Track APK with Gradle
+      - name: Compile Standalone Bus Track APK with Gradle
         working-directory: apps/mobile/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Stage APK for Download
         run: |
           mkdir -p output-apk
-          cp apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk output-apk/Bus-Track.apk
+          if [ -f apps/mobile/android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk output-apk/Bus-Track.apk
+          elif [ -f apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk ]; then
+            cp apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk output-apk/Bus-Track.apk
+          else
+            echo "Searching for any generated APK in build directory..."
+            find apps/mobile/android/app/build/outputs/apk/ -name "*.apk" -exec cp {} output-apk/Bus-Track.apk \;
+          fi
 
-      - name: Upload Bus Track APK (Direct Download)
+      - name: Upload Bus Track Standalone APK (Direct Install)
         uses: actions/upload-artifact@v4
         with:
           name: Bus-Track-Android-APK
           path: output-apk/Bus-Track.apk
           retention-days: 30
+
 
   build-ios-package:
     name: Export iOS App Package (Bus Track)

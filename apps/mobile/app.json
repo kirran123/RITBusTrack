@@ -4,7 +4,13 @@
     "slug": "bus-track",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#090d16"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.college.bustrack",
@@ -20,6 +26,15 @@
     "android": {
       "package": "com.college.bustrack",
       "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#090d16"
+      },
+      "splash": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#090d16"
+      },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -30,7 +45,8 @@
     },
     "scheme": "college-bus-track",
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
@@ -39,3 +55,6 @@
     }
   }
 }
+
+
+
