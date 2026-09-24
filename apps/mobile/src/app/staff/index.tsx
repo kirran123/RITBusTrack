@@ -105,9 +105,9 @@ export default function StaffMobileDashboard() {
   const staffBoardingStop = INITIAL_STOPS[2] || INITIAL_STOPS[0];
 
   useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
       try {
-        const storedCurrent = localStorage.getItem('bustrack_current_mobile_staff');
+        const storedCurrent = window.localStorage.getItem('bustrack_current_mobile_staff');
         if (storedCurrent) {
           const parsed = JSON.parse(storedCurrent);
           if (parsed && parsed.name) {

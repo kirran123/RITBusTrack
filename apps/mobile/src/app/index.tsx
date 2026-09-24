@@ -29,16 +29,18 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Request permissions smoothly on startup
+  // Request permissions smoothly after UI mount
   useEffect(() => {
-    (async () => {
+    const timer = setTimeout(async () => {
       try {
-        await locationTracker.requestForegroundPermission();
-        await notificationService.requestPermission();
+        await locationTracker.requestForegroundPermission().catch(() => false);
+        await notificationService.requestPermission().catch(() => false);
       } catch (e) {
         console.log('Permission setup:', e);
       }
-    })();
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const showAlert = (title: string, message: string) => {

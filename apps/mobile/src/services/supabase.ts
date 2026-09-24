@@ -17,14 +17,14 @@ export const isLiveBackendConfigured = Boolean(
   !supabaseUrl.includes('placeholder')
 );
 
-// Initialize Supabase Client
+// Initialize Supabase Client safely for both Web and Native Android
 export const supabase = createClient(
   supabaseUrl, 
   supabaseAnonKey,
   {
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
+      persistSession: Platform.OS === 'web',
+      autoRefreshToken: Platform.OS === 'web',
       detectSessionInUrl: false,
     },
     realtime: {

@@ -82,9 +82,9 @@ export default function StudentDashboard() {
   const boardingStop = INITIAL_STOPS[0];
 
   useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
       try {
-        const storedCurrent = localStorage.getItem('bustrack_current_mobile_student');
+        const storedCurrent = window.localStorage.getItem('bustrack_current_mobile_student');
         if (storedCurrent) {
           const parsed = JSON.parse(storedCurrent);
           if (parsed && (parsed.name || parsed.profile?.name)) {

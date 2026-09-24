@@ -169,9 +169,9 @@ export const INITIAL_BUS12_STUDENTS: BusStudent[] = [
 ];
 
 const loadSavedStudents = (): BusStudent[] => {
-  if (typeof localStorage !== 'undefined') {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
     try {
-      const raw = localStorage.getItem('bustrack_students_v1');
+      const raw = window.localStorage.getItem('bustrack_students_v1');
       if (raw) {
         const adminStudents = JSON.parse(raw);
         if (Array.isArray(adminStudents) && adminStudents.length > 0) {
@@ -299,9 +299,9 @@ class StudentRosterStore {
     );
 
     // Save directly to localStorage for immediate Admin Web reflection
-    if (typeof localStorage !== 'undefined') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
       try {
-        const raw = localStorage.getItem('bustrack_students_v1');
+        const raw = window.localStorage.getItem('bustrack_students_v1');
         if (raw) {
           const list = JSON.parse(raw);
           const updated = list.map((s: any) => {
@@ -315,7 +315,7 @@ class StudentRosterStore {
             }
             return s;
           });
-          localStorage.setItem('bustrack_students_v1', JSON.stringify(updated));
+          window.localStorage.setItem('bustrack_students_v1', JSON.stringify(updated));
         }
       } catch (err) {
         console.warn('Storage save error:', err);
