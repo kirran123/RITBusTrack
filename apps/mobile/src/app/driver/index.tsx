@@ -21,7 +21,7 @@ import {
   calculateDistanceKm,
   calculateDynamicETA,
 } from '../../services/locationService';
-import { broadcastEmergencySOS, subscribeToSystemNotifications, fetchSystemNotificationsFromDB } from '../../services/supabase';
+import { broadcastEmergencySOS, broadcastTripUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB } from '../../services/supabase';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
@@ -397,8 +397,18 @@ export default function DriverDashboard() {
         // Auto-advance stop checklist and passenger boarding when passing stops
         currentStops.slice(0, 5).forEach((stop, sIdx) => {
           const d = calculateDistanceKm(coord.latitude, coord.longitude, stop.latitude, stop.longitude);
-          if (d <= 0.06 && sIdx > 0) {
-            setCompletedStopIds((prev) => (prev.includes(stop.id) ? prev : [...prev, stop.id]));
+          if (d <= 0.08 && sIdx > 0) {
+            setCompletedStopIds((prev) => {
+              if (prev.includes(stop.id)) return prev;
+              const nextCompleted = [...prev, stop.id];
+              broadcastTripUpdate({
+                busId: 'b1',
+                isTripActive: true,
+                currentStopIdx: Math.max(sIdx, currentStopIdx),
+                completedStopIds: nextCompleted,
+              });
+              return nextCompleted;
+            });
             setCurrentStopIdx((prev) => Math.max(prev, sIdx));
           }
         });
@@ -410,6 +420,12 @@ export default function DriverDashboard() {
 
     if (success) {
       setIsTripActive(true);
+      broadcastTripUpdate({
+        busId: 'b1',
+        isTripActive: true,
+        currentStopIdx: 0,
+        completedStopIds: [],
+      });
 
       // Record Start Time in Time History for Admin Time History page
       try {
@@ -433,8 +449,15 @@ export default function DriverDashboard() {
 
   const handleMarkStopReached = (stopId: string, idx: number) => {
     if (!completedStopIds.includes(stopId)) {
-      setCompletedStopIds((prev) => [...prev, stopId]);
+      const nextCompleted = [...completedStopIds, stopId];
+      setCompletedStopIds(nextCompleted);
       setCurrentStopIdx(idx + 1);
+      broadcastTripUpdate({
+        busId: 'b1',
+        isTripActive: true,
+        currentStopIdx: idx + 1,
+        completedStopIds: nextCompleted,
+      });
     }
   };
 

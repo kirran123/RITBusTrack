@@ -29,10 +29,12 @@ import {
   subscribeToFleetSwap, 
   subscribeToSOS, 
   subscribeToSystemNotifications,
+  subscribeToTrip,
   fetchSystemNotificationsFromDB,
   fetchLatestBusLocation, 
   BusTelemetryPayload, 
-  FleetSwapNotice 
+  FleetSwapNotice,
+  TripUpdatePayload,
 } from '../../services/supabase';
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification } from '@college-bus/shared';
 
@@ -64,6 +66,7 @@ export default function StaffMobileDashboard() {
   const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
   const [showPermModal, setShowPermModal] = useState(false);
   const [scheduleType, setScheduleType] = useState<'morning' | 'evening'>('morning');
+  const [completedStopIds, setCompletedStopIds] = useState<string[]>([]);
 
   // Emergency SOS State
   const [emergencyAlerts, setEmergencyAlerts] = useState<EmergencyAlert[]>([]);
@@ -196,6 +199,16 @@ export default function StaffMobileDashboard() {
       setLastUpdatedSec(1);
     });
 
+    // 1b. Subscribe to Trip Stop Updates
+    const unsubTrip = subscribeToTrip((payload: TripUpdatePayload) => {
+      if (typeof payload.currentStopIdx === 'number') {
+        setCurrentStopIndex(payload.currentStopIdx);
+      }
+      if (Array.isArray(payload.completedStopIds)) {
+        setCompletedStopIds(payload.completedStopIds);
+      }
+    });
+
     // 2. Subscribe to Real-Time Driver & Vehicle Swap Notifications
     const unsubSwap = subscribeToFleetSwap((notice: FleetSwapNotice) => {
       setActiveSwapNotice(notice);
@@ -279,6 +292,7 @@ export default function StaffMobileDashboard() {
 
     return () => {
       unsubscribe();
+      unsubTrip();
       unsubSwap();
       unsubSOS();
       unsubSystemNotif();
@@ -769,8 +783,8 @@ export default function StaffMobileDashboard() {
             <Text style={styles.sectionHeading}>Live Stop Sequence & Dynamic Arrival Radar</Text>
             {INITIAL_STOPS.slice(0, 5).map((stop, idx) => {
               const isStaffStop = stop.id === staffBoardingStop.id;
-              const isPassed = idx < currentStopIndex;
-              const isCurrent = idx === currentStopIndex;
+              const isPassed = completedStopIds.includes(stop.id) || idx < currentStopIndex;
+              const isCurrent = !isPassed && idx === currentStopIndex;
 
               const stopDist = calculateDistanceKm(
                 busLocation.latitude,

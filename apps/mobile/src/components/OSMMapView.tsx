@@ -558,14 +558,26 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           nestedScrollEnabled={true}
           scalesPageToFit={false}
           scrollEnabled={false}
+          onError={(err: any) => console.warn('WebView notice:', err)}
         />
       ) : (
-        <iframe
-          srcDoc={htmlContent}
-          style={{ width: '100%', height: '100%', border: 'none', borderRadius: 18 }}
-          title="OpenStreetMap Live Telemetry"
-          allow="geolocation"
-        />
+        <View style={styles.nativeFallbackCard}>
+          <View style={styles.fallbackHeader}>
+            <View style={styles.fallbackBusPill}>
+              <Text style={styles.fallbackBusText}>🚌 {busNumber}</Text>
+            </View>
+            <View style={styles.fallbackSpeedPill}>
+              <Text style={styles.fallbackSpeedText}>{speed} km/h</Text>
+            </View>
+          </View>
+          <Text style={styles.fallbackRouteTitle}>{routeNumber} Live Transit</Text>
+          <Text style={styles.fallbackCoordText}>
+            GPS: {busLat.toFixed(5)}, {busLng.toFixed(5)}
+          </Text>
+          <Text style={styles.fallbackSub}>
+            Tracking active across {stops.length} designated route stops.
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -587,5 +599,62 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     backgroundColor: '#080c14',
+  },
+  nativeFallbackCard: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+    borderRadius: 16,
+    padding: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fallbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  fallbackBusPill: {
+    backgroundColor: '#1e3a8a',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#38bdf8',
+  },
+  fallbackBusText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  fallbackSpeedPill: {
+    backgroundColor: '#064e3b',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#34d399',
+  },
+  fallbackSpeedText: {
+    color: '#34d399',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  fallbackRouteTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  fallbackCoordText: {
+    color: '#38bdf8',
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginBottom: 6,
+  },
+  fallbackSub: {
+    color: '#94a3b8',
+    fontSize: 11,
+    textAlign: 'center',
   },
 });

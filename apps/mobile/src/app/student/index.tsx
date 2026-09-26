@@ -29,10 +29,12 @@ import {
   subscribeToFleetSwap, 
   subscribeToSOS, 
   subscribeToSystemNotifications,
+  subscribeToTrip,
   fetchSystemNotificationsFromDB,
   fetchLatestBusLocation, 
   BusTelemetryPayload, 
-  FleetSwapNotice 
+  FleetSwapNotice,
+  TripUpdatePayload,
 } from '../../services/supabase';
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification } from '@college-bus/shared';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
@@ -47,6 +49,7 @@ export default function StudentDashboard() {
   const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
   const [showPermModal, setShowPermModal] = useState(false);
   const [scheduleType, setScheduleType] = useState<'morning' | 'evening'>('morning');
+  const [completedStopIds, setCompletedStopIds] = useState<string[]>([]);
 
   // Emergency SOS State
   const [emergencyAlerts, setEmergencyAlerts] = useState<EmergencyAlert[]>([]);
@@ -181,6 +184,16 @@ export default function StudentDashboard() {
       setLastUpdatedSec(1);
     });
 
+    // 1b. Subscribe to Trip Stop Updates
+    const unsubTrip = subscribeToTrip((payload: TripUpdatePayload) => {
+      if (typeof payload.currentStopIdx === 'number') {
+        setCurrentStopIndex(payload.currentStopIdx);
+      }
+      if (Array.isArray(payload.completedStopIds)) {
+        setCompletedStopIds(payload.completedStopIds);
+      }
+    });
+
     // 2. Subscribe to Real-Time Driver & Vehicle Swap Notifications
     const unsubSwap = subscribeToFleetSwap((notice: FleetSwapNotice) => {
       setActiveSwapNotice(notice);
@@ -264,6 +277,7 @@ export default function StudentDashboard() {
 
     return () => {
       unsubscribe();
+      unsubTrip();
       unsubSwap();
       unsubSOS();
       unsubSystemNotif();
@@ -697,8 +711,8 @@ export default function StudentDashboard() {
 
             {INITIAL_STOPS.slice(0, 5).map((stop, idx) => {
               const isBoarding = stop.id === boardingStop.id;
-              const isPassed = idx < currentStopIndex;
-              const isNext = idx === currentStopIndex;
+              const isPassed = completedStopIds.includes(stop.id) || idx < currentStopIndex;
+              const isNext = !isPassed && idx === currentStopIndex;
 
               const stopDist = calculateDistanceKm(
                 busLocation.latitude,
