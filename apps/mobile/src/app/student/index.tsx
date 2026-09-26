@@ -36,8 +36,114 @@ import {
   FleetSwapNotice,
   TripUpdatePayload,
 } from '../../services/supabase';
-import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification } from '@college-bus/shared';
+import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop } from '@college-bus/shared';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
+
+const MORNING_ROUTE_STOPS: Stop[] = [
+  {
+    id: 'stop_1',
+    route_id: 'r1',
+    stop_name: 'Rajapalayam New Bus Stand',
+    latitude: 9.4475,
+    longitude: 77.5450,
+    stop_order: 1,
+    estimated_arrival: '07:45 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_2',
+    route_id: 'r1',
+    stop_name: 'Gandhi Statue Junction',
+    latitude: 9.4490,
+    longitude: 77.5472,
+    stop_order: 2,
+    estimated_arrival: '07:52 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_3',
+    route_id: 'r1',
+    stop_name: 'PACR Mill Circle',
+    latitude: 9.4505,
+    longitude: 77.5495,
+    stop_order: 3,
+    estimated_arrival: '08:00 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_4',
+    route_id: 'r1',
+    stop_name: 'Samsigapuram Road Turn',
+    latitude: 9.4512,
+    longitude: 77.5510,
+    stop_order: 4,
+    estimated_arrival: '08:08 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_5',
+    route_id: 'r1',
+    stop_name: 'College Main Gate',
+    latitude: 9.4520,
+    longitude: 77.5535,
+    stop_order: 5,
+    estimated_arrival: '08:20 AM',
+    status: 'active',
+  },
+];
+
+const EVENING_ROUTE_STOPS: Stop[] = [
+  {
+    id: 'stop_5',
+    route_id: 'r1',
+    stop_name: 'College Main Gate (Campus Hub)',
+    latitude: 9.4520,
+    longitude: 77.5535,
+    stop_order: 1,
+    estimated_arrival: '04:30 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_4',
+    route_id: 'r1',
+    stop_name: 'Samsigapuram Road Turn',
+    latitude: 9.4512,
+    longitude: 77.5510,
+    stop_order: 2,
+    estimated_arrival: '04:42 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_3',
+    route_id: 'r1',
+    stop_name: 'PACR Mill Circle',
+    latitude: 9.4505,
+    longitude: 77.5495,
+    stop_order: 3,
+    estimated_arrival: '04:55 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_2',
+    route_id: 'r1',
+    stop_name: 'Gandhi Statue Junction',
+    latitude: 9.4490,
+    longitude: 77.5472,
+    stop_order: 4,
+    estimated_arrival: '05:08 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_1',
+    route_id: 'r1',
+    stop_name: 'Rajapalayam New Bus Stand',
+    latitude: 9.4475,
+    longitude: 77.5450,
+    stop_order: 5,
+    estimated_arrival: '05:25 PM',
+    status: 'active',
+  },
+];
 
 type StudentTab = 'track' | 'stops' | 'alerts' | 'profile';
 
@@ -709,57 +815,75 @@ export default function StudentDashboard() {
 
             <Text style={styles.sectionTitle}>{currentStudent.busNumber || 'BUS-01'} &bull; Stop Sequence & Dynamic Timings</Text>
 
-            {INITIAL_STOPS.slice(0, 5).map((stop, idx) => {
-              const isBoarding = stop.id === boardingStop.id;
-              const isPassed = completedStopIds.includes(stop.id) || idx < currentStopIndex;
-              const isNext = !isPassed && idx === currentStopIndex;
+            {(() => {
+              const activeStops = scheduleType === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
+              return activeStops.map((stop, idx) => {
+                const isBoarding = stop.id === boardingStop.id;
+                const stopDist = calculateDistanceKm(
+                  busLocation.latitude,
+                  busLocation.longitude,
+                  stop.latitude,
+                  stop.longitude
+                );
+                const stopDistFormatted = formatDistance(stopDist);
+                const isAtStop = stopDist <= 0.08;
+                const isPassed = completedStopIds.includes(stop.id) || idx < currentStopIndex;
+                const isCurrent = !isPassed && (isAtStop || idx === currentStopIndex);
+                const isNext = !isPassed && !isCurrent && idx === currentStopIndex + 1;
 
-              const stopDist = calculateDistanceKm(
-                busLocation.latitude,
-                busLocation.longitude,
-                stop.latitude,
-                stop.longitude
-              );
+                const stopETA = calculateDynamicETA(
+                  stopDist,
+                  busLocation.speed || 0,
+                  Math.max(0, idx - currentStopIndex),
+                  stop.estimated_arrival
+                );
 
-              const stopETA = calculateDynamicETA(
-                stopDist,
-                busLocation.speed || 0,
-                Math.max(0, idx - currentStopIndex),
-                stop.estimated_arrival
-              );
+                const statusText = isPassed
+                  ? 'DEPARTED'
+                  : isAtStop
+                  ? 'BUS ARRIVED'
+                  : isCurrent
+                  ? 'APPROACHING'
+                  : isNext
+                  ? 'NEXT STOP'
+                  : stopETA.statusLabel;
 
-              return (
-                <View key={stop.id} style={[styles.timelineCard, isBoarding && styles.timelineCardBoarding]}>
-                  <View style={[styles.timelineBadge, isPassed && styles.timelineBadgePassed, isNext && styles.timelineBadgeNext]}>
-                    <Text style={[styles.timelineBadgeText, (isPassed || isNext) && styles.timelineBadgeTextActive]}>
-                      {isPassed ? '✓' : idx + 1}
-                    </Text>
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={[styles.timelineStopName, isPassed && styles.timelineStopNamePassed]}>
-                        {stop.stop_name}
+                return (
+                  <View key={stop.id} style={[styles.timelineCard, isBoarding && styles.timelineCardBoarding]}>
+                    <View style={[styles.timelineBadge, isPassed && styles.timelineBadgePassed, (isCurrent || isNext) && styles.timelineBadgeNext]}>
+                      <Text style={[styles.timelineBadgeText, (isPassed || isCurrent || isNext) && styles.timelineBadgeTextActive]}>
+                        {isPassed ? '✓' : idx + 1}
                       </Text>
-                      {isBoarding && <Text style={styles.yourStopTag}>YOUR STOP</Text>}
                     </View>
 
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                      <Text style={styles.timelineEta}>Sched: {stop.estimated_arrival}</Text>
-                      <Text style={[styles.timelineLiveEta, isPassed ? styles.timelineLiveEtaPassed : { color: stopETA.statusColor }]}>
-                        &bull; {isPassed ? 'Passed' : `Expected: ${stopETA.arrivalTimeStr}`}
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.timelineStopName, isPassed && styles.timelineStopNamePassed]}>
+                          {stop.stop_name}
+                        </Text>
+                        {isBoarding && <Text style={styles.yourStopTag}>YOUR STOP</Text>}
+                      </View>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                        <Text style={styles.timelineEta}>Sched: {stop.estimated_arrival}</Text>
+                        <Text style={[styles.timelineLiveEta, isPassed ? styles.timelineLiveEtaPassed : { color: stopETA.statusColor }]}>
+                          &bull; {isPassed ? 'Passed' : `Expected: ${stopETA.arrivalTimeStr}`}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: '#94a3b8', fontWeight: '700' }}>
+                          ({stopDistFormatted})
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.statusTag, isPassed && styles.statusTagPassed, (isCurrent || isNext) && styles.statusTagNext]}>
+                      <Text style={[styles.statusTagText, isPassed && styles.statusTagTextPassed, (isCurrent || isNext) && styles.statusTagTextNext]}>
+                        {statusText}
                       </Text>
                     </View>
                   </View>
-
-                  <View style={[styles.statusTag, isPassed && styles.statusTagPassed, isNext && styles.statusTagNext]}>
-                    <Text style={[styles.statusTagText, isPassed && styles.statusTagTextPassed, isNext && styles.statusTagTextNext]}>
-                      {isPassed ? 'PASSED' : isNext ? 'APPROACHING' : stopETA.statusLabel}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
+                );
+              });
+            })()}
           </ScrollView>
         )}
 

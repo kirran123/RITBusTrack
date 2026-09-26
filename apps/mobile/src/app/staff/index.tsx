@@ -36,7 +36,113 @@ import {
   FleetSwapNotice,
   TripUpdatePayload,
 } from '../../services/supabase';
-import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification } from '@college-bus/shared';
+import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop } from '@college-bus/shared';
+
+const MORNING_ROUTE_STOPS: Stop[] = [
+  {
+    id: 'stop_1',
+    route_id: 'r1',
+    stop_name: 'Rajapalayam New Bus Stand',
+    latitude: 9.4475,
+    longitude: 77.5450,
+    stop_order: 1,
+    estimated_arrival: '07:45 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_2',
+    route_id: 'r1',
+    stop_name: 'Gandhi Statue Junction',
+    latitude: 9.4490,
+    longitude: 77.5472,
+    stop_order: 2,
+    estimated_arrival: '07:52 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_3',
+    route_id: 'r1',
+    stop_name: 'PACR Mill Circle',
+    latitude: 9.4505,
+    longitude: 77.5495,
+    stop_order: 3,
+    estimated_arrival: '08:00 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_4',
+    route_id: 'r1',
+    stop_name: 'Samsigapuram Road Turn',
+    latitude: 9.4512,
+    longitude: 77.5510,
+    stop_order: 4,
+    estimated_arrival: '08:08 AM',
+    status: 'active',
+  },
+  {
+    id: 'stop_5',
+    route_id: 'r1',
+    stop_name: 'College Main Gate',
+    latitude: 9.4520,
+    longitude: 77.5535,
+    stop_order: 5,
+    estimated_arrival: '08:20 AM',
+    status: 'active',
+  },
+];
+
+const EVENING_ROUTE_STOPS: Stop[] = [
+  {
+    id: 'stop_5',
+    route_id: 'r1',
+    stop_name: 'College Main Gate (Campus Hub)',
+    latitude: 9.4520,
+    longitude: 77.5535,
+    stop_order: 1,
+    estimated_arrival: '04:30 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_4',
+    route_id: 'r1',
+    stop_name: 'Samsigapuram Road Turn',
+    latitude: 9.4512,
+    longitude: 77.5510,
+    stop_order: 2,
+    estimated_arrival: '04:42 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_3',
+    route_id: 'r1',
+    stop_name: 'PACR Mill Circle',
+    latitude: 9.4505,
+    longitude: 77.5495,
+    stop_order: 3,
+    estimated_arrival: '04:55 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_2',
+    route_id: 'r1',
+    stop_name: 'Gandhi Statue Junction',
+    latitude: 9.4490,
+    longitude: 77.5472,
+    stop_order: 4,
+    estimated_arrival: '05:08 PM',
+    status: 'active',
+  },
+  {
+    id: 'stop_1',
+    route_id: 'r1',
+    stop_name: 'Rajapalayam New Bus Stand',
+    latitude: 9.4475,
+    longitude: 77.5450,
+    stop_order: 5,
+    estimated_arrival: '05:25 PM',
+    status: 'active',
+  },
+];
 
 type StaffTab = 'track' | 'stops' | 'alerts' | 'profile';
 
@@ -781,82 +887,97 @@ export default function StaffMobileDashboard() {
 
             {/* Stops Timeline */}
             <Text style={styles.sectionHeading}>Live Stop Sequence & Dynamic Arrival Radar</Text>
-            {INITIAL_STOPS.slice(0, 5).map((stop, idx) => {
-              const isStaffStop = stop.id === staffBoardingStop.id;
-              const isPassed = completedStopIds.includes(stop.id) || idx < currentStopIndex;
-              const isCurrent = !isPassed && idx === currentStopIndex;
+            {(() => {
+              const activeStops = scheduleType === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
+              return activeStops.map((stop, idx) => {
+                const isStaffStop = stop.id === staffBoardingStop.id;
+                const stopDist = calculateDistanceKm(
+                  busLocation.latitude,
+                  busLocation.longitude,
+                  stop.latitude,
+                  stop.longitude
+                );
+                const stopDistFormatted = formatDistance(stopDist);
+                const isAtStop = stopDist <= 0.08;
+                const isPassed = completedStopIds.includes(stop.id) || idx < currentStopIndex;
+                const isCurrent = !isPassed && (isAtStop || idx === currentStopIndex);
+                const isNext = !isPassed && !isCurrent && idx === currentStopIndex + 1;
 
-              const stopDist = calculateDistanceKm(
-                busLocation.latitude,
-                busLocation.longitude,
-                stop.latitude,
-                stop.longitude
-              );
+                const stopETA = calculateDynamicETA(
+                  stopDist,
+                  busLocation.speed || 0,
+                  Math.max(0, idx - currentStopIndex),
+                  stop.estimated_arrival
+                );
 
-              const stopETA = calculateDynamicETA(
-                stopDist,
-                busLocation.speed || 0,
-                Math.max(0, idx - currentStopIndex),
-                stop.estimated_arrival
-              );
+                const statusText = isPassed
+                  ? 'DEPARTED'
+                  : isAtStop
+                  ? 'BUS ARRIVED'
+                  : isCurrent
+                  ? 'APPROACHING'
+                  : isNext
+                  ? 'NEXT STOP'
+                  : stopETA.statusLabel;
 
-              return (
-                <View
-                  key={stop.id}
-                  style={[
-                    styles.stopTimelineCard,
-                    isStaffStop && styles.stopTimelineCardStaff,
-                    isCurrent && styles.stopTimelineCardCurrent,
-                  ]}
-                >
-                  <View style={styles.timelineLeftColumn}>
-                    <View
-                      style={[
-                        styles.stopBadgeCircle,
-                        isPassed && styles.stopBadgePassed,
-                        isCurrent && styles.stopBadgeCurrent,
-                        isStaffStop && styles.stopBadgeStaff,
-                      ]}
-                    >
-                      <Text style={styles.stopBadgeText}>{isPassed ? '✓' : idx + 1}</Text>
-                    </View>
-                    {idx < 4 && <View style={[styles.timelineLine, isPassed && styles.timelineLinePassed]} />}
-                  </View>
-
-                  <View style={styles.timelineContent}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <Text style={[styles.stopNameText, isStaffStop && styles.stopNameTextStaff]}>
-                            {stop.stop_name}
-                          </Text>
-                          {isStaffStop && (
-                            <View style={styles.staffStopBadge}>
-                              <Text style={styles.staffStopBadgeText}>⭐ YOUR DESIGNATED STOP</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={styles.stopTimeText}>
-                          Sched: {stop.estimated_arrival} &bull; <Text style={{ color: isPassed ? '#64748b' : stopETA.statusColor, fontWeight: 'bold' }}>{isPassed ? 'Passed' : `Expected: ${stopETA.arrivalTimeStr}`}</Text> ({formatDistance(stopDist)})
-                        </Text>
-                      </View>
-
+                return (
+                  <View
+                    key={stop.id}
+                    style={[
+                      styles.stopTimelineCard,
+                      isStaffStop && styles.stopTimelineCardStaff,
+                      (isCurrent || isAtStop) && styles.stopTimelineCardCurrent,
+                    ]}
+                  >
+                    <View style={styles.timelineLeftColumn}>
                       <View
                         style={[
-                          styles.stopStatusBadge,
-                          isPassed && styles.stopStatusPassed,
-                          isCurrent && styles.stopStatusCurrent,
+                          styles.stopBadgeCircle,
+                          isPassed && styles.stopBadgePassed,
+                          (isCurrent || isAtStop) && styles.stopBadgeCurrent,
+                          isStaffStop && styles.stopBadgeStaff,
                         ]}
                       >
-                        <Text style={styles.stopStatusBadgeText}>
-                          {isPassed ? 'DEPARTED' : isCurrent ? 'BUS ARRIVED' : stopETA.statusLabel}
-                        </Text>
+                        <Text style={styles.stopBadgeText}>{isPassed ? '✓' : idx + 1}</Text>
+                      </View>
+                      {idx < activeStops.length - 1 && <View style={[styles.timelineLine, isPassed && styles.timelineLinePassed]} />}
+                    </View>
+
+                    <View style={styles.timelineContent}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={[styles.stopNameText, isStaffStop && styles.stopNameTextStaff]}>
+                              {stop.stop_name}
+                            </Text>
+                            {isStaffStop && (
+                              <View style={styles.staffStopBadge}>
+                                <Text style={styles.staffStopBadgeText}>⭐ YOUR DESIGNATED STOP</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={styles.stopTimeText}>
+                            Sched: {stop.estimated_arrival} &bull; <Text style={{ color: isPassed ? '#64748b' : stopETA.statusColor, fontWeight: 'bold' }}>{isPassed ? 'Passed' : `Expected: ${stopETA.arrivalTimeStr}`}</Text> ({stopDistFormatted})
+                          </Text>
+                        </View>
+
+                        <View
+                          style={[
+                            styles.stopStatusBadge,
+                            isPassed && styles.stopStatusPassed,
+                            (isCurrent || isAtStop) && styles.stopStatusCurrent,
+                          ]}
+                        >
+                          <Text style={styles.stopStatusBadgeText}>
+                            {statusText}
+                          </Text>
+                        </View>
                       </View>
                     </View>
                   </View>
-                </View>
-              );
-            })}
+                );
+              });
+            })()}
           </ScrollView>
         )}
 

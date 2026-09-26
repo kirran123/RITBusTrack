@@ -99,23 +99,45 @@ export function calculateDynamicETA(
   scheduledTimeStr?: string | null,
   currentTime: Date = new Date()
 ): DynamicETA {
-  let effectiveSpeed = 22; // default urban bus speed in km/h
+  // If bus is at or within 80m of the stop
+  if (distanceKm <= 0.08) {
+    const arrivalHours = currentTime.getHours();
+    const arrivalMinutes = currentTime.getMinutes();
+    const ampm = arrivalHours >= 12 ? 'PM' : 'AM';
+    const formattedHours = (arrivalHours % 12 || 12).toString().padStart(2, '0');
+    const formattedMins = arrivalMinutes.toString().padStart(2, '0');
+    return {
+      etaMinutes: 0,
+      formattedEta: 'Arrived',
+      arrivalTimeStr: `${formattedHours}:${formattedMins} ${ampm}`,
+      arrivalTimestamp: currentTime,
+      isDelayed: false,
+      delayMinutes: 0,
+      statusTag: 'ARRIVING_NOW',
+      statusLabel: 'Bus Arrived',
+      statusColor: '#10b981',
+      effectiveSpeed: 0,
+      trafficCondition: 'Smooth',
+    };
+  }
+
+  let effectiveSpeed = 24; // urban bus speed in km/h
   let trafficCondition: 'Smooth' | 'Moderate' | 'Heavy / Congested' = 'Moderate';
 
   if (currentSpeedKmH >= 35) {
-    effectiveSpeed = Math.min(50, Math.round(currentSpeedKmH * 0.85));
+    effectiveSpeed = Math.min(50, Math.round(currentSpeedKmH * 0.9));
     trafficCondition = 'Smooth';
   } else if (currentSpeedKmH >= 15) {
-    effectiveSpeed = Math.max(16, Math.round(currentSpeedKmH * 0.9));
+    effectiveSpeed = Math.max(18, Math.round(currentSpeedKmH * 0.95));
     trafficCondition = 'Moderate';
   } else {
-    // Bus is stopped at signal or in crawling traffic
-    effectiveSpeed = 16;
+    // Bus is halted or in heavy traffic
+    effectiveSpeed = 18;
     trafficCondition = 'Heavy / Congested';
   }
 
-  // Add ~1.2 mins dwell buffer per remaining intermediate pickup stop
-  const stopDwellMinutes = remainingIntermediateStops * 1.2;
+  // Add ~1 min dwell buffer per remaining intermediate pickup stop
+  const stopDwellMinutes = remainingIntermediateStops * 1.0;
   const travelMinutes = (distanceKm / effectiveSpeed) * 60;
   const totalEtaMinutes = Math.max(1, Math.round(travelMinutes + stopDwellMinutes));
 
@@ -133,7 +155,7 @@ export function calculateDynamicETA(
   let statusLabel = 'On Time';
   let statusColor = '#10b981';
 
-  if (totalEtaMinutes <= 2) {
+  if (totalEtaMinutes <= 2 || distanceKm <= 0.35) {
     statusTag = 'ARRIVING_NOW';
     statusLabel = 'Arriving (< 2m)';
     statusColor = '#f59e0b';
@@ -152,21 +174,35 @@ export function calculateDynamicETA(
       const diffMs = arrivalDate.getTime() - schedDate.getTime();
       const diffMins = Math.round(diffMs / (60 * 1000));
 
-      if (diffMins > 2) {
-        isDelayed = true;
-        delayMinutes = diffMins;
-        statusTag = 'DELAYED';
-        statusLabel = `Delayed (+${diffMins}m)`;
-        statusColor = '#f43f5e';
-      } else if (diffMins < -3) {
-        delayMinutes = diffMins;
-        statusTag = 'EARLY';
-        statusLabel = `${Math.abs(diffMins)}m Early`;
-        statusColor = '#38bdf8';
+      // Only compare against schedule if within realistic 45-minute corridor window
+      if (Math.abs(diffMins) <= 45) {
+        if (diffMins > 3) {
+          isDelayed = true;
+          delayMinutes = diffMins;
+          statusTag = 'DELAYED';
+          statusLabel = `Delayed (+${diffMins}m)`;
+          statusColor = '#f43f5e';
+        } else if (diffMins < -3) {
+          delayMinutes = diffMins;
+          statusTag = 'EARLY';
+          statusLabel = `${Math.abs(diffMins)}m Early`;
+          statusColor = '#38bdf8';
+        } else {
+          statusTag = 'ON_TIME';
+          statusLabel = 'On Time';
+          statusColor = '#10b981';
+        }
       } else {
-        statusTag = 'ON_TIME';
-        statusLabel = 'On Time';
-        statusColor = '#10b981';
+        // Outside scheduled window (e.g. testing in afternoon or different shift)
+        if (totalEtaMinutes <= 5) {
+          statusTag = 'ON_TIME';
+          statusLabel = `Approaching (~${totalEtaMinutes}m)`;
+          statusColor = '#38bdf8';
+        } else {
+          statusTag = 'ON_TIME';
+          statusLabel = 'On Schedule';
+          statusColor = '#10b981';
+        }
       }
     }
   }

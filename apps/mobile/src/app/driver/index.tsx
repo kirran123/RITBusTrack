@@ -1373,16 +1373,19 @@ export default function DriverDashboard() {
                       <Text style={[styles.stopItemName, isCompleted && styles.stopItemNameCompleted]}>
                         {stop.stop_name}
                       </Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                         <Text style={styles.stopItemEta}>Sched: {stop.estimated_arrival}</Text>
                         <Text style={[styles.stopDynamicEta, isCompleted ? { color: '#64748b' } : { color: dynamicETA.statusColor }]}>
                           &bull; {isCompleted ? 'Passed' : `Live: ${dynamicETA.arrivalTimeStr}`}
                         </Text>
+                        <Text style={{ fontSize: 11, color: '#94a3b8', fontWeight: '700' }}>
+                          ({formatDistance(distToStop)})
+                        </Text>
                       </View>
                     </View>
-                    <View style={[styles.stopActionPill, isCurrent && { backgroundColor: '#1e3a8a' }]}>
-                      <Text style={[styles.stopActionText, isCurrent && { color: '#60a5fa' }]}>
-                        {isCompleted ? 'ARRIVED' : isCurrent ? 'NEXT STOP' : dynamicETA.statusLabel}
+                    <View style={[styles.stopActionPill, isCurrent && { backgroundColor: '#1e3a8a' }, isCompleted && { backgroundColor: '#064e3b' }]}>
+                      <Text style={[styles.stopActionText, isCurrent && { color: '#60a5fa' }, isCompleted && { color: '#34d399' }]}>
+                        {isCompleted ? 'DEPARTED' : isCurrent ? (distToStop <= 0.08 ? 'ARRIVED' : 'APPROACHING') : dynamicETA.statusLabel}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -1467,32 +1470,6 @@ export default function DriverDashboard() {
               <Text style={styles.driverHeroMeta}>Employee ID: {driverProfile.employeeId}</Text>
               <View style={styles.busAllocationPill}>
                 <Text style={styles.busAllocationPillText}>ASSIGNED BUS: {driverProfile.busNumber} &bull; ROUTE 1</Text>
-              </View>
-            </View>
-
-            {/* Active Duty Shift Timetable */}
-            <Text style={styles.sectionHeader}>Assigned Duty Shifts</Text>
-            <View style={styles.shiftCard}>
-              <View style={styles.shiftRow}>
-                <View style={styles.shiftDotActive} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.shiftTitle}>Morning Express Trip (Trip 1)</Text>
-                  <Text style={styles.shiftSub}>07:30 AM – 08:20 AM &bull; Old Bus Stand ➔ RIT Campus</Text>
-                </View>
-                <View style={styles.shiftTagCurrent}>
-                  <Text style={styles.shiftTagTextCurrent}>CURRENT</Text>
-                </View>
-              </View>
-              <View style={styles.shiftCardDivider} />
-              <View style={styles.shiftRow}>
-                <View style={styles.shiftDotUpcoming} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.shiftTitle}>Evening Return Trip (Trip 2)</Text>
-                  <Text style={styles.shiftSub}>04:30 PM – 05:25 PM &bull; RIT Campus ➔ Old Bus Stand</Text>
-                </View>
-                <View style={styles.shiftTagUpcoming}>
-                  <Text style={styles.shiftTagTextUpcoming}>UPCOMING</Text>
-                </View>
               </View>
             </View>
 
