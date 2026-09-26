@@ -5,12 +5,14 @@ interface NotificationPermissionBannerProps {
   isGranted: boolean;
   onRequestPermission: () => void;
   onOpenDetails?: () => void;
+  onDismiss?: () => void;
 }
 
 export const NotificationPermissionBanner: React.FC<NotificationPermissionBannerProps> = ({
   isGranted,
   onRequestPermission,
   onOpenDetails,
+  onDismiss,
 }) => {
   if (isGranted) return null;
 
@@ -25,13 +27,24 @@ export const NotificationPermissionBanner: React.FC<NotificationPermissionBanner
           Allow push notifications to receive live bus arrival notices, driver swaps, and transit announcements in your mobile notification bar.
         </Text>
       </View>
-      <TouchableOpacity
-        style={styles.enableBtn}
-        onPress={onRequestPermission}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.enableBtnText}>Enable</Text>
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <TouchableOpacity
+          style={styles.enableBtn}
+          onPress={onRequestPermission}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.enableBtnText}>Enable</Text>
+        </TouchableOpacity>
+        {onDismiss && (
+          <TouchableOpacity
+            style={{ padding: 6 }}
+            onPress={onDismiss}
+            activeOpacity={0.7}
+          >
+            <Text style={{ color: '#94a3b8', fontSize: 14, fontWeight: 'bold' }}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };

@@ -234,8 +234,9 @@ export default function DriverDashboard() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [currentStopIdx, setCurrentStopIdx] = useState(0);
 
-  // Completed stops tracking
   const [completedStopIds, setCompletedStopIds] = useState<string[]>([]);
+  const [driverDeviceLoc, setDriverDeviceLoc] = useState<GPSCoordinate | null>(null);
+  const [dismissNotifBanner, setDismissNotifBanner] = useState(false);
 
   // Trip Summary data
   const [tripSummary, setTripSummary] = useState({
@@ -247,6 +248,30 @@ export default function DriverDashboard() {
   });
 
   const timerRef = useRef<any>(null);
+
+  // Continuously track driver device GPS when trip is in standby (shows Driver Blue Dot before trip start / after finish)
+  useEffect(() => {
+    let isMounted = true;
+    locationTracker.getCurrentPosition().then((pos) => {
+      if (isMounted && pos) {
+        setDriverDeviceLoc(pos);
+      }
+    }).catch(() => {});
+
+    const devLocTimer = setInterval(async () => {
+      if (!isTripActive && isMounted) {
+        const pos = await locationTracker.getCurrentPosition().catch(() => null);
+        if (pos && isMounted) {
+          setDriverDeviceLoc(pos);
+        }
+      }
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(devLocTimer);
+    };
+  }, [isTripActive]);
 
   // Check location and notification permissions on load and subscribe to admin broadcasts
   useEffect(() => {
@@ -811,10 +836,11 @@ export default function DriverDashboard() {
         {activeTab === 'nav' && (
           <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 14 }}>
             {/* Push Notification Permission Prompt Banner if not allowed */}
-            {!hasNotificationPermission && (
+            {!hasNotificationPermission && !dismissNotifBanner && (
               <NotificationPermissionBanner
                 isGranted={hasNotificationPermission}
                 onRequestPermission={handleRequestNotificationPermission}
+                onDismiss={() => setDismissNotifBanner(true)}
               />
             )}
 
@@ -924,7 +950,9 @@ export default function DriverDashboard() {
             <View style={styles.compactMapWrapper}>
               <OSMMapView
                 busLocation={currentLoc}
-                busNumber="BUS-01"
+                userLocation={!isTripActive ? driverDeviceLoc : null}
+                userLocationLabel="👨‍✈️ Driver Location"
+                busNumber={driverProfile.busNumber || driverBusNumber || "BUS-01"}
                 routeNumber="Route 1"
                 routeColor="#2563eb"
                 stops={currentStops.slice(0, 5)}

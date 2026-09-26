@@ -14,6 +14,7 @@ if (Platform.OS !== 'web') {
 interface OSMMapViewProps {
   busLocation?: GPSCoordinate | null;
   userLocation?: GPSCoordinate | null;
+  userLocationLabel?: string;
   busNumber?: string;
   routeNumber?: string;
   routeColor?: string;
@@ -25,6 +26,7 @@ interface OSMMapViewProps {
 export const OSMMapView: React.FC<OSMMapViewProps> = ({
   busLocation = { latitude: 9.449, longitude: 77.5472, speed: 30, heading: 45 },
   userLocation,
+  userLocationLabel = '📍 Your Location',
   busNumber = 'BUS-01',
   routeNumber = 'Route 1',
   routeColor = '#2563eb', // Default Route 1 Royal Electric Blue
@@ -473,14 +475,15 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
         // 3. User Location Beacon (if present)
         var userLoc = ${userLocationJson};
         if (userLoc) {
+          var userLabelText = "${userLocationLabel || '📍 Live Location'}";
           var userIcon = L.divIcon({
-            html: '<div class="user-beacon"></div>',
+            html: '<div style="position: relative; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%); pointer-events: none;"><div style="background: #0284c7; color: white; border: 1.5px solid #38bdf8; padding: 2px 7px; border-radius: 12px; font-weight: 800; font-size: 9.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.6); white-space: nowrap; margin-bottom: 2px;">' + userLabelText + '</div><div class="user-beacon"></div></div>',
             className: '',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
+            iconSize: [100, 40],
+            iconAnchor: [50, 40]
           });
-          L.marker([userLoc.lat, userLoc.lng], { icon: userIcon })
-            .bindPopup("<b>📍 Live Location</b><br/>Accuracy: " + Math.round(userLoc.accuracy) + "m")
+          L.marker([userLoc.lat, userLoc.lng], { icon: userIcon, zIndexOffset: 900 })
+            .bindPopup("<b>" + userLabelText + "</b><br/>Accuracy: " + Math.round(userLoc.accuracy) + "m")
             .addTo(map);
           bounds.push([userLoc.lat, userLoc.lng]);
         }
