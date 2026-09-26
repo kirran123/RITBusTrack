@@ -737,25 +737,27 @@ export default function DriverDashboard() {
     (s) => !s.isOnLeave && getStudentBoardingStatus(s).status === 'boarded'
   ).length;
 
-  const awaitingStudentsCount = students.filter(
-    (s) => !s.isOnLeave && getStudentBoardingStatus(s).status !== 'boarded'
+  const awaitingStudentsCount = (students || []).filter(
+    (s) => s && !s.isOnLeave && getStudentBoardingStatus(s).status !== 'boarded'
   ).length;
 
-  const displayedStudents = students.filter((s) => {
-    const matchesSearch =
-      s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
-      s.rollNumber.toLowerCase().includes(studentSearch.toLowerCase()) ||
-      s.department.toLowerCase().includes(studentSearch.toLowerCase());
+  const displayedStudents = (students || []).filter((s) => {
+    if (!s) return false;
+    const sName = (s.name || s.profile?.name || '').toLowerCase();
+    const sRoll = (s.rollNumber || s.register_number || '').toLowerCase();
+    const sDept = (s.department || '').toLowerCase();
+    const q = (studentSearch || '').toLowerCase();
+    const matchesSearch = !q || sName.includes(q) || sRoll.includes(q) || sDept.includes(q);
     
     if (filterStopId === 'on_leave') {
-      return matchesSearch && s.isOnLeave;
+      return matchesSearch && !!s.isOnLeave;
     }
     const matchesStop = filterStopId === 'all' || s.boardingStopId === filterStopId;
     return matchesSearch && matchesStop;
   });
 
-  const studentsAtNextStopOnLeave = students.filter(
-    (s) => s.boardingStopId === nextStop.id && s.isOnLeave
+  const studentsAtNextStopOnLeave = (students || []).filter(
+    (s) => s && nextStop && s.boardingStopId === nextStop.id && s.isOnLeave
   );
 
   return (
@@ -1047,30 +1049,35 @@ export default function DriverDashboard() {
 
               {onLeaveStudents.length > 0 ? (
                 <View style={styles.absenteesListWrap}>
-                  {onLeaveStudents.map((st) => (
-                    <View key={st.id} style={styles.absenteeMiniCard}>
-                      <View style={styles.absenteeAvatarBox}>
-                        <Text style={styles.absenteeAvatarText}>
-                          {st.name
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join('')
-                            .slice(0, 2)}
-                        </Text>
+                  {onLeaveStudents.map((st) => {
+                    const stName = st?.name || st?.profile?.name || 'Student';
+                    const initials = stName
+                      .split(' ')
+                      .filter(Boolean)
+                      .map((n: string) => n[0] || '')
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase() || 'ST';
+
+                    return (
+                      <View key={st.id || Math.random().toString()} style={styles.absenteeMiniCard}>
+                        <View style={styles.absenteeAvatarBox}>
+                          <Text style={styles.absenteeAvatarText}>{initials}</Text>
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.absenteeName} numberOfLines={1}>
+                            {stName} <Text style={{ color: '#94a3b8', fontSize: 10, fontWeight: 'normal' }}>({st.rollNumber || st.register_number || 'ID'})</Text>
+                          </Text>
+                          <Text style={styles.absenteeStop} numberOfLines={1}>
+                            📍 {st.boardingStopName || 'Assigned Stop'}
+                          </Text>
+                        </View>
+                        <View style={styles.absenteeLeaveBadge}>
+                          <Text style={styles.absenteeLeaveText}>ON LEAVE</Text>
+                        </View>
                       </View>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.absenteeName} numberOfLines={1}>
-                          {st.name} <Text style={{ color: '#94a3b8', fontSize: 10, fontWeight: 'normal' }}>({st.rollNumber})</Text>
-                        </Text>
-                        <Text style={styles.absenteeStop} numberOfLines={1}>
-                          📍 {st.boardingStopName}
-                        </Text>
-                      </View>
-                      <View style={styles.absenteeLeaveBadge}>
-                        <Text style={styles.absenteeLeaveText}>ON LEAVE</Text>
-                      </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               ) : (
                 <View style={styles.noAbsenteesBox}>
@@ -1283,60 +1290,62 @@ export default function DriverDashboard() {
               </TouchableOpacity>
             </ScrollView>
 
-            {/* Students Passenger Cards List */}
-            <View style={styles.studentsListWrap}>
-              {displayedStudents.length === 0 ? (
-                <View style={styles.emptyStudentsBox}>
-                  <Text style={{ color: '#64748b', fontSize: 13, textAlign: 'center' }}>
-                    No students matched the search criteria.
-                  </Text>
-                </View>
-              ) : (
-                displayedStudents.map((student) => {
-                  const boardStatus = getStudentBoardingStatus(student);
+              {/* Students Passenger Cards List */}
+              <View style={styles.studentsListWrap}>
+                {displayedStudents.length === 0 ? (
+                  <View style={styles.emptyStudentsBox}>
+                    <Text style={{ color: '#64748b', fontSize: 13, textAlign: 'center' }}>
+                      No students matched the search criteria.
+                    </Text>
+                  </View>
+                ) : (
+                  displayedStudents.map((student) => {
+                    const boardStatus = getStudentBoardingStatus(student);
+                    const studentName = student?.name || student?.profile?.name || 'Student';
+                    const initials = studentName
+                      .split(' ')
+                      .filter(Boolean)
+                      .map((n: string) => n[0] || '')
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase() || 'ST';
 
-                  return (
-                    <View key={student.id} style={styles.studentCard}>
-                      <View style={[styles.studentAvatarBox, { backgroundColor: student.avatarBg || '#1e3a8a' }]}>
-                        <Text style={styles.studentAvatarText}>
-                          {student.name
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join('')
-                            .slice(0, 2)}
-                        </Text>
-                      </View>
+                    return (
+                      <View key={student.id || Math.random().toString()} style={styles.studentCard}>
+                        <View style={[styles.studentAvatarBox, { backgroundColor: student.avatarBg || '#1e3a8a' }]}>
+                          <Text style={styles.studentAvatarText}>{initials}</Text>
+                        </View>
 
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Text style={styles.studentCardName}>{student.name}</Text>
-                          <View style={[styles.boardBadge, boardStatus.badgeStyle]}>
-                            <Text style={[styles.boardBadgeText, boardStatus.textStyle]}>
-                              {boardStatus.label}
-                            </Text>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Text style={styles.studentCardName}>{studentName}</Text>
+                            <View style={[styles.boardBadge, boardStatus.badgeStyle]}>
+                              <Text style={[styles.boardBadgeText, boardStatus.textStyle]}>
+                                {boardStatus.label}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Text style={styles.studentCardRoll}>
+                            Roll: {student.rollNumber || student.register_number || 'N/A'} &bull; {student.department || 'Student'} (Yr {student.year || 4})
+                          </Text>
+
+                          <View style={styles.studentCardStopRow}>
+                            <Text style={styles.studentCardStop}>📍 {student.boardingStopName || 'Assigned Stop'}</Text>
                           </View>
                         </View>
 
-                        <Text style={styles.studentCardRoll}>
-                          Roll: {student.rollNumber} &bull; {student.department} (Yr {student.year})
-                        </Text>
-
-                        <View style={styles.studentCardStopRow}>
-                          <Text style={styles.studentCardStop}>📍 {student.boardingStopName}</Text>
-                        </View>
+                        <TouchableOpacity
+                          style={styles.callStudentBtn}
+                          onPress={() => handleCallHelpline(student.phone || '+919443012345')}
+                        >
+                          <Text style={{ fontSize: 14 }}>📞</Text>
+                        </TouchableOpacity>
                       </View>
-
-                      <TouchableOpacity
-                        style={styles.callStudentBtn}
-                        onPress={() => Linking.openURL(`tel:${student.phone}`)}
-                      >
-                        <Text style={{ fontSize: 16 }}>📞</Text>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })
-              )}
-            </View>
+                    );
+                  })
+                )}
+              </View>
           </ScrollView>
         )}
 
