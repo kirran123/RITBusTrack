@@ -203,6 +203,23 @@ export const App: React.FC = () => {
             });
           } else if (data.type === 'emergency_sos') {
             triggerEmergencySOSAlert(data.payload);
+          } else if (data.type === 'broadcast_notification') {
+            const notif = data.payload;
+            if (notif && notif.id) {
+              setNotifications(prev => {
+                if (prev.some(n => n.id === notif.id)) return prev;
+                return [notif, ...prev];
+              });
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                try {
+                  new Notification(notif.title || '🚌 Bus Track Notification', {
+                    body: notif.message,
+                    icon: '/favicon.ico',
+                    tag: notif.id,
+                  });
+                } catch {}
+              }
+            }
           }
         };
       } catch (err) {
@@ -262,6 +279,23 @@ export const App: React.FC = () => {
             });
           } else if (data.type === 'emergency_sos') {
             triggerEmergencySOSAlert(data.payload);
+          } else if (data.type === 'broadcast_notification') {
+            const notif = data.payload;
+            if (notif && notif.id) {
+              setNotifications(prev => {
+                if (prev.some(n => n.id === notif.id)) return prev;
+                return [notif, ...prev];
+              });
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                try {
+                  new Notification(notif.title || '🚌 Bus Track Notification', {
+                    body: notif.message,
+                    icon: '/favicon.ico',
+                    tag: notif.id,
+                  });
+                } catch {}
+              }
+            }
           }
         } catch {}
       }

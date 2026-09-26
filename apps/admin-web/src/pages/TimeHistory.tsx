@@ -176,6 +176,49 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
   const eveningCompleted = eveningList.filter(r => r.status === 'completed').length;
   const eveningInProgress = eveningList.filter(r => r.status === 'in_progress').length;
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleAdminRecordStart = (record: BusTimeRecord) => {
+    const updatedRecord = timeHistoryStore.recordTripStart({
+      busId: record.bus_id,
+      busNumber: record.bus_number,
+      registrationNumber: record.registration_number,
+      driverId: record.driver_id,
+      driverName: record.driver_name,
+      driverPhone: record.driver_phone,
+      routeName: record.route_name,
+      startLocation: record.start_location,
+      destination: record.destination,
+      shift: record.shift,
+      date: record.date || selectedDate,
+    });
+    setTimeRecords(timeHistoryStore.getRecords());
+    showToast(`🟢 Noted START time for ${record.bus_number} (${record.shift.toUpperCase()}) at ${updatedRecord.start_time}`);
+  };
+
+  const handleAdminRecordEnd = (record: BusTimeRecord) => {
+    const updatedRecord = timeHistoryStore.recordTripEnd({
+      busId: record.bus_id,
+      busNumber: record.bus_number,
+      registrationNumber: record.registration_number,
+      driverId: record.driver_id,
+      driverName: record.driver_name,
+      driverPhone: record.driver_phone,
+      routeName: record.route_name,
+      startLocation: record.start_location,
+      destination: record.destination,
+      shift: record.shift,
+      date: record.date || selectedDate,
+    });
+    setTimeRecords(timeHistoryStore.getRecords());
+    showToast(`🏁 Noted END time for ${record.bus_number} (${record.shift.toUpperCase()}) at ${updatedRecord.end_time}`);
+  };
+
   const handleExportCSV = () => {
     const headers = [
       'Shift',
@@ -472,13 +515,16 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
                   <span className="text-rose-400 font-black">🏁 Driver End Time</span>
                 </th>
                 <th className="px-3.5 py-3.5 text-center">Duration</th>
-                <th className="px-4 py-3.5 text-right">Status</th>
+                <th className="px-4 py-3.5 text-center">Status</th>
+                <th className="px-4 py-3.5 text-right">
+                  <span className="text-blue-400">⚡ Admin Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-medium">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
                     <Clock className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
                     <p className="text-sm font-bold text-slate-400">No Time History records matched the selected criteria.</p>
                     <p className="text-xs text-slate-600 mt-1">Try changing shift, clearing search query, or selecting another date.</p>
@@ -596,7 +642,7 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
                       </td>
 
                       {/* Status */}
-                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">
                         {isCompleted ? (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10.5px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -614,6 +660,40 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
                           </span>
                         )}
                       </td>
+
+                      {/* Admin Action Cell */}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        {isInProgress ? (
+                          <button
+                            onClick={() => handleAdminRecordEnd(record)}
+                            className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-all shadow-md shadow-rose-950/40 cursor-pointer active:scale-95"
+                            title="Record End Time now"
+                          >
+                            <StopCircle className="w-3.5 h-3.5 text-rose-400" />
+                            <span>Log Finish Time</span>
+                          </button>
+                        ) : isCompleted ? (
+                          <div className="inline-flex items-center space-x-1.5">
+                            <button
+                              onClick={() => handleAdminRecordStart(record)}
+                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold transition-all cursor-pointer active:scale-95"
+                              title="Re-log start time"
+                            >
+                              <RefreshCw className="w-3 h-3 text-slate-400" />
+                              <span>Re-log</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleAdminRecordStart(record)}
+                            className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all shadow-md shadow-emerald-950/40 cursor-pointer active:scale-95"
+                            title="Record Start Time now"
+                          >
+                            <PlayCircle className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Log Start Time</span>
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })
@@ -622,6 +702,14 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Floating Action Feedback Toast */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900/95 border border-emerald-500/50 text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center space-x-3 backdrop-blur-md">
+          <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
+          <span className="text-xs font-bold text-slate-100">{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 };

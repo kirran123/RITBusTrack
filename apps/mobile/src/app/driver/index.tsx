@@ -21,7 +21,7 @@ import {
   calculateDistanceKm,
   calculateDynamicETA,
 } from '../../services/locationService';
-import { broadcastEmergencySOS, broadcastTripUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB } from '../../services/supabase';
+import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, subscribeToSystemNotifications, fetchSystemNotificationsFromDB } from '../../services/supabase';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
@@ -452,6 +452,26 @@ export default function DriverDashboard() {
         completedStopIds: [],
       });
 
+      // Broadcast Departure Notification to All Passengers (Student & Staff) and Transport Admin
+      try {
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const startPointName = shift === 'evening' ? 'Ramco Institute of Technology Campus' : 'Rajapalayam New Bus Stand';
+        const destName = shift === 'evening' ? 'Rajapalayam Old Bus Stand' : 'Ramco Institute of Technology Campus';
+        const tripStartNotif: SystemNotification = {
+          id: 'trip_start_' + Date.now(),
+          title: `🚌 ${driverProfile.busNumber || 'BUS-01'} Departed (${shift === 'evening' ? 'Evening Return' : 'Morning Pickup'})`,
+          message: `Driver ${driverProfile.name || 'Mr. B. Moorthi'} has started the ${shift} trip from ${startPointName} at ${timeStr} towards ${destName}. Live GPS tracking is active.`,
+          type: 'trip',
+          priority: 'high',
+          target_type: 'bus',
+          target_id: 'b1',
+          created_at: new Date().toISOString(),
+        };
+        broadcastSystemNotification(tripStartNotif);
+      } catch (notifErr) {
+        console.warn('Trip start broadcast notice:', notifErr);
+      }
+
       // Record Start Time in Time History for Admin Time History page
       try {
         timeHistoryStore.recordTripStart({
@@ -528,6 +548,24 @@ export default function DriverDashboard() {
         startTime: startFormatted,
         endTime: endFormatted,
       });
+
+      // Broadcast Arrival / Finish Trip Notification to Passengers and Admin
+      try {
+        const destName = shift === 'evening' ? 'Rajapalayam Old Bus Stand' : 'Ramco Institute of Technology Campus';
+        const tripEndNotif: SystemNotification = {
+          id: 'trip_end_' + Date.now(),
+          title: `🏁 ${driverProfile.busNumber || 'BUS-01'} Trip Completed`,
+          message: `Bus ${driverProfile.busNumber || 'BUS-01'} has safely arrived at ${destName} at ${endFormatted}. Total duration: ${formatTimer(elapsedSeconds)}, Distance: ${formatDistance(distanceTravelledKm)}.`,
+          type: 'trip',
+          priority: 'normal',
+          target_type: 'bus',
+          target_id: 'b1',
+          created_at: new Date().toISOString(),
+        };
+        broadcastSystemNotification(tripEndNotif);
+      } catch (notifErr) {
+        console.warn('Trip end broadcast notice:', notifErr);
+      }
 
       // Record End Time in Time History for Admin Time History page
       try {

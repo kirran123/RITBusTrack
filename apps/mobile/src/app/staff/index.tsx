@@ -863,22 +863,6 @@ export default function StaffMobileDashboard() {
         {/* ================= TAB 3: 🔔 ALERTS & BROADCASTS ================= */}
         {activeTab === 'alerts' && (
           <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 14 }}>
-            {/* Quick Trigger for Mobile Notification Bar */}
-            <View style={styles.testNotificationCard}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 20 }}>📱</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.testNotificationTitle}>Push Notifications to Mobile Bar</Text>
-                  <Text style={styles.testNotificationSub}>
-                    Driver changes, bus swaps, and announcements deliver directly to your phone's notification bar.
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity style={styles.sendTestPushBtn} onPress={triggerTestNotification}>
-                <Text style={styles.sendTestPushBtnText}>🔔 Send Test Push to Mobile Bar</Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Active Realtime Emergency SOS Broadcasts */}
             {systemBroadcasts.length > 0 && (
               <View style={{ marginBottom: 14 }}>
