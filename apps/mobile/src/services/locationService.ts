@@ -261,6 +261,8 @@ class LocationTracker {
   private waypointIndex: number = 0;
   private hasNativeMovement: boolean = false;
 
+  private activeConfig: LocationTrackerConfig | null = null;
+
   async checkPermissions(): Promise<LocationPermissionResult> {
     try {
       if (Platform.OS === 'web') {
@@ -405,8 +407,10 @@ class LocationTracker {
       onError,
     } = config;
 
+    this.activeConfig = config;
     this.stopTracking();
     this.isTracking = true;
+    this.activeConfig = config;
     this.totalDistanceKm = 0;
     this.waypointIndex = 0;
     this.hasNativeMovement = false;
@@ -621,9 +625,14 @@ class LocationTracker {
     return true;
   }
 
-  stopTracking() {
+  stopTracking(finalCoordOverride?: GPSCoordinate) {
+    const finalCoord = finalCoordOverride || this.lastCoord;
+    const currentConfig = this.activeConfig;
+
     this.isTracking = false;
     this.hasNativeMovement = false;
+    this.activeConfig = null;
+
     if (this.subscription) {
       this.subscription.remove();
       this.subscription = null;
@@ -632,7 +641,35 @@ class LocationTracker {
       clearInterval(this.dynamicEngineTimer);
       this.dynamicEngineTimer = null;
     }
-    console.log('GPS Tracking Terminated.');
+
+    // Freeze & persist the final parked bus position at the end trip location
+    if (finalCoord && currentConfig) {
+      const parkedCoord: GPSCoordinate = {
+        latitude: finalCoord.latitude,
+        longitude: finalCoord.longitude,
+        speed: 0,
+        heading: finalCoord.heading || 0,
+        accuracy: finalCoord.accuracy || 3.5,
+        timestamp: new Date().toISOString(),
+      };
+      this.lastCoord = parkedCoord;
+
+      broadcastBusTelemetry({
+        busId: currentConfig.busId,
+        tripId: currentConfig.tripId || 'completed',
+        coordinate: parkedCoord,
+        busNumber: currentConfig.busNumber || 'BUS-01',
+        driverName: currentConfig.driverName || 'Mr. B. Moorthi',
+        distanceKm: this.totalDistanceKm,
+        status: 'completed',
+      });
+    }
+
+    console.log('GPS Tracking Terminated: Driver device GPS separated from Bus. Bus pinned at final end trip location.');
+  }
+
+  getLastCoord(): GPSCoordinate | null {
+    return this.lastCoord;
   }
 
   getIsTracking(): boolean {

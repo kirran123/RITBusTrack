@@ -440,7 +440,23 @@ export default function DriverDashboard() {
 
   const handleEndTrip = () => {
     const doComplete = () => {
-      locationTracker.stopTracking();
+      // Capture exact location where End Trip was clicked
+      const finalLoc: GPSCoordinate = currentLoc || locationTracker.getLastCoord() || {
+        latitude: shift === 'evening' ? 9.4475 : 9.4520,
+        longitude: shift === 'evening' ? 77.5450 : 77.5535,
+        speed: 0,
+        heading: 0,
+        accuracy: 3.5,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Decouple driver's device GPS from the bus and pin bus location at final terminal location
+      locationTracker.stopTracking(finalLoc);
+      setCurrentLoc({
+        ...finalLoc,
+        speed: 0,
+        timestamp: new Date().toISOString(),
+      });
       setIsTripActive(false);
       setCurrentStopIdx(0);
       setCompletedStopIds([]);

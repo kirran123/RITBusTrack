@@ -234,6 +234,36 @@ export async function broadcastBusTelemetry(payload: BusTelemetryPayload) {
   // 2. Cross-client channel for instant local / cross-tab reflection
   postCrossClient('location_update', payload);
 
+  // 2b. Persist to localStorage for web
+  if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(`bustrack_latest_location_${payload.busId}`, JSON.stringify(payload.coordinate));
+      const locsRaw = localStorage.getItem('bustrack_locations_v1');
+      let locsList: any[] = [];
+      if (locsRaw) {
+        try { locsList = JSON.parse(locsRaw); } catch {}
+      }
+      if (!Array.isArray(locsList)) locsList = [];
+      const idx = locsList.findIndex((l: any) => l.bus_id === payload.busId);
+      const item = {
+        id: 'loc_' + payload.busId,
+        bus_id: payload.busId,
+        trip_id: payload.tripId,
+        latitude: payload.coordinate.latitude,
+        longitude: payload.coordinate.longitude,
+        speed: payload.coordinate.speed || 0,
+        heading: payload.coordinate.heading || 0,
+        updated_at: new Date().toISOString(),
+      };
+      if (idx >= 0) {
+        locsList[idx] = item;
+      } else {
+        locsList.push(item);
+      }
+      localStorage.setItem('bustrack_locations_v1', JSON.stringify(locsList));
+    } catch {}
+  }
+
   // 3. Supabase realtime WebSocket
   if (telemetryChannel) {
     try {
@@ -423,6 +453,18 @@ export function subscribeToSystemNotifications(listener: NotificationListener) {
  */
 export async function fetchLatestBusLocation(busId: string = 'b1'): Promise<GPSCoordinate | null> {
   try {
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      try {
+        const storedLatest = localStorage.getItem(`bustrack_latest_location_${busId}`);
+        if (storedLatest) {
+          const parsed = JSON.parse(storedLatest);
+          if (parsed && parsed.latitude && parsed.longitude) {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+
     const { data, error } = await supabase
       .from('current_bus_locations')
       .select('*')
