@@ -155,8 +155,13 @@ export default function StudentDashboard() {
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
   const [showPermModal, setShowPermModal] = useState(false);
-  const [scheduleType, setScheduleType] = useState<'morning' | 'evening'>('morning');
+  const [scheduleType, setScheduleType] = useState<'morning' | 'evening'>(() => {
+    return new Date().getHours() >= 13 ? 'evening' : 'morning';
+  });
   const [completedStopIds, setCompletedStopIds] = useState<string[]>([]);
+  const [driverActiveShift, setDriverActiveShift] = useState<'morning' | 'evening'>(() => {
+    return new Date().getHours() >= 13 ? 'evening' : 'morning';
+  });
 
   // Emergency SOS State
   const [emergencyAlerts, setEmergencyAlerts] = useState<EmergencyAlert[]>([]);
@@ -231,8 +236,9 @@ export default function StudentDashboard() {
   const [lastUpdatedSec, setLastUpdatedSec] = useState(1);
   const [isDriverActive, setIsDriverActive] = useState(true);
 
-  // Assigned Boarding Stop: Rajapalayam New Bus Stand
-  const boardingStop = INITIAL_STOPS[0];
+  // Active stops sequence based on schedule shift
+  const activeStops = scheduleType === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
+  const boardingStop = activeStops[0];
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
@@ -308,11 +314,16 @@ export default function StudentDashboard() {
 
     // 1b. Subscribe to Trip Stop Updates
     const unsubTrip = subscribeToTrip((payload: TripUpdatePayload) => {
+      setIsDriverActive(payload.isTripActive);
       if (typeof payload.currentStopIdx === 'number') {
         setCurrentStopIndex(payload.currentStopIdx);
       }
       if (Array.isArray(payload.completedStopIds)) {
         setCompletedStopIds(payload.completedStopIds);
+      }
+      if (payload.shift) {
+        setDriverActiveShift(payload.shift);
+        setScheduleType(payload.shift);
       }
     });
 
@@ -487,7 +498,7 @@ export default function StudentDashboard() {
   // Dynamic ETA Calculation to Assigned Boarding Stop
   const remainingStopsToBoarding = Math.max(
     0,
-    INITIAL_STOPS.findIndex((s) => s.id === boardingStop.id) - currentStopIndex
+    activeStops.findIndex((s) => s.id === boardingStop.id) - currentStopIndex
   );
 
   const dynamicETA: DynamicETA = calculateDynamicETA(
@@ -715,7 +726,7 @@ export default function StudentDashboard() {
                 busNumber={activeSwapNotice?.replacementBusNumber || currentStudent.busNumber || "BUS-01"}
                 routeNumber="Route 1"
                 routeColor="#2563eb"
-                stops={INITIAL_STOPS.slice(0, 5)}
+                stops={activeStops}
                 boardingStop={boardingStop}
                 height={260}
               />

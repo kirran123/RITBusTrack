@@ -406,6 +406,23 @@ export async function broadcastSystemNotification(notification: SystemNotificati
   }
 }
 
+/**
+ * Broadcast Real-Time Time History Record for Driver Start / End Trip
+ */
+export async function broadcastTimeHistoryUpdate(action: 'start' | 'end', params: any) {
+  postCrossClient('time_history_update', { action, params, timestamp: Date.now() });
+
+  if (telemetryChannel) {
+    try {
+      await telemetryChannel.send({
+        type: 'broadcast',
+        event: 'time_history_update',
+        payload: { action, params, timestamp: Date.now() },
+      });
+    } catch {}
+  }
+}
+
 export function subscribeToTelemetry(listener: TelemetryListener) {
   telemetryListeners.add(listener);
   return () => {

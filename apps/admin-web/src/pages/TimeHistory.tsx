@@ -104,6 +104,8 @@ export const generateInitialTimeRecords = (buses: Bus[], routes: Route[], driver
   return records;
 };
 
+import { supabase } from '../lib/supabase';
+
 export const TimeHistory: React.FC<TimeHistoryProps> = ({
   buses,
   drivers,
@@ -128,11 +130,28 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
   const [busFilter, setBusFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'in_progress' | 'scheduled'>('all');
 
-  // Real-time reactive subscription to driver start/end trip actions
+  // Real-time reactive subscription to driver start/end trip actions via store + Supabase Realtime
   useEffect(() => {
     const unsubscribe = timeHistoryStore.subscribe((updatedRecords) => {
       setTimeRecords(updatedRecords);
     });
+
+    let channel: any = null;
+    if (supabase) {
+      channel = supabase
+        .channel('bus_tracking_live')
+        .on('broadcast', { event: 'time_history_update' }, ({ payload }: { payload: any }) => {
+          if (payload && payload.params) {
+            if (payload.action === 'start') {
+              timeHistoryStore.recordTripStart(payload.params);
+            } else if (payload.action === 'end') {
+              timeHistoryStore.recordTripEnd(payload.params);
+            }
+            setTimeRecords(timeHistoryStore.getRecords());
+          }
+        })
+        .subscribe();
+    }
 
     // Also poll every 1s to guarantee instant sync across tabs
     const interval = setInterval(() => {
@@ -144,6 +163,9 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
 
     return () => {
       unsubscribe();
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
       clearInterval(interval);
     };
   }, []);

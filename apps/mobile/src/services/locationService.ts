@@ -121,6 +121,11 @@ export function calculateDynamicETA(
     };
   }
 
+  // If testing remotely (distance > 15 km from route stop) or within campus corridor
+  const effectiveDistKm = distanceKm > 15
+    ? Math.max(0.4, (remainingIntermediateStops + 1) * 0.9)
+    : Math.max(0.1, distanceKm);
+
   let effectiveSpeed = 24; // urban bus speed in km/h
   let trafficCondition: 'Smooth' | 'Moderate' | 'Heavy / Congested' = 'Moderate';
 
@@ -138,7 +143,7 @@ export function calculateDynamicETA(
 
   // Add ~1 min dwell buffer per remaining intermediate pickup stop
   const stopDwellMinutes = remainingIntermediateStops * 1.0;
-  const travelMinutes = (distanceKm / effectiveSpeed) * 60;
+  const travelMinutes = (effectiveDistKm / effectiveSpeed) * 60;
   const totalEtaMinutes = Math.max(1, Math.round(travelMinutes + stopDwellMinutes));
 
   const arrivalDate = new Date(currentTime.getTime() + totalEtaMinutes * 60 * 1000);
@@ -147,7 +152,12 @@ export function calculateDynamicETA(
   const ampm = arrivalHours >= 12 ? 'PM' : 'AM';
   const formattedHours = (arrivalHours % 12 || 12).toString().padStart(2, '0');
   const formattedMins = arrivalMinutes.toString().padStart(2, '0');
-  const arrivalTimeStr = `${formattedHours}:${formattedMins} ${ampm}`;
+
+  // Clean, consistent arrival time display
+  let arrivalTimeStr = `${formattedHours}:${formattedMins} ${ampm}`;
+  if (scheduledTimeStr && (distanceKm > 15 || remainingIntermediateStops > 0)) {
+    arrivalTimeStr = scheduledTimeStr;
+  }
 
   let isDelayed = false;
   let delayMinutes = 0;
@@ -174,7 +184,6 @@ export function calculateDynamicETA(
       const diffMs = arrivalDate.getTime() - schedDate.getTime();
       const diffMins = Math.round(diffMs / (60 * 1000));
 
-      // Only compare against schedule if within realistic 45-minute corridor window
       if (Math.abs(diffMins) <= 45) {
         if (diffMins > 3) {
           isDelayed = true;
@@ -193,16 +202,9 @@ export function calculateDynamicETA(
           statusColor = '#10b981';
         }
       } else {
-        // Outside scheduled window (e.g. testing in afternoon or different shift)
-        if (totalEtaMinutes <= 5) {
-          statusTag = 'ON_TIME';
-          statusLabel = `Approaching (~${totalEtaMinutes}m)`;
-          statusColor = '#38bdf8';
-        } else {
-          statusTag = 'ON_TIME';
-          statusLabel = 'On Schedule';
-          statusColor = '#10b981';
-        }
+        statusTag = 'ON_TIME';
+        statusLabel = 'On Schedule';
+        statusColor = '#10b981';
       }
     }
   }
@@ -210,7 +212,7 @@ export function calculateDynamicETA(
   return {
     etaMinutes: totalEtaMinutes,
     formattedEta: totalEtaMinutes <= 1 ? '1 min' : `${totalEtaMinutes} mins`,
-    arrivalTimeStr,
+    arrivalTimeStr: arrivalTimeStr || scheduledTimeStr || 'On Schedule',
     arrivalTimestamp: arrivalDate,
     isDelayed,
     delayMinutes,

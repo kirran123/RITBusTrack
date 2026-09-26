@@ -21,7 +21,7 @@ import {
   calculateDistanceKm,
   calculateDynamicETA,
 } from '../../services/locationService';
-import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, subscribeToSystemNotifications, fetchSystemNotificationsFromDB } from '../../services/supabase';
+import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB } from '../../services/supabase';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { GPSCoordinate, INITIAL_STOPS, EmergencyType, EmergencyAlert, Stop, SystemNotification, timeHistoryStore } from '@college-bus/shared';
@@ -253,7 +253,7 @@ export default function DriverDashboard() {
 
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
-  const unreadNotifCount = systemBroadcasts.filter((n) => !readNotifIds.includes(n.id)).length;
+  const unreadNotifCount = (systemBroadcasts || []).filter((n) => n && n.id && !readNotifIds.includes(n.id)).length;
 
   const timerRef = useRef<any>(null);
 
@@ -482,7 +482,7 @@ export default function DriverDashboard() {
 
       // Record Start Time in Time History for Admin Time History page
       try {
-        timeHistoryStore.recordTripStart({
+        const startParams = {
           busId: 'b1',
           busNumber: driverProfile.busNumber || 'BUS-01',
           registrationNumber: driverProfile.registrationNumber || 'TN 67 AM 9785',
@@ -493,7 +493,9 @@ export default function DriverDashboard() {
           startLocation: shift === 'evening' ? 'Ramco Institute of Technology Campus' : 'Old Bus Stand, Rajapalayam',
           destination: shift === 'evening' ? 'Old Bus Stand, Rajapalayam' : 'Ramco Institute of Technology Campus',
           shift,
-        });
+        };
+        timeHistoryStore.recordTripStart(startParams);
+        broadcastTimeHistoryUpdate('start', startParams);
       } catch (e) {
         console.warn('Time history start recording note:', e);
       }
@@ -577,7 +579,7 @@ export default function DriverDashboard() {
 
       // Record End Time in Time History for Admin Time History page
       try {
-        timeHistoryStore.recordTripEnd({
+        const endParams = {
           busId: 'b1',
           busNumber: driverProfile.busNumber || 'BUS-01',
           registrationNumber: driverProfile.registrationNumber || 'TN 67 AM 9785',
@@ -592,7 +594,9 @@ export default function DriverDashboard() {
           duration: formatTimer(elapsedSeconds),
           distanceKm: parseFloat(distanceTravelledKm.toFixed(2)),
           avgSpeedKmh: avgSpd,
-        });
+        };
+        timeHistoryStore.recordTripEnd(endParams);
+        broadcastTimeHistoryUpdate('end', endParams);
       } catch (e) {
         console.warn('Time history end recording note:', e);
       }
@@ -652,24 +656,24 @@ export default function DriverDashboard() {
 
   // Dynamic Next Stop & Proximity Calculations
   const isAllStopsReached = isTripActive && (currentStopIdx >= currentStops.length - 1 || completedStopIds.length >= currentStops.length);
-  let targetStopIdx = Math.min(currentStopIdx, currentStops.length - 1);
-  if (currentLoc && currentStopIdx === 0 && !isTripActive) {
+  let targetStopIdx = Math.min(Math.max(0, currentStopIdx), Math.max(0, currentStops.length - 1));
+  if (currentLoc && currentStopIdx === 0 && !isTripActive && currentStops.length > 1) {
     targetStopIdx = 1; // When at start terminal ready to depart, next target is stop #2
   }
-  const nextStop = currentStops[targetStopIdx];
+  const nextStop = currentStops[targetStopIdx] || currentStops[0] || MORNING_ROUTE_STOPS[0];
   const isFinalStop = targetStopIdx === currentStops.length - 1;
-  const rawDist = currentLoc
+  const rawDist = currentLoc && nextStop
     ? calculateDistanceKm(currentLoc.latitude, currentLoc.longitude, nextStop.latitude, nextStop.longitude)
     : 1.4;
 
-  const isAtStop = completedStopIds.includes(nextStop.id) || rawDist <= 0.08 || isAllStopsReached;
+  const isAtStop = (nextStop && completedStopIds.includes(nextStop.id)) || rawDist <= 0.08 || isAllStopsReached;
   const distToNextStop = isAtStop ? 0 : (rawDist < 0.05 && currentStopIdx === 0 && !isTripActive ? 1.4 : rawDist);
 
   const nextStopETA = calculateDynamicETA(
     distToNextStop,
     currentLoc?.speed || 0,
     0,
-    nextStop.estimated_arrival
+    nextStop?.estimated_arrival || '07:45 AM'
   );
 
   // Automatic Boarding Status: When bus crosses or reaches a stop, all students for that stop are marked as Boarded
@@ -869,7 +873,7 @@ export default function DriverDashboard() {
                       </View>
                       <Text style={styles.notifCardBody}>{notif.message}</Text>
                       <Text style={styles.notifCardTime}>
-                        {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {notif.created_at ? new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -1397,7 +1401,7 @@ export default function DriverDashboard() {
 
                   <View style={styles.metricCard}>
                     <Text style={styles.metricLabel}>Accuracy</Text>
-                    <Text style={styles.metricValue}>&plusmn;{currentLoc?.accuracy || 4}</Text>
+                    <Text style={styles.metricValue}>&plusmn;{Math.round(currentLoc?.accuracy ?? 4)}</Text>
                     <Text style={styles.metricUnit}>meters</Text>
                   </View>
                 </View>
