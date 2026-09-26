@@ -6,6 +6,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 
+import { authStorage } from '../services/authStorage';
+
 interface ErrorBoundaryProps {
   children: ReactNode;
 }
@@ -31,9 +33,7 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
 
   handleReset = async () => {
     try {
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        localStorage.removeItem('bustrack_active_session_v1');
-      }
+      await authStorage.clearSession();
     } catch {}
     this.setState({ hasError: false, error: undefined });
   };
@@ -47,7 +47,14 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
           <Text style={styles.errorSub}>
             A minor UI rendering notice occurred. Tap below to refresh your view smoothly.
           </Text>
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+          {this.state.error?.message ? (
+            <View style={styles.errorDetailBox}>
+              <Text style={styles.errorDetailText} numberOfLines={3}>
+                {this.state.error.message}
+              </Text>
+            </View>
+          ) : null}
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
             <TouchableOpacity
               style={styles.retryButton}
               onPress={() => this.setState({ hasError: false, error: undefined })}
@@ -131,5 +138,21 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '800',
     fontSize: 14,
+  },
+  errorDetailBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 16,
+    maxWidth: '90%',
+  },
+  errorDetailText: {
+    color: '#f87171',
+    fontSize: 11,
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
 });

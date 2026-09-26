@@ -678,6 +678,15 @@ export default function DriverDashboard() {
 
   // Automatic Boarding Status: When bus crosses or reaches a stop, all students for that stop are marked as Boarded
   const getStudentBoardingStatus = (student: BusStudent) => {
+    if (!student) {
+      return {
+        status: 'awaiting',
+        label: '⏳ AWAITING',
+        detail: 'Waiting at Stop',
+        badgeStyle: styles.boardBadgePending,
+        textStyle: styles.boardBadgeTextPending,
+      };
+    }
     if (student.isOnLeave) {
       return {
         status: 'on_leave',
@@ -694,10 +703,16 @@ export default function DriverDashboard() {
       st3: 2,
       st4: 3,
       st5: 4,
+      stop_1: 0,
+      stop_2: 1,
+      stop_3: 2,
+      stop_4: 3,
+      stop_5: 4,
     };
-    const studentStopIdx = stopOrderMap[student.boardingStopId] ?? 0;
+    const bStopId = student.boardingStopId || 'st1';
+    const studentStopIdx = stopOrderMap[bStopId] ?? 0;
     const isStopPassed =
-      completedStopIds.includes(student.boardingStopId) ||
+      completedStopIds.includes(bStopId) ||
       currentStopIdx > studentStopIdx ||
       (isTripActive && currentStopIdx >= 1 && studentStopIdx === 0);
 
@@ -730,11 +745,11 @@ export default function DriverDashboard() {
     };
   };
 
-  const onLeaveStudents = students.filter((s) => s.isOnLeave);
+  const onLeaveStudents = (students || []).filter((s) => s && s.isOnLeave);
   const onLeaveCount = onLeaveStudents.length;
 
-  const boardedStudentsCount = students.filter(
-    (s) => !s.isOnLeave && getStudentBoardingStatus(s).status === 'boarded'
+  const boardedStudentsCount = (students || []).filter(
+    (s) => s && !s.isOnLeave && getStudentBoardingStatus(s).status === 'boarded'
   ).length;
 
   const awaitingStudentsCount = (students || []).filter(

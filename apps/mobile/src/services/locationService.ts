@@ -59,16 +59,17 @@ export function calculateBearing(lat1: number, lon1: number, lat2: number, lon2:
   return Math.round(bearing);
 }
 
-export function getSignalQuality(accuracyMeters: number = 10): {
+export function getSignalQuality(accuracyMeters?: number | null): {
   label: string;
   color: string;
   bars: number;
 } {
-  if (accuracyMeters <= 5) {
+  const acc = typeof accuracyMeters === 'number' && !isNaN(accuracyMeters) ? accuracyMeters : 10;
+  if (acc <= 5) {
     return { label: 'Excellent (HDOP < 1)', color: '#10b981', bars: 4 };
-  } else if (accuracyMeters <= 12) {
+  } else if (acc <= 12) {
     return { label: 'Good (GPS Lock)', color: '#38bdf8', bars: 3 };
-  } else if (accuracyMeters <= 25) {
+  } else if (acc <= 25) {
     return { label: 'Fair Signal', color: '#f59e0b', bars: 2 };
   }
   return { label: 'Low Accuracy', color: '#f43f5e', bars: 1 };
