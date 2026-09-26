@@ -17,8 +17,10 @@ import {
   Sparkles,
   MapPin,
   TrendingUp,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Trash2
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface TimeHistoryProps {
   buses: Bus[];
@@ -26,85 +28,6 @@ interface TimeHistoryProps {
   routes: Route[];
   currentUser?: any;
 }
-
-// Generate realistic default historical time records for all buses
-export const generateInitialTimeRecords = (buses: Bus[], routes: Route[], drivers: Driver[]): BusTimeRecord[] => {
-  const today = new Date().toISOString().split('T')[0];
-  const records: BusTimeRecord[] = [];
-
-  buses.forEach((bus, index) => {
-    const route = routes.find(r => r.id === bus.route_id) || routes[index % routes.length];
-    const driver = drivers.find(d => d.id === bus.assigned_driver_id) || drivers[index % drivers.length];
-    
-    // Morning record
-    const morningStart = route?.start_time || '07:30 AM';
-    const morningEnd = route?.end_time || '08:20 AM';
-    
-    // Some variation in actual logged times
-    const mStartActual = index === 0 ? '07:31:42 AM' : `${morningStart.replace(' AM', '')}:15 AM`;
-    const mEndActual = index === 0 ? '08:22:10 AM' : `${morningEnd.replace(' AM', '')}:05 AM`;
-
-    records.push({
-      id: `time_${bus.bus_number}_morning_${today}`,
-      bus_id: bus.id,
-      bus_number: bus.bus_number,
-      bus_name: bus.bus_name,
-      registration_number: bus.registration_number,
-      driver_id: driver?.id,
-      driver_name: driver?.profile?.name || 'Driver',
-      driver_phone: driver?.phone || '+91 98946 00000',
-      route_id: route?.id,
-      route_name: route?.route_name || 'Route',
-      start_location: route?.start_location || 'Start Point',
-      destination: route?.destination || 'Ramco Institute of Technology Campus',
-      shift: 'morning',
-      date: today,
-      scheduled_start_time: morningStart,
-      scheduled_end_time: morningEnd,
-      start_time: mStartActual,
-      end_time: mEndActual,
-      duration: '50m 28s',
-      distance_km: route?.distance_km || 12.5,
-      avg_speed_kmh: 32,
-      status: 'completed',
-      updated_at: new Date().toISOString(),
-    });
-
-    // Evening record
-    const eveStart = route?.evening_start_time || '04:30 PM';
-    const eveEnd = route?.evening_end_time || '05:25 PM';
-    const isPastEvening = new Date().getHours() >= 17;
-
-    records.push({
-      id: `time_${bus.bus_number}_evening_${today}`,
-      bus_id: bus.id,
-      bus_number: bus.bus_number,
-      bus_name: bus.bus_name,
-      registration_number: bus.registration_number,
-      driver_id: driver?.id,
-      driver_name: driver?.profile?.name || 'Driver',
-      driver_phone: driver?.phone || '+91 98946 00000',
-      route_name: route?.route_name || 'Route',
-      start_location: route?.destination || 'Ramco Institute of Technology Campus',
-      destination: route?.start_location || 'Destination Stop',
-      shift: 'evening',
-      date: today,
-      scheduled_start_time: eveStart,
-      scheduled_end_time: eveEnd,
-      start_time: isPastEvening ? `${eveStart.replace(' PM', '')}:08 PM` : (index === 0 ? '04:30:15 PM' : null),
-      end_time: isPastEvening ? `${eveEnd.replace(' PM', '')}:18 PM` : null,
-      duration: isPastEvening ? '52m 10s' : (index === 0 ? 'In Progress' : '--'),
-      distance_km: route?.distance_km || 12.5,
-      avg_speed_kmh: isPastEvening ? 30 : 0,
-      status: isPastEvening ? 'completed' : (index === 0 ? 'in_progress' : 'scheduled'),
-      updated_at: new Date().toISOString(),
-    });
-  });
-
-  return records;
-};
-
-import { supabase } from '../lib/supabase';
 
 export const TimeHistory: React.FC<TimeHistoryProps> = ({
   buses,
@@ -114,18 +37,14 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
 }) => {
   const todayDate = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-  // Time records state initialized from storage or defaults
+  // Time records state initialized ONLY from real driver actions (starts clean)
   const [timeRecords, setTimeRecords] = useState<BusTimeRecord[]>(() => {
-    const existing = timeHistoryStore.getRecords();
-    if (existing.length > 0) return existing;
-    const initial = generateInitialTimeRecords(buses, routes, drivers);
-    timeHistoryStore.saveRecords(initial);
-    return initial;
+    return timeHistoryStore.getRecords();
   });
 
   // Filter States
-  const [activeShiftTab, setActiveShiftTab] = useState<'morning' | 'evening' | 'all'>('morning');
-  const [selectedDate, setSelectedDate] = useState<string>(todayDate);
+  const [activeShiftTab, setActiveShiftTab] = useState<'morning' | 'evening' | 'all'>('all');
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [busFilter, setBusFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'in_progress' | 'scheduled'>('all');
@@ -156,9 +75,7 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
     // Also poll every 1s to guarantee instant sync across tabs
     const interval = setInterval(() => {
       const records = timeHistoryStore.getRecords();
-      if (records.length > 0) {
-        setTimeRecords(records);
-      }
+      setTimeRecords(records);
     }, 1000);
 
     return () => {
@@ -290,6 +207,14 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
     document.body.removeChild(link);
   };
 
+  const handleClearAllHistory = () => {
+    if (window.confirm('Are you sure you want to clear all stored Time History logs? All previous driver start/end records will be permanently removed, and new logs will record starting from future driver actions.')) {
+      timeHistoryStore.clearAllRecords();
+      setTimeRecords([]);
+      showToast('🗑️ All Time History records have been cleared. New logs will appear when drivers click Start/End trip.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header Banner */}
@@ -308,6 +233,14 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={handleClearAllHistory}
+            className="px-4 py-2.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all shadow-lg cursor-pointer"
+            title="Delete all previous time history logs"
+          >
+            <Trash2 className="w-4 h-4 text-rose-400" />
+            <span>Clear All History</span>
+          </button>
           <button
             onClick={handleExportCSV}
             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 transition-all shadow-lg shadow-emerald-600/20 cursor-pointer"
@@ -546,10 +479,14 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
             <tbody className="divide-y divide-slate-800/60 font-medium">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
-                    <Clock className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm font-bold text-slate-400">No Time History records matched the selected criteria.</p>
-                    <p className="text-xs text-slate-600 mt-1">Try changing shift, clearing search query, or selecting another date.</p>
+                  <td colSpan={9} className="px-6 py-14 text-center text-slate-500">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-3">
+                      <Clock className="w-7 h-7" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-200">No Time History Records Found</p>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
+                      Previous mock history has been wiped. Trip start and finish records are dynamically logged here whenever drivers click <span className="text-emerald-400 font-semibold">Start Trip</span> and <span className="text-rose-400 font-semibold">End Trip</span> in their app (or logged manually by an admin).
+                    </p>
                   </td>
                 </tr>
               ) : (
