@@ -174,10 +174,6 @@ export default function StaffMobileDashboard() {
     return new Date().getHours() >= 13 ? 'evening' : 'morning';
   });
   const [completedStopIds, setCompletedStopIds] = useState<string[]>([]);
-  const [showNotifModal, setShowNotifModal] = useState(false);
-  const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
-  const unreadNotifCount = (systemBroadcasts || []).filter((n) => n && n.id && !readNotifIds.includes(n.id)).length;
-
   // Emergency SOS State
   const [emergencyAlerts, setEmergencyAlerts] = useState<EmergencyAlert[]>([]);
 
@@ -200,6 +196,10 @@ export default function StaffMobileDashboard() {
   });
   const [incomingToast, setIncomingToast] = useState<SystemNotification | null>(null);
   const [incomingAlertModal, setIncomingAlertModal] = useState<SystemNotification | null>(null);
+
+  const [showNotifModal, setShowNotifModal] = useState(false);
+  const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
+  const unreadNotifCount = (systemBroadcasts || []).filter((n) => n && n.id && !readNotifIds.includes(n.id)).length;
 
   // Commuter Faculty Profile & Realtime Leave State
   const [facultyProfile, setFacultyProfile] = useState<FacultyCommuter>({

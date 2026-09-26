@@ -26,8 +26,17 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    console.warn('Mobile App Caught Error:', error, errorInfo);
+    console.warn('Mobile App Caught Error:', error?.message || error, errorInfo);
   }
+
+  handleReset = async () => {
+    try {
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        localStorage.removeItem('bustrack_active_session_v1');
+      }
+    } catch {}
+    this.setState({ hasError: false, error: undefined });
+  };
 
   render() {
     if (this.state.hasError) {
@@ -38,12 +47,20 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
           <Text style={styles.errorSub}>
             A minor UI rendering notice occurred. Tap below to refresh your view smoothly.
           </Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => this.setState({ hasError: false })}
-          >
-            <Text style={styles.retryButtonText}>🔄 Reload Screen</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => this.setState({ hasError: false, error: undefined })}
+            >
+              <Text style={styles.retryButtonText}>🔄 Reload Screen</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.retryButton, { backgroundColor: '#334155' }]}
+              onPress={this.handleReset}
+            >
+              <Text style={styles.retryButtonText}>🏠 Reset View</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       );
     }
