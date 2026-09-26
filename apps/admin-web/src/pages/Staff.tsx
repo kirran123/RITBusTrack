@@ -1231,34 +1231,77 @@ export const Staff: React.FC<StaffProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                  <span>🚌 Select Bus Route</span>
+                  {cRouteId && <span className="text-[10px] text-sky-400 font-semibold">Active Route</span>}
+                </label>
+                <select
+                  value={cRouteId}
+                  onChange={(e) => {
+                    const newRouteId = e.target.value;
+                    setCRouteId(newRouteId);
+                    const matchedBus = buses.find(b => b.route_id === newRouteId);
+                    if (matchedBus) setCBusId(matchedBus.id);
+                    const routeStops = stops.filter(s => s.route_id === newRouteId);
+                    if (routeStops.length > 0 && !routeStops.some(s => s.id === cBoardingStopId)) {
+                      setCBoardingStopId(routeStops[0].id);
+                    }
+                  }}
+                  className="w-full bg-slate-950 text-white text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 font-medium"
+                >
+                  <option value="">-- Select Route --</option>
+                  {routes.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.route_name || r.name} ({r.route_number || 'Route'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Assigned Bus</label>
                   <select
                     value={cBusId}
                     onChange={(e) => setCBusId(e.target.value)}
-                    className="w-full bg-slate-950 text-white text-xs px-3.5 py-2.5 rounded-xl border border-slate-800"
+                    className="w-full bg-slate-950 text-white text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500"
                   >
                     <option value="">-- Select Bus --</option>
                     {buses.map(b => (
-                      <option key={b.id} value={b.id}>{b.bus_number}</option>
+                      <option key={b.id} value={b.id}>
+                        {b.bus_number} {b.registration_number ? `(${b.registration_number})` : ''}
+                      </option>
                     ))}
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Boarding Stop</label>
-                  <select
-                    value={cBoardingStopId}
-                    onChange={(e) => setCBoardingStopId(e.target.value)}
-                    className="w-full bg-slate-950 text-white text-xs px-3.5 py-2.5 rounded-xl border border-slate-800"
-                  >
-                    <option value="">-- Select Boarding Stop --</option>
-                    {stops.map(s => (
-                      <option key={s.id} value={s.id}>{s.stop_name}</option>
-                    ))}
-                  </select>
-                </div>
+                {(() => {
+                  const availableStops = cRouteId ? stops.filter(s => s.route_id === cRouteId) : stops;
+                  const displayStops = availableStops.length > 0 ? availableStops : stops;
+                  return (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                        <span>📍 Choose Assigned Boarding Stop</span>
+                        <span className="text-[10px] text-emerald-400 font-semibold">
+                          {displayStops.length} stops available
+                        </span>
+                      </label>
+                      <select
+                        value={cBoardingStopId}
+                        onChange={(e) => setCBoardingStopId(e.target.value)}
+                        className="w-full bg-slate-950 text-white text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500 font-medium"
+                      >
+                        <option value="">-- Select Boarding Stop --</option>
+                        {displayStops.map((s, idx) => (
+                          <option key={s.id} value={s.id}>
+                            Stop #{s.stop_order || idx + 1}: {s.stop_name} {s.estimated_arrival ? `(Pickup: ${s.estimated_arrival})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="pt-4 flex items-center justify-end space-x-3 border-t border-slate-800">

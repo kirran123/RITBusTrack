@@ -170,6 +170,8 @@ export default function StaffMobileDashboard() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<StaffTab>('track');
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
+  const [showPermModal, setShowPermModal] = useState(false);
   const [scheduleType, setScheduleType] = useState<'morning' | 'evening'>(() => {
     return new Date().getHours() >= 13 ? 'evening' : 'morning';
   });
@@ -232,10 +234,11 @@ export default function StaffMobileDashboard() {
             staffId: u.employee_id || u.staffId || prev.staffId,
             designation: u.designation || prev.designation,
             department: u.department || prev.department,
-            boardingStopName: u.boarding_stop || prev.boardingStopName,
+            boardingStopName: typeof u.boarding_stop === 'object' ? u.boarding_stop?.stop_name : (u.boarding_stop || prev.boardingStopName),
             phone: u.phone || prev.phone,
             email: u.email || prev.email,
-            busNumber: u.bus_number || u.busNumber || prev.busNumber,
+            busNumber: u.bus_number || u.busNumber || (typeof u.bus === 'object' ? u.bus?.bus_number : prev.busNumber),
+            isOnLeave: Boolean(u.is_on_leave || u.isOnLeave),
           }));
         }
       } catch (e) {
@@ -505,7 +508,7 @@ export default function StaffMobileDashboard() {
   };
 
   // Distance calculations
-  const distanceToBoardingStopKm = staffLocation
+  const distanceToBoardingStopKm = staffLocation && staffBoardingStop && typeof staffBoardingStop.latitude === 'number'
     ? calculateDistanceKm(
         staffLocation.latitude,
         staffLocation.longitude,
@@ -516,24 +519,26 @@ export default function StaffMobileDashboard() {
 
   const walkingMinutes = Math.max(1, Math.round((distanceToBoardingStopKm / 4.5) * 60));
 
-  const distanceBusToStopKm = calculateDistanceKm(
-    busLocation.latitude,
-    busLocation.longitude,
-    staffBoardingStop.latitude,
-    staffBoardingStop.longitude
-  );
+  const distanceBusToStopKm = busLocation && staffBoardingStop && typeof staffBoardingStop.latitude === 'number' && typeof busLocation.latitude === 'number'
+    ? calculateDistanceKm(
+        busLocation.latitude,
+        busLocation.longitude,
+        staffBoardingStop.latitude,
+        staffBoardingStop.longitude
+      )
+    : 1.2;
 
   const remainingStopsToBoarding = Math.max(
     0,
-    INITIAL_STOPS.findIndex((s) => s.id === staffBoardingStop.id) - currentStopIndex
+    INITIAL_STOPS.findIndex((s) => s.id === (staffBoardingStop?.id || 'stop_3')) - currentStopIndex
   );
 
   // Dynamic ETA
   const dynamicETA: DynamicETA = calculateDynamicETA(
     distanceBusToStopKm,
-    busLocation.speed || 0,
+    busLocation?.speed || 0,
     remainingStopsToBoarding,
-    staffBoardingStop.estimated_arrival
+    staffBoardingStop?.estimated_arrival || '08:00 AM'
   );
 
   const walkingDistanceFormatted = formatDistance(distanceToBoardingStopKm);
@@ -850,16 +855,24 @@ export default function StaffMobileDashboard() {
             <View style={styles.routeTerminalCard}>
               <View style={styles.terminalItem}>
                 <Text style={styles.terminalLabelGreen}>🟢 ORIGIN</Text>
-                <Text style={styles.terminalName}>Rajapalayam New Bus Stand</Text>
-                <Text style={styles.terminalTime}>Dep: 07:30 AM</Text>
+                <Text style={styles.terminalName}>
+                  {scheduleType === 'evening' ? 'RIT College Campus' : 'Rajapalayam New Bus Stand'}
+                </Text>
+                <Text style={styles.terminalTime}>
+                  {scheduleType === 'evening' ? 'Dep: 04:30 PM' : 'Dep: 07:30 AM'}
+                </Text>
               </View>
               <View style={styles.terminalArrowBox}>
                 <Text style={styles.terminalArrow}>➔</Text>
               </View>
               <View style={styles.terminalItem}>
                 <Text style={styles.terminalLabelRed}>🏁 DESTINATION</Text>
-                <Text style={styles.terminalName}>RIT College Campus Hub</Text>
-                <Text style={styles.terminalTime}>Arr: 08:20 AM</Text>
+                <Text style={styles.terminalName}>
+                  {scheduleType === 'evening' ? 'Rajapalayam New Bus Stand' : 'RIT College Campus'}
+                </Text>
+                <Text style={styles.terminalTime}>
+                  {scheduleType === 'evening' ? 'Arr: 05:25 PM' : 'Arr: 08:20 AM'}
+                </Text>
               </View>
             </View>
 
@@ -1163,7 +1176,7 @@ export default function StaffMobileDashboard() {
                     <Text style={styles.emergencyNotifBody}>{alert.message}</Text>
                     <View style={styles.emergencyMetaRow}>
                       <Text style={styles.emergencyMetaText}>
-                        Bus: <Text style={{ color: '#fca5a5', fontWeight: 'bold' }}>{facultyProfile.busNumber || 'BUS-01'}</Text> &bull; Driver: Mr. B. Moorthi &bull; Lat/Lng: [{alert.latitude.toFixed(4)}, {alert.longitude.toFixed(4)}]
+                        Bus: <Text style={{ color: '#fca5a5', fontWeight: 'bold' }}>{facultyProfile.busNumber || 'BUS-01'}</Text> • Driver: Mr. B. Moorthi • Lat/Lng: [{Number(alert?.latitude || 9.449).toFixed(4)}, {Number(alert?.longitude || 77.5472).toFixed(4)}]
                       </Text>
                     </View>
                     <TouchableOpacity

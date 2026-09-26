@@ -165,7 +165,6 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           flex-direction: column;
           align-items: center;
           cursor: pointer;
-          transform: translate(-50%, -100%);
         }
         .bus-badge {
           background: #0f172a;
@@ -216,7 +215,6 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          transform: translate(-50%, -50%);
         }
 
         /* END POINT CIRCLE NODE */
@@ -233,7 +231,6 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          transform: translate(-50%, -50%);
         }
 
         /* INTERMEDIATE STOPS */
@@ -250,7 +247,6 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           align-items: center;
           justify-content: center;
           box-shadow: 0 2px 6px rgba(0,0,0,0.35);
-          transform: translate(-50%, -50%);
         }
         .stop-marker.boarding {
           background: #f59e0b;
@@ -270,15 +266,32 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
         }
 
         /* USER BEACON */
+        .user-marker-wrap {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          pointer-events: none;
+        }
+        .user-badge {
+          background: #0284c7;
+          color: #ffffff;
+          border: 1.5px solid #38bdf8;
+          padding: 2px 7px;
+          border-radius: 12px;
+          font-weight: 800;
+          font-size: 9.5px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+          white-space: nowrap;
+          margin-bottom: 2px;
+        }
         .user-beacon {
-          width: 16px;
-          height: 16px;
+          width: 14px;
+          height: 14px;
           background: #06b6d4;
-          border: 2.5px solid #ffffff;
+          border: 2px solid #ffffff;
           border-radius: 50%;
-          box-shadow: 0 0 12px #06b6d4;
+          box-shadow: 0 0 10px #06b6d4;
           animation: beacon-pulse 2s infinite;
-          transform: translate(-50%, -50%);
         }
         @keyframes beacon-pulse {
           0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.9); }
@@ -474,18 +487,29 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
 
         // 3. User Location Beacon (if present)
         var userLoc = ${userLocationJson};
-        if (userLoc) {
-          var userLabelText = "${userLocationLabel || '📍 Live Location'}";
+        var isUserClose = false;
+
+        if (userLoc && typeof userLoc.lat === 'number' && typeof userLoc.lng === 'number') {
+          var userLabelText = "${userLocationLabel || '📍 You'}";
           var userIcon = L.divIcon({
-            html: '<div style="position: relative; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%); pointer-events: none;"><div style="background: #0284c7; color: white; border: 1.5px solid #38bdf8; padding: 2px 7px; border-radius: 12px; font-weight: 800; font-size: 9.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.6); white-space: nowrap; margin-bottom: 2px;">' + userLabelText + '</div><div class="user-beacon"></div></div>',
+            html: '<div class="user-marker-wrap"><div class="user-badge">' + userLabelText + '</div><div class="user-beacon"></div></div>',
             className: '',
-            iconSize: [100, 40],
-            iconAnchor: [50, 40]
+            iconSize: [100, 34],
+            iconAnchor: [50, 32]
           });
-          L.marker([userLoc.lat, userLoc.lng], { icon: userIcon, zIndexOffset: 900 })
-            .bindPopup("<b>" + userLabelText + "</b><br/>Accuracy: " + Math.round(userLoc.accuracy) + "m")
+          L.marker([userLoc.lat, userLoc.lng], { icon: userIcon, zIndexOffset: 850 })
+            .bindPopup("<div style='font-family:sans-serif;font-size:12px;padding:2px;'><b>" + userLabelText + "</b><br/>GPS Accuracy: " + Math.round(userLoc.accuracy) + "m</div>")
             .addTo(map);
-          bounds.push([userLoc.lat, userLoc.lng]);
+
+          // Calculate distance to bus - only include in initial route bounds if within 30km
+          var dLat = (userLoc.lat - ${busLat}) * Math.PI / 180;
+          var dLon = (userLoc.lng - ${busLng}) * Math.PI / 180;
+          var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(${busLat}*Math.PI/180)*Math.cos(userLoc.lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+          var distToBusKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          if (distToBusKm <= 30) {
+            bounds.push([userLoc.lat, userLoc.lng]);
+            isUserClose = true;
+          }
         }
 
         // 4. Moving Bus Marker
@@ -493,7 +517,7 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           html: '<div class="bus-marker-wrap"><div class="bus-badge"><span>🚌 ${busNumber}</span></div><div class="bus-icon-circle">🚌</div></div>',
           className: '',
           iconSize: [80, 48],
-          iconAnchor: [40, 48]
+          iconAnchor: [40, 46]
         });
         L.marker([${busLat}, ${busLng}], { icon: busIcon, zIndexOffset: 1000 })
           .bindPopup("<div style='font-family:sans-serif;font-size:12px;padding:2px;'><b>${busNumber}</b><br/>Route: ${routeNumber}<br/>Live Speed: <b style='color:#059669;'>${speed} km/h</b><br/>Heading: ${heading}&deg;</div>")
@@ -501,7 +525,9 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
         bounds.push([${busLat}, ${busLng}]);
 
         if (bounds.length > 1) {
-          map.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
+          map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+        } else {
+          map.setView([${busLat}, ${busLng}], 15);
         }
 
         function zoomIn() {
@@ -513,20 +539,27 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
         }
 
         function recenterBus() {
-          map.flyTo([${busLat}, ${busLng}], Math.max(map.getZoom(), 15), { duration: 0.8 });
+          map.flyTo([${busLat}, ${busLng}], 16, { duration: 0.8 });
         }
 
         function recenterUser() {
           if (userLoc) {
-            map.flyTo([userLoc.lat, userLoc.lng], Math.max(map.getZoom(), 16), { duration: 0.8 });
+            map.flyTo([userLoc.lat, userLoc.lng], 16, { duration: 0.8 });
           } else {
             recenterBus();
           }
         }
 
         function fitAll() {
-          if (bounds.length > 1) {
-            map.fitBounds(bounds, { padding: [35, 35] });
+          if (stopLatLngs.length > 1) {
+            var routeBounds = stopLatLngs.slice();
+            routeBounds.push([${busLat}, ${busLng}]);
+            if (isUserClose && userLoc) routeBounds.push([userLoc.lat, userLoc.lng]);
+            map.fitBounds(routeBounds, { padding: [30, 30] });
+          } else if (bounds.length > 1) {
+            map.fitBounds(bounds, { padding: [30, 30] });
+          } else {
+            recenterBus();
           }
         }
       </script>

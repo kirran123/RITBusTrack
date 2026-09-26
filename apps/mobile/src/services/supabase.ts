@@ -76,6 +76,7 @@ export interface TripUpdatePayload {
   isTripActive: boolean;
   currentStopIdx: number;
   completedStopIds: string[];
+  shift?: 'morning' | 'evening';
 }
 
 // In-memory event bus listeners for peer-to-peer realtime updates within app session
@@ -200,6 +201,7 @@ export function initRealtimeChannel() {
           title,
           message,
           type: row.type?.toLowerCase() === 'sos' ? 'urgent' : (row.type?.toLowerCase() || 'general'),
+          target_type: 'all',
           created_at: row.created_at || new Date().toISOString(),
         };
         notificationListeners.forEach((listener) => listener(notif));
@@ -543,6 +545,7 @@ export async function fetchSystemNotificationsFromDB(): Promise<SystemNotificati
         title,
         message,
         type: row.type?.toLowerCase() === 'sos' ? 'urgent' : (row.type?.toLowerCase() || 'general'),
+        target_type: 'all',
         created_at: row.created_at || new Date().toISOString(),
       };
     });

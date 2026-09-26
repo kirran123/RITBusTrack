@@ -20,6 +20,12 @@ export interface BusStudent {
   leaveDate?: string;
   leaveReason?: string;
   avatarBg?: string;
+  register_number?: string;
+  profile?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
 }
 
 export const INITIAL_BUS12_STUDENTS: BusStudent[] = [

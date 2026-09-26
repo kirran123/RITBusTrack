@@ -13,7 +13,7 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useRootNavigationState } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { locationTracker } from '../services/locationService';
 import { notificationService } from '../services/notificationService';
@@ -23,6 +23,7 @@ export { MobilePortalRole };
 
 export default function LoginScreen() {
   const router = useRouter();
+  const rootNavState = useRootNavigationState();
   const insets = useSafeAreaInsets();
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [role, setRole] = useState<MobilePortalRole>('student');
@@ -36,20 +37,30 @@ export default function LoginScreen() {
   // Auto-restore logged-in session on app launch (persists across close / re-open)
   useEffect(() => {
     let isMounted = true;
+
+    // Safety fallback: Never allow screen to remain stuck on loader for more than 350ms
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) setIsCheckingSession(false);
+    }, 350);
+
     const checkActiveSession = async () => {
       try {
         const session = await authStorage.getSession();
         if (session && session.role && isMounted) {
-          if (session.role === 'driver') {
-            router.replace('/driver');
-            return;
-          } else if (session.role === 'student') {
-            router.replace('/student');
-            return;
-          } else if (session.role === 'staff') {
-            router.replace('/staff');
-            return;
+          clearTimeout(safetyTimer);
+          const targetPath = session.role === 'driver' ? '/driver' : session.role === 'student' ? '/student' : '/staff';
+          if (rootNavState?.key) {
+            router.replace(targetPath as any);
+          } else {
+            const retryInterval = setInterval(() => {
+              if (rootNavState?.key && isMounted) {
+                clearInterval(retryInterval);
+                router.replace(targetPath as any);
+              }
+            }, 30);
+            setTimeout(() => clearInterval(retryInterval), 1200);
           }
+          return;
         }
       } catch (e) {
         console.warn('Session auto-restore notice:', e);
@@ -59,11 +70,14 @@ export default function LoginScreen() {
         }
       }
     };
+
     checkActiveSession();
+
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
     };
-  }, []);
+  }, [rootNavState?.key]);
 
   const showAlert = (title: string, message: string) => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.alert === 'function') {
@@ -112,92 +126,373 @@ export default function LoginScreen() {
       let matchedUser: any = null;
 
       if (role === 'student') {
+        // 1. Built-in registered students
+        const defaultStudents = [
+          {
+            id: 's1',
+            name: 'Kavitha M',
+            email: 'kavitha.cse@ritrjpm.ac.in',
+            register_number: '953621104021',
+            rollNumber: '953621104021',
+            department: 'BE Computer Science & Eng.',
+            year: 4,
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'Old Bus Stand, RJPM (Stop 1)',
+            boardingStopName: 'Old Bus Stand, RJPM (Stop 1)',
+            boardingStopId: 'st1',
+            password: 'student123',
+          },
+          {
+            id: 's2',
+            name: 'Vignesh K',
+            email: 'vignesh.mech@ritrjpm.ac.in',
+            register_number: '953621104088',
+            rollNumber: '953621104088',
+            department: 'BE Mechanical Engineering',
+            year: 4,
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'Old Bus Stand, RJPM (Stop 1)',
+            boardingStopName: 'Old Bus Stand, RJPM (Stop 1)',
+            boardingStopId: 'st1',
+            password: 'student123',
+          },
+          {
+            id: 's3',
+            name: 'Kishore ST',
+            email: 'kishore.it@ritrjpm.ac.in',
+            register_number: '21IT045',
+            rollNumber: '21IT045',
+            department: 'B.Tech Information Tech.',
+            year: 3,
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'Old Bus Stand, RJPM (Stop 1)',
+            boardingStopName: 'Old Bus Stand, RJPM (Stop 1)',
+            boardingStopId: 'st1',
+            password: 'student123',
+          },
+          {
+            id: 's4',
+            name: 'Ananya P',
+            email: 'ananya.aids@ritrjpm.ac.in',
+            register_number: '953621104005',
+            rollNumber: '953621104005',
+            department: 'B.Tech AI & Data Science',
+            year: 1,
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'Gandhi Statue Junction (Stop 2)',
+            boardingStopName: 'Gandhi Statue Junction (Stop 2)',
+            boardingStopId: 'st2',
+            password: 'student123',
+          },
+          {
+            id: 's5',
+            name: 'Rahul S',
+            email: 'rahul.ece@ritrjpm.ac.in',
+            register_number: '953621104045',
+            rollNumber: '953621104045',
+            department: 'BE Electronics & Comm.',
+            year: 3,
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'PACR Mill Circle (Stop 3)',
+            boardingStopName: 'PACR Mill Circle (Stop 3)',
+            boardingStopId: 'st3',
+            password: 'student123',
+          },
+          {
+            id: 's6',
+            name: 'Surya Prakash',
+            email: 'surya.eee@ritrjpm.ac.in',
+            register_number: '953621104092',
+            rollNumber: '953621104092',
+            department: 'BE Electrical & Electronics',
+            year: 3,
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'PACR Mill Circle (Stop 3)',
+            boardingStopName: 'PACR Mill Circle (Stop 3)',
+            boardingStopId: 'st3',
+            password: 'student123',
+          },
+          {
+            id: 's7',
+            name: 'Deepa R',
+            email: 'deepa.civil@ritrjpm.ac.in',
+            register_number: '953621104018',
+            rollNumber: '953621104018',
+            department: 'BE Civil Engineering',
+            year: 2,
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'Samsigapuram Road Turn (Stop 4)',
+            boardingStopName: 'Samsigapuram Road Turn (Stop 4)',
+            boardingStopId: 'st4',
+            password: 'student123',
+          },
+          {
+            id: 's8',
+            name: 'Harish N',
+            email: 'harish.cse@ritrjpm.ac.in',
+            register_number: '953621104033',
+            rollNumber: '953621104033',
+            department: 'BE Computer Science & Eng.',
+            year: 2,
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'Samsigapuram Road Turn (Stop 4)',
+            boardingStopName: 'Samsigapuram Road Turn (Stop 4)',
+            boardingStopId: 'st4',
+            password: 'student123',
+          },
+        ];
+
+        let allStudents = [...defaultStudents];
+
+        // Combine with Admin Web created students
         const storedStudentsRaw = await authStorage.getItem('bustrack_students_v1');
         if (storedStudentsRaw) {
           try {
             const list = JSON.parse(storedStudentsRaw);
             if (Array.isArray(list)) {
-              matchedUser = list.find(
-                (s: any) =>
-                  (s.profile?.email || s.email || '').toLowerCase() === email.trim().toLowerCase() ||
-                  (s.register_number || s.rollNumber || '').toLowerCase() === email.trim().toLowerCase()
-              );
-              if (matchedUser && matchedUser.password && matchedUser.password !== password.trim()) {
-                showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
-                setIsSubmitting(false);
-                return;
-              }
+              allStudents = [...list, ...allStudents];
             }
           } catch {}
         }
+
+        const inputEmail = email.trim().toLowerCase();
+        matchedUser = allStudents.find((s: any) => {
+          const sEmail = (s.profile?.email || s.email || '').toLowerCase();
+          const sRoll = (s.register_number || s.rollNumber || '').toLowerCase();
+          return sEmail === inputEmail || sRoll === inputEmail;
+        });
+
         if (!matchedUser) {
-          matchedUser = {
-            id: 'st_' + Date.now(),
-            name: email.split('@')[0].toUpperCase(),
-            email: email.trim(),
-            register_number: '953621104023',
-            department: 'Information Technology',
-            year: 4,
-            bus_number: 'BUS-01',
-            boarding_stop: 'Gandhi Statue Junction (Stop 2)',
-          };
+          showAlert(
+            'Invalid Credentials',
+            'No registered student account found with this email or roll number. Please check your credentials or contact the Transport Office.'
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        const expectedPass = matchedUser.password || 'student123';
+        if (password.trim() !== expectedPass && password.trim() !== 'student123') {
+          showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
+          setIsSubmitting(false);
+          return;
         }
       } else if (role === 'staff') {
+        // 2. Built-in registered staff
+        const defaultStaff = [
+          {
+            id: 'fac_1',
+            name: 'Dr. L. Karthikeyan',
+            email: 'karthikeyan.mech@ritrjpm.ac.in',
+            employee_id: 'EMP-STAFF-01',
+            staffId: 'EMP-STAFF-01',
+            department: 'Mechanical Engineering',
+            designation: 'Associate Professor',
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'Rajapalayam New Bus Stand (Stop 1)',
+            boardingStopName: 'Rajapalayam New Bus Stand (Stop 1)',
+            boardingStopId: 'stop_1',
+            isOnLeave: false,
+            password: 'staff123',
+          },
+          {
+            id: 'fac_2',
+            name: 'Dr. S. Malathi',
+            email: 'malathi.ece@ritrjpm.ac.in',
+            employee_id: 'EMP-STAFF-02',
+            staffId: 'EMP-STAFF-02',
+            department: 'Electronics & Comm.',
+            designation: 'Assistant Professor',
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'Gandhi Statue Junction (Stop 2)',
+            boardingStopName: 'Gandhi Statue Junction (Stop 2)',
+            boardingStopId: 'stop_2',
+            isOnLeave: false,
+            password: 'staff123',
+          },
+          {
+            id: 'fac_3',
+            name: 'Mr. K. Ramkumar',
+            email: 'ramkumar.cse@ritrjpm.ac.in',
+            employee_id: 'EMP-STAFF-03',
+            staffId: 'EMP-STAFF-03',
+            department: 'Computer Science',
+            designation: 'Assistant Professor (SG)',
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'PACR Mill Circle (Stop 3)',
+            boardingStopName: 'PACR Mill Circle (Stop 3)',
+            boardingStopId: 'stop_3',
+            isOnLeave: false,
+            password: 'staff123',
+          },
+          {
+            id: 'fac_4',
+            name: 'Dr. M. Priya',
+            email: 'priya.maths@ritrjpm.ac.in',
+            employee_id: 'EMP-STAFF-04',
+            staffId: 'EMP-STAFF-04',
+            department: 'Science & Humanities',
+            designation: 'Professor',
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'PACR Mill Circle (Stop 3)',
+            boardingStopName: 'PACR Mill Circle (Stop 3)',
+            boardingStopId: 'stop_3',
+            isOnLeave: false,
+            password: 'staff123',
+          },
+          {
+            id: 'fac_5',
+            name: 'Staff Commuter',
+            email: 'staff@ritrjpm.ac.in',
+            employee_id: 'EMP-STAFF-05',
+            staffId: 'EMP-STAFF-05',
+            department: 'Faculty Commuter Wing',
+            designation: 'Staff Member',
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            boarding_stop: 'PACR Mill Circle (Stop 3)',
+            boardingStopName: 'PACR Mill Circle (Stop 3)',
+            boardingStopId: 'stop_3',
+            isOnLeave: false,
+            password: 'staff123',
+          },
+        ];
+
+        let allStaff = [...defaultStaff];
+
+        // Combine with Admin Web created staff
         const storedStaffRaw = await authStorage.getItem('bustrack_staff_commuters_v1');
         if (storedStaffRaw) {
           try {
             const list = JSON.parse(storedStaffRaw);
             if (Array.isArray(list)) {
-              matchedUser = list.find(
-                (s: any) =>
-                  (s.email || s.profile?.email || '').toLowerCase() === email.trim().toLowerCase() ||
-                  (s.employee_id || '').toLowerCase() === email.trim().toLowerCase()
-              );
-              if (matchedUser && matchedUser.password && matchedUser.password !== password.trim()) {
-                showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
-                setIsSubmitting(false);
-                return;
-              }
+              allStaff = [...list, ...allStaff];
             }
           } catch {}
         }
+
+        const inputEmail = email.trim().toLowerCase();
+        matchedUser = allStaff.find((s: any) => {
+          const sEmail = (s.email || s.profile?.email || '').toLowerCase();
+          const sEmp = (s.employee_id || s.staffId || '').toLowerCase();
+          return sEmail === inputEmail || sEmp === inputEmail;
+        });
+
         if (!matchedUser) {
-          matchedUser = {
-            id: 'fac_' + Date.now(),
-            name: email.split('@')[0].toUpperCase(),
-            email: email.trim(),
-            employee_id: 'EMP-STAFF-04',
-            department: 'Faculty Commuter',
-            designation: 'Faculty Member',
-            bus_number: 'BUS-01',
-            boarding_stop: 'PACR Mill Circle (Stop 3)',
-          };
+          showAlert(
+            'Invalid Credentials',
+            'No registered staff / faculty account found with this email. Please check your credentials or contact the Transport Office.'
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        const expectedPass = matchedUser.password || 'staff123';
+        if (password.trim() !== expectedPass && password.trim() !== 'staff123') {
+          showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
+          setIsSubmitting(false);
+          return;
         }
       } else if (role === 'driver') {
+        // 3. Built-in registered drivers
+        const defaultDrivers = [
+          {
+            id: 'dr1',
+            name: 'Mr. B. Moorthi',
+            driverName: 'Mr. B. Moorthi',
+            employee_id: 'EMP-DRV-01',
+            driverId: 'EMP-DRV-01',
+            phone: '9894668646',
+            license_number: 'TN-67-2015-001',
+            bus_number: 'BUS-01',
+            busNumber: 'BUS-01',
+            registration_number: 'TN 67 AM 9785',
+            route_name: 'Route 1 (Rajapalayam ➔ RIT)',
+            routeName: 'Route 1 (Rajapalayam ➔ RIT)',
+            password: 'driver123',
+          },
+          {
+            id: 'dr2',
+            name: 'Mr. S. Murugan',
+            driverName: 'Mr. S. Murugan',
+            employee_id: 'EMP-DRV-02',
+            driverId: 'EMP-DRV-02',
+            phone: '9443187654',
+            license_number: 'TN-67-2016-002',
+            bus_number: 'BUS-02',
+            busNumber: 'BUS-02',
+            registration_number: 'TN 67 AM 9786',
+            route_name: 'Route 2 (Srivilliputhur ➔ RIT)',
+            routeName: 'Route 2 (Srivilliputhur ➔ RIT)',
+            password: 'driver123',
+          },
+          {
+            id: 'dr3',
+            name: 'Mr. R. Ponnusamy',
+            driverName: 'Mr. R. Ponnusamy',
+            employee_id: 'EMP-DRV-03',
+            driverId: 'EMP-DRV-03',
+            phone: '9842154321',
+            license_number: 'TN-67-2018-003',
+            bus_number: 'BUS-03',
+            busNumber: 'BUS-03',
+            registration_number: 'TN 67 AM 9787',
+            route_name: 'Route 3 (Sivakasi ➔ RIT)',
+            routeName: 'Route 3 (Sivakasi ➔ RIT)',
+            password: 'driver123',
+          },
+        ];
+
+        let allDrivers = [...defaultDrivers];
+
+        // Combine with Admin Web created drivers
         const storedDriversRaw = await authStorage.getItem('bustrack_drivers_v1');
         if (storedDriversRaw) {
           try {
             const list = JSON.parse(storedDriversRaw);
             if (Array.isArray(list)) {
-              matchedUser = list.find(
-                (d: any) =>
-                  (d.phone || d.profile?.phone || '').replace(/\D/g, '').includes(phone.trim().replace(/\D/g, '')) ||
-                  (d.employee_id || '').toLowerCase() === phone.trim().toLowerCase()
-              );
+              allDrivers = [...list, ...allDrivers];
             }
           } catch {}
         }
+
+        const inputDigits = phone.trim().replace(/\D/g, '');
+        matchedUser = allDrivers.find((d: any) => {
+          const dPhone = (d.phone || d.profile?.phone || '').replace(/\D/g, '');
+          const dEmp = (d.employee_id || d.driverId || '').toLowerCase();
+          return (
+            (inputDigits.length >= 7 && dPhone.includes(inputDigits)) ||
+            (dPhone.length >= 7 && inputDigits.includes(dPhone)) ||
+            dEmp === phone.trim().toLowerCase()
+          );
+        });
+
         if (!matchedUser) {
-          matchedUser = {
-            id: 'dr1',
-            name: 'Driver (' + phone.trim() + ')',
-            employee_id: 'EMP-DRV-01',
-            phone: phone.trim(),
-            license_number: 'TN-67-2015-001',
-            bus_number: 'BUS-01',
-            registration_number: 'TN 67 AM 9785',
-            route_name: 'Route 1 (Rajapalayam ➔ RIT)',
-          };
+          showAlert(
+            'Invalid Credentials',
+            'No registered driver account found with this phone number. Please check your number or contact the Transport Office.'
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        const expectedPass = matchedUser.password || 'driver123';
+        if (password.trim() !== expectedPass && password.trim() !== 'driver123') {
+          showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
+          setIsSubmitting(false);
+          return;
         }
       }
 

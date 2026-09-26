@@ -24,6 +24,8 @@ import {
 import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB } from '../../services/supabase';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
+import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
+import { notificationService } from '../../services/notificationService';
 import { GPSCoordinate, INITIAL_STOPS, EmergencyType, EmergencyAlert, Stop, SystemNotification, timeHistoryStore } from '@college-bus/shared';
 import { authStorage } from '../../services/authStorage';
 
@@ -187,21 +189,22 @@ export default function DriverDashboard() {
           ? session.user
           : null;
 
-        if (parsed && (parsed.name || parsed.profile?.name)) {
+        if (parsed) {
           setDriverProfile((prev) => ({
             ...prev,
             id: parsed.id || prev.id,
             name: parsed.profile?.name || parsed.name || prev.name,
-            employeeId: parsed.employee_id || prev.employeeId,
+            employeeId: parsed.employee_id || parsed.employeeId || prev.employeeId,
             phone: parsed.phone || parsed.profile?.phone || prev.phone,
-            licenseNumber: parsed.license_number || prev.licenseNumber,
-            busNumber: parsed.bus?.bus_number || parsed.bus_number || prev.busNumber,
+            licenseNumber: parsed.license_number || parsed.licenseNumber || prev.licenseNumber,
+            busNumber: parsed.bus?.bus_number || parsed.bus_number || parsed.busNumber || prev.busNumber,
             registrationNumber:
-              parsed.bus?.registration_number || parsed.registration_number || prev.registrationNumber,
-            routeName: parsed.route_name || prev.routeName,
+              parsed.bus?.registration_number || parsed.registration_number || parsed.registrationNumber || prev.registrationNumber,
+            routeName: parsed.route_name || parsed.routeName || prev.routeName,
           }));
-          if (parsed.bus?.bus_number || parsed.bus_number) {
-            setDriverBusNumber(parsed.bus?.bus_number || parsed.bus_number);
+          const bNum = parsed.bus?.bus_number || parsed.bus_number || parsed.busNumber;
+          if (bNum) {
+            setDriverBusNumber(bNum);
           }
         }
       } catch (e) {
@@ -470,7 +473,6 @@ export default function DriverDashboard() {
           title: `🚌 ${driverProfile.busNumber || 'BUS-01'} Departed (${shift === 'evening' ? 'Evening Return' : 'Morning Pickup'})`,
           message: `Driver ${driverProfile.name || 'Mr. B. Moorthi'} has started the ${shift} trip from ${startPointName} at ${timeStr} towards ${destName}. Live GPS tracking is active.`,
           type: 'trip',
-          priority: 'high',
           target_type: 'bus',
           target_id: 'b1',
           created_at: new Date().toISOString(),
@@ -567,7 +569,6 @@ export default function DriverDashboard() {
           title: `🏁 ${driverProfile.busNumber || 'BUS-01'} Trip Completed`,
           message: `Bus ${driverProfile.busNumber || 'BUS-01'} has safely arrived at ${destName} at ${endFormatted}. Total duration: ${formatTimer(elapsedSeconds)}, Distance: ${formatDistance(distanceTravelledKm)}.`,
           type: 'trip',
-          priority: 'normal',
           target_type: 'bus',
           target_id: 'b1',
           created_at: new Date().toISOString(),
@@ -644,7 +645,7 @@ export default function DriverDashboard() {
 
     Alert.alert(
       '🚨 SOS BROADCAST ACTIVE',
-      `Emergency alert dispatched to Campus Security & Transport Admins.\n\nType: ${type.toUpperCase()}\nLocation: [${currentLoc?.latitude?.toFixed(4)}, ${currentLoc?.longitude?.toFixed(4)}]`
+      `Emergency alert dispatched to Campus Security & Transport Admins.\n\nType: ${type.toUpperCase()}\nLocation: [${Number(currentLoc?.latitude || 9.4475).toFixed(4)}, ${Number(currentLoc?.longitude || 77.5450).toFixed(4)}]`
     );
   };
 
@@ -662,7 +663,7 @@ export default function DriverDashboard() {
   }
   const nextStop = currentStops[targetStopIdx] || currentStops[0] || MORNING_ROUTE_STOPS[0];
   const isFinalStop = targetStopIdx === currentStops.length - 1;
-  const rawDist = currentLoc && nextStop
+  const rawDist = currentLoc && nextStop && typeof currentLoc.latitude === 'number' && typeof nextStop.latitude === 'number'
     ? calculateDistanceKm(currentLoc.latitude, currentLoc.longitude, nextStop.latitude, nextStop.longitude)
     : 1.4;
 
@@ -671,7 +672,7 @@ export default function DriverDashboard() {
 
   const nextStopETA = calculateDynamicETA(
     distToNextStop,
-    currentLoc?.speed || 0,
+    Number(currentLoc?.speed || 0),
     0,
     nextStop?.estimated_arrival || '07:45 AM'
   );
@@ -1123,11 +1124,11 @@ export default function DriverDashboard() {
               {/* Telemetry quick bar */}
               <View style={styles.driverHudQuickBar}>
                 <View style={styles.hudStatBox}>
-                  <Text style={styles.hudStatVal}>{Math.round(currentLoc?.speed || 0)}</Text>
+                  <Text style={styles.hudStatVal}>{Math.round(Number(currentLoc?.speed || 0))}</Text>
                   <Text style={styles.hudStatLabel}>KM/H</Text>
                 </View>
                 <View style={styles.hudStatBox}>
-                  <Text style={styles.hudStatVal}>{distanceTravelledKm.toFixed(1)}</Text>
+                  <Text style={styles.hudStatVal}>{Number(distanceTravelledKm || 0).toFixed(1)}</Text>
                   <Text style={styles.hudStatLabel}>KM LOGGED</Text>
                 </View>
                 <View style={styles.hudStatBox}>
@@ -1135,7 +1136,7 @@ export default function DriverDashboard() {
                   <Text style={styles.hudStatLabel}>TIMER</Text>
                 </View>
                 <View style={styles.hudStatBox}>
-                  <Text style={styles.hudStatVal}>&plusmn;{currentLoc?.accuracy?.toFixed(0) || '4'}m</Text>
+                  <Text style={styles.hudStatVal}>±{Number(currentLoc?.accuracy || 4).toFixed(0)}m</Text>
                   <Text style={styles.hudStatLabel}>GPS LOCK</Text>
                 </View>
               </View>
@@ -1147,11 +1148,11 @@ export default function DriverDashboard() {
                 <View style={styles.nextStopHeaderRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.nextStopPrefix, { color: '#10b981' }]}>
-                      🏁 FINAL TERMINAL REACHED (5/5) &bull; BUS-01
+                      🏁 FINAL TERMINAL REACHED (5/5) • BUS-01
                     </Text>
                     <Text style={styles.nextStopName}>College Main Gate (Campus Hub)</Text>
                     <Text style={[styles.nextStopEtaText, { color: '#34d399', fontWeight: 'bold' }]}>
-                      0 m &bull; Arrived at Campus Destination
+                      0 m • Arrived at Campus Destination
                     </Text>
                   </View>
 
@@ -1166,20 +1167,20 @@ export default function DriverDashboard() {
                 <View style={styles.nextStopHeaderRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.nextStopPrefix}>
-                      {isFinalStop ? 'FINAL STOP (5/5)' : `NEXT STOP (${Math.min(currentStopIdx + 1, 5)}/5)`} &bull; BUS-01
+                      {isFinalStop ? 'FINAL STOP (5/5)' : `NEXT STOP (${Math.min(currentStopIdx + 1, 5)}/5)`} • BUS-01
                     </Text>
-                    <Text style={styles.nextStopName}>{nextStop.stop_name}</Text>
+                    <Text style={styles.nextStopName}>{nextStop?.stop_name || 'Next Stop'}</Text>
                     <Text style={styles.nextStopEtaText}>
                       {isAtStop
-                        ? `0 m ahead \u2022 Arrived at ${nextStop.stop_name}`
-                        : `${formatDistance(distToNextStop)} ahead \u2022 Arrival: ${nextStopETA.arrivalTimeStr} (${nextStopETA.statusLabel})`}
+                        ? `0 m ahead • Arrived at ${nextStop?.stop_name || 'Stop'}`
+                        : `${formatDistance(distToNextStop)} ahead • Arrival: ${nextStopETA?.arrivalTimeStr || '--'} (${nextStopETA?.statusLabel || 'On Time'})`}
                     </Text>
 
                     {/* Warning if any student at next stop is on leave */}
                     {studentsAtNextStopOnLeave.length > 0 && (
                       <View style={styles.nextStopLeaveNotice}>
                         <Text style={styles.nextStopLeaveText}>
-                          ⚠️ {studentsAtNextStopOnLeave.map((s) => s.name).join(', ')} marked on leave at this stop.
+                          ⚠️ {studentsAtNextStopOnLeave.map((s) => s?.name || 'Student').join(', ')} marked on leave at this stop.
                         </Text>
                       </View>
                     )}
@@ -1413,19 +1414,19 @@ export default function DriverDashboard() {
                 <View style={styles.metricsGrid}>
                   <View style={styles.metricCard}>
                     <Text style={styles.metricLabel}>Speed</Text>
-                    <Text style={styles.metricValue}>{Math.round(currentLoc?.speed || 0)}</Text>
+                    <Text style={styles.metricValue}>{Math.round(Number(currentLoc?.speed || 0))}</Text>
                     <Text style={styles.metricUnit}>km/h</Text>
                   </View>
 
                   <View style={styles.metricCard}>
                     <Text style={styles.metricLabel}>Distance</Text>
-                    <Text style={styles.metricValue}>{distanceTravelledKm.toFixed(2)}</Text>
+                    <Text style={styles.metricValue}>{Number(distanceTravelledKm || 0).toFixed(2)}</Text>
                     <Text style={styles.metricUnit}>km logged</Text>
                   </View>
 
                   <View style={styles.metricCard}>
                     <Text style={styles.metricLabel}>Accuracy</Text>
-                    <Text style={styles.metricValue}>&plusmn;{Math.round(currentLoc?.accuracy ?? 4)}</Text>
+                    <Text style={styles.metricValue}>±{Math.round(Number(currentLoc?.accuracy ?? 4))}</Text>
                     <Text style={styles.metricUnit}>meters</Text>
                   </View>
                 </View>
@@ -1434,15 +1435,15 @@ export default function DriverDashboard() {
                 <View style={styles.coordStrip}>
                   <View style={styles.coordCol}>
                     <Text style={styles.coordLabel}>Latitude</Text>
-                    <Text style={styles.coordVal}>{currentLoc?.latitude?.toFixed(6)}</Text>
+                    <Text style={styles.coordVal}>{Number(currentLoc?.latitude || 9.4475).toFixed(6)}</Text>
                   </View>
                   <View style={styles.coordCol}>
                     <Text style={styles.coordLabel}>Longitude</Text>
-                    <Text style={styles.coordVal}>{currentLoc?.longitude?.toFixed(6)}</Text>
+                    <Text style={styles.coordVal}>{Number(currentLoc?.longitude || 77.5450).toFixed(6)}</Text>
                   </View>
                   <View style={styles.coordCol}>
                     <Text style={styles.coordLabel}>Heading</Text>
-                    <Text style={styles.coordVal}>{currentLoc?.heading || 0}&deg;</Text>
+                    <Text style={styles.coordVal}>{Math.round(Number(currentLoc?.heading || 0))}°</Text>
                   </View>
                 </View>
 

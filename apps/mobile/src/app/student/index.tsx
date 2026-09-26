@@ -185,6 +185,9 @@ export default function StudentDashboard() {
   });
   const [incomingToast, setIncomingToast] = useState<SystemNotification | null>(null);
   const [incomingAlertModal, setIncomingAlertModal] = useState<SystemNotification | null>(null);
+  const [showNotifModal, setShowNotifModal] = useState(false);
+  const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
+  const unreadNotifCount = systemBroadcasts.filter((n) => !readNotifIds.includes(n.id)).length;
 
   // Student Profile & Realtime Leave State
   const [currentStudent, setCurrentStudent] = useState<BusStudent>(() => {
@@ -238,7 +241,10 @@ export default function StudentDashboard() {
 
   // Active stops sequence based on schedule shift
   const activeStops = scheduleType === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
-  const boardingStop = activeStops[0];
+  const boardingStop = (activeStops && (
+    activeStops.find(s => s.id === (currentStudent.boardingStopId || 'st1') || s.id === 'stop_1') ||
+    activeStops.find(s => s.stop_name.toLowerCase().includes((currentStudent.boardingStopName || '').toLowerCase().slice(0, 6)))
+  )) || activeStops[0];
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
@@ -437,37 +443,34 @@ export default function StudentDashboard() {
   };
 
   const checkAndFetchStudentLocation = async () => {
-    const perm = await locationTracker.checkPermissions();
-    if (perm.granted) {
-      setHasLocationPermission(true);
-      const pos = await locationTracker.getCurrentPosition();
-      if (pos) {
-        setStudentLocation(pos);
+    try {
+      const perm = await locationTracker.checkPermissions();
+      if (perm.granted) {
+        setHasLocationPermission(true);
+        const pos = await locationTracker.getCurrentPosition();
+        if (pos && typeof pos.latitude === 'number' && typeof pos.longitude === 'number') {
+          setStudentLocation(pos);
+        }
       } else {
-        setStudentLocation({
-          latitude: 9.4468,
-          longitude: 77.5442,
-          accuracy: 6,
-        });
+        setHasLocationPermission(false);
       }
-    } else {
-      setHasLocationPermission(false);
-      setStudentLocation({
-        latitude: 9.4468,
-        longitude: 77.5442,
-        accuracy: 6,
-      });
-    }
+    } catch {}
   };
 
   const handleRequestPermission = async () => {
-    const granted = await locationTracker.requestForegroundPermission();
-    if (granted) {
-      setHasLocationPermission(true);
-      const pos = await locationTracker.getCurrentPosition();
-      if (pos) setStudentLocation(pos);
-      Alert.alert('✅ Location Access Active', 'Your live location is pinpointed on the map.');
-    } else {
+    try {
+      const granted = await locationTracker.requestForegroundPermission();
+      if (granted) {
+        setHasLocationPermission(true);
+        const pos = await locationTracker.getCurrentPosition();
+        if (pos && typeof pos.latitude === 'number' && typeof pos.longitude === 'number') {
+          setStudentLocation(pos);
+        }
+        Alert.alert('✅ Location Access Active', 'Your live location is pinpointed on the map.');
+      } else {
+        setShowPermModal(true);
+      }
+    } catch {
       setShowPermModal(true);
     }
   };
@@ -477,7 +480,7 @@ export default function StudentDashboard() {
   };
 
   // Distance calculations
-  const distanceToBoardingStopKm = studentLocation
+  const distanceToBoardingStopKm = studentLocation && boardingStop && typeof studentLocation.latitude === 'number' && typeof boardingStop.latitude === 'number'
     ? calculateDistanceKm(
         studentLocation.latitude,
         studentLocation.longitude,
@@ -488,24 +491,26 @@ export default function StudentDashboard() {
 
   const walkingMinutes = Math.max(1, Math.round((distanceToBoardingStopKm / 4.5) * 60));
 
-  const distanceBusToStopKm = calculateDistanceKm(
-    busLocation.latitude,
-    busLocation.longitude,
-    boardingStop.latitude,
-    boardingStop.longitude
-  );
+  const distanceBusToStopKm = busLocation && boardingStop && typeof busLocation.latitude === 'number' && typeof boardingStop.latitude === 'number'
+    ? calculateDistanceKm(
+        busLocation.latitude,
+        busLocation.longitude,
+        boardingStop.latitude,
+        boardingStop.longitude
+      )
+    : 1.2;
 
   // Dynamic ETA Calculation to Assigned Boarding Stop
   const remainingStopsToBoarding = Math.max(
     0,
-    activeStops.findIndex((s) => s.id === boardingStop.id) - currentStopIndex
+    activeStops.findIndex((s) => s.id === (boardingStop?.id || 'stop_1')) - currentStopIndex
   );
 
   const dynamicETA: DynamicETA = calculateDynamicETA(
     distanceBusToStopKm,
-    busLocation.speed || 0,
+    Number(busLocation?.speed || 0),
     remainingStopsToBoarding,
-    boardingStop.estimated_arrival
+    boardingStop?.estimated_arrival || '07:52 AM'
   );
 
   return (
@@ -520,7 +525,7 @@ export default function StudentDashboard() {
           </View>
           <View style={styles.topHeaderInfo}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.topAppName}>College Bus Track</Text>
+              <Text style={styles.topAppName}>Student Bus Track</Text>
               <View style={styles.topBusNumberBadge}>
                 <Text style={styles.topBusNumberText}>{currentStudent.busNumber || 'BUS-01'}</Text>
               </View>
@@ -532,6 +537,19 @@ export default function StudentDashboard() {
         </View>
 
         <View style={styles.topHeaderRight}>
+          <TouchableOpacity
+            style={styles.headerBellBtn}
+            onPress={() => setShowNotifModal(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 18 }}>🔔</Text>
+            {unreadNotifCount > 0 && (
+              <View style={styles.headerBellBadge}>
+                <Text style={styles.headerBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
           <View style={[styles.liveStatusPill, !isDriverActive && styles.standbyStatusPill]}>
             <View style={[styles.liveDot, !isDriverActive && styles.standbyDot]} />
             <Text style={[styles.liveText, !isDriverActive && styles.standbyText]}>
@@ -540,6 +558,78 @@ export default function StudentDashboard() {
           </View>
         </View>
       </View>
+
+      {/* STUDENT NOTIFICATIONS & BROADCASTS MODAL */}
+      <Modal
+        visible={showNotifModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNotifModal(false)}
+      >
+        <View style={styles.notifModalOverlay}>
+          <View style={styles.notifModalContent}>
+            <View style={styles.notifModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 22 }}>🔔</Text>
+                <View>
+                  <Text style={styles.notifModalTitle}>Student Notifications</Text>
+                  <Text style={styles.notifModalSub}>Campus transport announcements & alerts</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.notifModalClose}
+                onPress={() => setShowNotifModal(false)}
+              >
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380, padding: 14 }}>
+              {systemBroadcasts.length === 0 ? (
+                <View style={styles.notifEmptyBox}>
+                  <Text style={{ fontSize: 28, marginBottom: 8 }}>📭</Text>
+                  <Text style={styles.notifEmptyText}>No notifications yet</Text>
+                  <Text style={styles.notifEmptySub}>All bus announcements and dispatch alerts will appear here.</Text>
+                </View>
+              ) : (
+                systemBroadcasts.map((notif) => {
+                  const isRead = readNotifIds.includes(notif.id);
+                  return (
+                    <TouchableOpacity
+                      key={notif.id}
+                      style={[styles.notifCardItem, isRead && { opacity: 0.65 }]}
+                      onPress={() => setReadNotifIds((prev) => (prev.includes(notif.id) ? prev : [...prev, notif.id]))}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Text style={styles.notifCardTitle}>{notif.title}</Text>
+                        <View style={styles.notifBadgeTag}>
+                          <Text style={styles.notifBadgeTagText}>{notif.type?.toUpperCase() || 'INFO'}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.notifCardBody}>{notif.message}</Text>
+                      <Text style={styles.notifCardTime}>
+                        {notif.created_at ? new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            <View style={styles.notifModalFooter}>
+              <TouchableOpacity
+                style={styles.markAllReadBtn}
+                onPress={() => {
+                  setReadNotifIds(systemBroadcasts.map((n) => n.id));
+                  setShowNotifModal(false);
+                }}
+              >
+                <Text style={styles.markAllReadText}>✓ Mark All as Read</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* FLOATING LIVE BROADCAST TOAST */}
       {incomingToast && (
@@ -648,16 +738,24 @@ export default function StudentDashboard() {
             <View style={styles.routeTerminalCard}>
               <View style={styles.terminalItem}>
                 <Text style={styles.terminalLabelGreen}>🟢 START POINT</Text>
-                <Text style={styles.terminalName}>Rajapalayam New Bus Stand</Text>
-                <Text style={styles.terminalTime}>Dep: 07:30 AM</Text>
+                <Text style={styles.terminalName}>
+                  {scheduleType === 'evening' ? 'RIT College Campus' : 'Rajapalayam New Bus Stand'}
+                </Text>
+                <Text style={styles.terminalTime}>
+                  {scheduleType === 'evening' ? 'Dep: 04:30 PM' : 'Dep: 07:30 AM'}
+                </Text>
               </View>
               <View style={styles.terminalArrowBox}>
                 <Text style={styles.terminalArrow}>➔</Text>
               </View>
               <View style={styles.terminalItem}>
                 <Text style={styles.terminalLabelRed}>🏁 END POINT</Text>
-                <Text style={styles.terminalName}>RIT College Campus</Text>
-                <Text style={styles.terminalTime}>Arr: 08:20 AM</Text>
+                <Text style={styles.terminalName}>
+                  {scheduleType === 'evening' ? 'Rajapalayam New Bus Stand' : 'RIT College Campus'}
+                </Text>
+                <Text style={styles.terminalTime}>
+                  {scheduleType === 'evening' ? 'Arr: 05:25 PM' : 'Arr: 08:20 AM'}
+                </Text>
               </View>
             </View>
 
@@ -772,7 +870,11 @@ export default function StudentDashboard() {
                   <Text style={styles.dynamicEtaSub}>DYNAMIC ARRIVAL TIME</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
                     <Text style={styles.dynamicEtaClock}>{dynamicETA.arrivalTimeStr}</Text>
-                    <Text style={styles.dynamicEtaCountdown}>(in ~{dynamicETA.formattedEta})</Text>
+                    <Text style={styles.dynamicEtaCountdown}>
+                      {dynamicETA.etaMinutes === 0 || dynamicETA.formattedEta.toLowerCase().includes('arrive')
+                        ? '(At Stop)'
+                        : `(in ~${dynamicETA.formattedEta})`}
+                    </Text>
                   </View>
                 </View>
 
@@ -974,7 +1076,7 @@ export default function StudentDashboard() {
                 <Text style={styles.emergencyNotifBody}>{alert.message}</Text>
                 <View style={styles.emergencyMetaRow}>
                   <Text style={styles.emergencyMetaText}>
-                    Bus: <Text style={{ color: '#fca5a5', fontWeight: 'bold' }}>{currentStudent.busNumber || 'BUS-01'}</Text> &bull; Driver: Mr. B. Moorthi &bull; Lat/Lng: [{alert.latitude.toFixed(4)}, {alert.longitude.toFixed(4)}]
+                    Bus: <Text style={{ color: '#fca5a5', fontWeight: 'bold' }}>{currentStudent.busNumber || 'BUS-01'}</Text> • Driver: Mr. B. Moorthi • Lat/Lng: [{Number(alert?.latitude || 9.449).toFixed(4)}, {Number(alert?.longitude || 77.5472).toFixed(4)}]
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -2673,6 +2775,160 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '900',
+  },
+  headerBellBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    borderWidth: 1,
+    borderColor: '#334155',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    marginRight: 6,
+  },
+  headerBellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#ef4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#0f172a',
+  },
+  headerBellBadgeText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  notifModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  notifModalContent: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#0f172a',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#1e293b',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  notifModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+    backgroundColor: '#090d16',
+  },
+  notifModalTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  notifModalSub: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  notifModalClose: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notifEmptyBox: {
+    alignItems: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+  },
+  notifEmptyText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  notifEmptySub: {
+    color: '#64748b',
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  notifCardItem: {
+    backgroundColor: '#0a0e17',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  notifCardTitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+    flex: 1,
+  },
+  notifBadgeTag: {
+    backgroundColor: '#1e3a8a',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  notifBadgeTagText: {
+    color: '#60a5fa',
+    fontSize: 8.5,
+    fontWeight: '900',
+  },
+  notifCardBody: {
+    color: '#cbd5e1',
+    fontSize: 11.5,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  notifCardTime: {
+    color: '#64748b',
+    fontSize: 9.5,
+    marginTop: 6,
+    fontWeight: '600',
+  },
+  notifModalFooter: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+    backgroundColor: '#090d16',
+  },
+  markAllReadBtn: {
+    backgroundColor: '#1e293b',
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  markAllReadText: {
+    color: '#38bdf8',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });
 

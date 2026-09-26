@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 export type UserRole = 'driver' | 'student' | 'staff';
+export type MobilePortalRole = UserRole;
 
 export interface UserSession {
   role: UserRole;

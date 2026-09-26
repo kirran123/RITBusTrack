@@ -40,6 +40,9 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
 
   render() {
     if (this.state.hasError) {
+      const errorMsg = this.state.error
+        ? String(this.state.error.message || this.state.error.name || this.state.error)
+        : '';
       return (
         <View style={styles.errorContainer}>
           <Text style={{ fontSize: 36, marginBottom: 12 }}>🚌</Text>
@@ -47,10 +50,10 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
           <Text style={styles.errorSub}>
             A minor UI rendering notice occurred. Tap below to refresh your view smoothly.
           </Text>
-          {this.state.error?.message ? (
+          {errorMsg ? (
             <View style={styles.errorDetailBox}>
-              <Text style={styles.errorDetailText} numberOfLines={3}>
-                {this.state.error.message}
+              <Text style={styles.errorDetailText} numberOfLines={4}>
+                {errorMsg}
               </Text>
             </View>
           ) : null}

@@ -11,8 +11,10 @@ if (Platform.OS !== 'web') {
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         priority: Notifications.AndroidNotificationPriority.MAX,
-      }),
+      } as any),
     });
   } catch (e) {
     console.warn('Expo Notifications handler init:', e);
@@ -23,7 +25,11 @@ class NotificationService {
   private isPermissionGranted = false;
 
   constructor() {
-    this.setupChannels();
+    if (Platform.OS === 'android') {
+      setTimeout(() => {
+        this.setupChannels().catch((e) => console.warn('Channel setup notice:', e));
+      }, 500);
+    }
   }
 
   private async setupChannels() {
