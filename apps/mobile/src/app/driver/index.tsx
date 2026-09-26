@@ -247,6 +247,10 @@ export default function DriverDashboard() {
     endTime: '',
   });
 
+  const [showNotifModal, setShowNotifModal] = useState(false);
+  const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
+  const unreadNotifCount = systemBroadcasts.filter((n) => !readNotifIds.includes(n.id)).length;
+
   const timerRef = useRef<any>(null);
 
   // Continuously track driver device GPS when trip is in standby (shows Driver Blue Dot before trip start / after finish)
@@ -770,6 +774,19 @@ export default function DriverDashboard() {
         </View>
 
         <View style={styles.topHeaderRight}>
+          <TouchableOpacity
+            style={styles.headerBellBtn}
+            onPress={() => setShowNotifModal(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 18 }}>🔔</Text>
+            {unreadNotifCount > 0 && (
+              <View style={styles.headerBellBadge}>
+                <Text style={styles.headerBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
           <View style={[styles.liveStatusPill, !isTripActive && styles.standbyStatusPill]}>
             <View style={[styles.liveDot, !isTripActive && styles.standbyDot]} />
             <Text style={[styles.liveText, !isTripActive && styles.standbyText]}>
@@ -798,6 +815,78 @@ export default function DriverDashboard() {
           </View>
         </TouchableOpacity>
       )}
+
+      {/* DRIVER NOTIFICATIONS & BROADCASTS MODAL */}
+      <Modal
+        visible={showNotifModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNotifModal(false)}
+      >
+        <View style={styles.notifModalOverlay}>
+          <View style={styles.notifModalContent}>
+            <View style={styles.notifModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 22 }}>🔔</Text>
+                <View>
+                  <Text style={styles.notifModalTitle}>Driver Notifications</Text>
+                  <Text style={styles.notifModalSub}>Dispatch alerts, trip notices & announcements</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.notifModalClose}
+                onPress={() => setShowNotifModal(false)}
+              >
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380, padding: 14 }}>
+              {systemBroadcasts.length === 0 ? (
+                <View style={styles.notifEmptyBox}>
+                  <Text style={{ fontSize: 28, marginBottom: 8 }}>📭</Text>
+                  <Text style={styles.notifEmptyText}>No notifications yet</Text>
+                  <Text style={styles.notifEmptySub}>All trip updates and dispatch notices will appear here.</Text>
+                </View>
+              ) : (
+                systemBroadcasts.map((notif) => {
+                  const isRead = readNotifIds.includes(notif.id);
+                  return (
+                    <TouchableOpacity
+                      key={notif.id}
+                      style={[styles.notifCardItem, isRead && { opacity: 0.65 }]}
+                      onPress={() => setReadNotifIds((prev) => (prev.includes(notif.id) ? prev : [...prev, notif.id]))}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Text style={styles.notifCardTitle}>{notif.title}</Text>
+                        <View style={styles.notifBadgeTag}>
+                          <Text style={styles.notifBadgeTagText}>{notif.type?.toUpperCase() || 'INFO'}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.notifCardBody}>{notif.message}</Text>
+                      <Text style={styles.notifCardTime}>
+                        {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            <View style={styles.notifModalFooter}>
+              <TouchableOpacity
+                style={styles.markAllReadBtn}
+                onPress={() => {
+                  setReadNotifIds(systemBroadcasts.map((n) => n.id));
+                  setShowNotifModal(false);
+                }}
+              >
+                <Text style={styles.markAllReadText}>✓ Mark All as Read</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* EXPLICIT IN-APP BROADCAST ALERT BOX MODAL */}
       {incomingAlertModal && (
@@ -3296,6 +3385,157 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   alertModalCloseText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  headerBellBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    borderWidth: 1,
+    borderColor: '#334155',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    marginRight: 6,
+  },
+  headerBellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#ef4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#0f172a',
+  },
+  headerBellBadgeText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  notifModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  notifModalContent: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#0f172a',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#1e293b',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  notifModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+    backgroundColor: '#090d16',
+  },
+  notifModalTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  notifModalSub: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  notifModalClose: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notifEmptyBox: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  notifEmptyText: {
+    color: '#e2e8f0',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  notifEmptySub: {
+    color: '#64748b',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  notifCardItem: {
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  notifCardTitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+    flex: 1,
+    marginRight: 6,
+  },
+  notifBadgeTag: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  notifBadgeTagText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  notifCardBody: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  notifCardTime: {
+    color: '#64748b',
+    fontSize: 10,
+    marginTop: 6,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  notifModalFooter: {
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+    backgroundColor: '#090d16',
+  },
+  markAllReadBtn: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  markAllReadText: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '900',

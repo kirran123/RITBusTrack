@@ -1,9 +1,71 @@
-import { Platform, Alert, PermissionsAndroid } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
+import * as Notifications from 'expo-notifications';
 
 export type NotificationPermissionStatus = 'granted' | 'denied' | 'undetermined';
 
+// Configure foreground & background notification presentation on native
+if (Platform.OS !== 'web') {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      }),
+    });
+  } catch (e) {
+    console.warn('Expo Notifications handler init:', e);
+  }
+}
+
 class NotificationService {
   private isPermissionGranted = false;
+
+  constructor() {
+    this.setupChannels();
+  }
+
+  private async setupChannels() {
+    if (Platform.OS === 'android') {
+      try {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Campus Bus Live Updates',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#2563eb',
+          enableLights: true,
+          enableVibrate: true,
+          showBadge: true,
+          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        });
+
+        await Notifications.setNotificationChannelAsync('emergency_sos', {
+          name: '🚨 Critical Emergency SOS Alerts',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 500, 200, 500],
+          lightColor: '#ef4444',
+          enableLights: true,
+          enableVibrate: true,
+          showBadge: true,
+          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        });
+
+        await Notifications.setNotificationChannelAsync('trip_status', {
+          name: '🚌 Bus Departures & Trip Status',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#10b981',
+          enableLights: true,
+          enableVibrate: true,
+          showBadge: true,
+          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        });
+      } catch (e) {
+        console.warn('Notification channel setup error:', e);
+      }
+    }
+  }
 
   async requestPermission(): Promise<boolean> {
     try {
@@ -11,32 +73,29 @@ class NotificationService {
         if (typeof window !== 'undefined' && 'Notification' in window) {
           const permission = await window.Notification.requestPermission();
           this.isPermissionGranted = permission === 'granted';
-          if (this.isPermissionGranted) {
-            console.log('✅ Web Push Notification Permission: GRANTED');
-          }
           return this.isPermissionGranted;
         }
         return true;
-      } else if (Platform.OS === 'android') {
-        if (Platform.Version >= 33) {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-            {
-              title: 'Live Transport Notifications',
-              message: 'Allow Bus Track to send real-time bus arrivals, schedule alerts, and transport notices.',
-              buttonPositive: 'Allow',
-              buttonNegative: 'Deny',
-            }
-          );
-          this.isPermissionGranted = granted === PermissionsAndroid.RESULTS.GRANTED;
-          return this.isPermissionGranted;
-        } else {
-          this.isPermissionGranted = true;
-          return true;
-        }
       } else {
-        this.isPermissionGranted = true;
-        return true;
+        const { status: existingStatus } = await Notifications.getPermissionsAsync().catch(() => ({ status: 'undetermined' }));
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+            },
+          }).catch(() => ({ status: 'denied' }));
+          finalStatus = status;
+        }
+
+        if (Platform.OS === 'android' && Platform.Version >= 33) {
+          await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS).catch(() => {});
+        }
+
+        this.isPermissionGranted = finalStatus === 'granted';
+        return this.isPermissionGranted;
       }
     } catch (err) {
       console.warn('Notification permission error:', err);
@@ -51,11 +110,9 @@ class NotificationService {
           return window.Notification.permission === 'granted';
         }
         return false;
-      } else if (Platform.OS === 'android') {
-        if (Platform.Version >= 33) {
-          return await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-        }
-        return true;
+      } else {
+        const { status } = await Notifications.getPermissionsAsync().catch(() => ({ status: 'undetermined' }));
+        return status === 'granted';
       }
     } catch (e) {
       console.warn('Check notification permission error:', e);
@@ -73,37 +130,44 @@ class NotificationService {
   }
 
   /**
-   * Triggers a system push notification in the mobile/desktop notification bar AND in-app alert
+   * Triggers an instant system push notification in the mobile status bar / lockscreen AND in-app alert
    */
   async sendPushNotification(title: string, body: string, tag: string = 'fleet_notice', type: string = 'broadcast') {
     try {
-      // 1. Notify in-app subscribers (opens instant Alert Modal dialog on mobile screen)
+      // 1. Notify in-app subscribers (dialogs, toasts, banner overlays)
       this.alertListeners.forEach(listener => {
         try {
           listener({ title, body, type });
         } catch {}
       });
 
-      // 2. Play subtle alert notification sound/vibrate if available
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
+      // 2. Mobile Native Notification Delivery (Direct to Android Status Bar & Heads-up Banner)
+      if (Platform.OS !== 'web') {
         try {
-          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-          const ctx = new AudioCtx();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-          osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
-          gain.gain.setValueAtTime(0.2, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start();
-          osc.stop(ctx.currentTime + 0.35);
-        } catch {}
+          const channelId = type === 'emergency' || type === 'emergency_sos'
+            ? 'emergency_sos'
+            : type === 'trip' || type === 'trip_start' || type === 'trip_end'
+            ? 'trip_status'
+            : 'default';
+
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title,
+              body,
+              sound: 'default',
+              priority: Notifications.AndroidNotificationPriority.MAX,
+              vibrate: [0, 250, 250, 250],
+              data: { tag, type },
+              color: type === 'emergency' ? '#ef4444' : '#2563eb',
+            },
+            trigger: null, // deliver immediately to status bar
+          });
+        } catch (nativeNotifErr) {
+          console.warn('Native mobile status bar notification error:', nativeNotifErr);
+        }
       }
 
-      // 3. Web / PWA System Notification Bar (Notification Center / Mobile Notification Bar)
+      // 3. Web / PWA Desktop Notification Bar
       if (Platform.OS === 'web' && typeof window !== 'undefined' && 'Notification' in window) {
         if (window.Notification.permission === 'granted') {
           try {
