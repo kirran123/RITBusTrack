@@ -1,7 +1,7 @@
 import React, { useEffect, Component, ReactNode } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Platform, View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, Platform, View, Text, TouchableOpacity, Dimensions, StatusBar as RNStatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
@@ -9,9 +9,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { authStorage } from '../services/authStorage';
 
 // Prevent the splash screen from auto-hiding until we're done loading
-try {
-  SplashScreen.preventAutoHideAsync().catch(() => {});
-} catch {}
+if (Platform.OS !== 'web') {
+  try {
+    SplashScreen.preventAutoHideAsync().catch(() => {});
+  } catch {}
+}
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -103,7 +105,8 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <StatusBar style="light" backgroundColor="#090d16" translucent={false} />
+        <StatusBar style="light" />
+        {Platform.OS === 'android' && <RNStatusBar backgroundColor="#090d16" barStyle="light-content" />}
         <MobileErrorBoundary>
           <Stack
             screenOptions={{

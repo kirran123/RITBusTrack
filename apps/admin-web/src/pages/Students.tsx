@@ -818,7 +818,7 @@ export const Students: React.FC<StudentsProps> = ({
                   <option value="">-- Select Route --</option>
                   {routes.map(r => (
                     <option key={r.id} value={r.id}>
-                      {r.route_name || r.name} ({r.route_number || 'Route'})
+                      {r.route_name}
                     </option>
                   ))}
                 </select>

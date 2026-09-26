@@ -24,6 +24,8 @@ interface SidebarProps {
   onClose: () => void;
   activeEmergenciesCount: number;
   currentUser?: UserProfile | null;
+  onOpenProfile?: () => void;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 

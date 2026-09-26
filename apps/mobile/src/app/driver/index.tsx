@@ -418,14 +418,17 @@ export default function DriverDashboard() {
       setHasPermission(true);
     }
 
+    const busId = driverProfile.id.startsWith('dr') ? 'b' + driverProfile.id.replace('dr', '') : 'b1';
+    const tripId = 'trip_' + Date.now();
+
     setDistanceTravelledKm(0);
     setElapsedSeconds(0);
     setCurrentStopIdx(0);
     setCompletedStopIds([]);
 
     const success = await locationTracker.startTracking({
-      busId: 'b1',
-      tripId: 'trip_' + Date.now(),
+      busId,
+      tripId,
       busNumber: driverProfile.busNumber || 'BUS-01',
       driverName: driverProfile.name || 'Mr. B. Moorthi',
       shift,
@@ -442,10 +445,11 @@ export default function DriverDashboard() {
               if (prev.includes(stop.id)) return prev;
               const nextCompleted = [...prev, stop.id];
               broadcastTripUpdate({
-                busId: 'b1',
+                busId,
                 isTripActive: true,
                 currentStopIdx: Math.max(sIdx, currentStopIdx),
                 completedStopIds: nextCompleted,
+                shift,
               });
               return nextCompleted;
             });
@@ -461,27 +465,41 @@ export default function DriverDashboard() {
     if (success) {
       setIsTripActive(true);
       broadcastTripUpdate({
-        busId: 'b1',
+        busId,
         isTripActive: true,
         currentStopIdx: 0,
         completedStopIds: [],
+        shift,
       });
 
-      // Broadcast Departure Notification to All Passengers (Student & Staff) and Transport Admin
+      // Broadcast Trip Started Notification to All Passengers (Student & Staff) and Transport Admin
       try {
         const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const startPointName = shift === 'evening' ? 'Ramco Institute of Technology Campus' : 'Rajapalayam New Bus Stand';
-        const destName = shift === 'evening' ? 'Rajapalayam Old Bus Stand' : 'Ramco Institute of Technology Campus';
+        const startPointName = shift === 'evening' ? 'RIT College Campus' : 'Rajapalayam New Bus Stand';
+        const destName = shift === 'evening' ? 'Rajapalayam New Bus Stand' : 'RIT College Campus';
+        const notifTitle = `🚌 ${driverProfile.busNumber || 'BUS-01'} Trip Started — ${shift === 'evening' ? 'Evening Return' : 'Morning Pickup'}`;
+        const notifMsg = `Driver ${driverProfile.name || 'Mr. B. Moorthi'} has departed ${startPointName} at ${timeStr}. Live GPS tracking is active. Estimated arrival at ${destName}.`;
+
         const tripStartNotif: SystemNotification = {
           id: 'trip_start_' + Date.now(),
-          title: `🚌 ${driverProfile.busNumber || 'BUS-01'} Departed (${shift === 'evening' ? 'Evening Return' : 'Morning Pickup'})`,
-          message: `Driver ${driverProfile.name || 'Mr. B. Moorthi'} has started the ${shift} trip from ${startPointName} at ${timeStr} towards ${destName}. Live GPS tracking is active.`,
+          title: notifTitle,
+          message: notifMsg,
           type: 'trip',
           target_type: 'bus',
-          target_id: 'b1',
+          target_id: busId,
           created_at: new Date().toISOString(),
         };
+
+        // 1. Broadcast to all connected passengers and admin
         broadcastSystemNotification(tripStartNotif);
+
+        // 2. Also fire a native push notification directly on the driver's device
+        notificationService.sendPushNotification(
+          notifTitle,
+          notifMsg,
+          'trip_start',
+          'trip_start'
+        );
       } catch (notifErr) {
         console.warn('Trip start broadcast notice:', notifErr);
       }
@@ -489,15 +507,15 @@ export default function DriverDashboard() {
       // Record Start Time in Time History for Admin Time History page
       try {
         const startParams = {
-          busId: 'b1',
+          busId,
           busNumber: driverProfile.busNumber || 'BUS-01',
           registrationNumber: driverProfile.registrationNumber || 'TN 67 AM 9785',
           driverId: driverProfile.id || 'dr1',
           driverName: driverProfile.name || 'Mr. B. Moorthi',
           driverPhone: driverProfile.phone || '+91 9894668646',
           routeName: driverProfile.routeName || 'Route 1 (Old Bus Stand, RJPM ➔ RIT)',
-          startLocation: shift === 'evening' ? 'Ramco Institute of Technology Campus' : 'Old Bus Stand, Rajapalayam',
-          destination: shift === 'evening' ? 'Old Bus Stand, Rajapalayam' : 'Ramco Institute of Technology Campus',
+          startLocation: shift === 'evening' ? 'RIT College Campus' : 'Old Bus Stand, Rajapalayam',
+          destination: shift === 'evening' ? 'Old Bus Stand, Rajapalayam' : 'RIT College Campus',
           shift,
         };
         timeHistoryStore.recordTripStart(startParams);
@@ -567,33 +585,48 @@ export default function DriverDashboard() {
 
       // Broadcast Arrival / Finish Trip Notification to Passengers and Admin
       try {
-        const destName = shift === 'evening' ? 'Rajapalayam Old Bus Stand' : 'Ramco Institute of Technology Campus';
+        const actualBusId = driverProfile.id.startsWith('dr') ? 'b' + driverProfile.id.replace('dr', '') : 'b1';
+        const destName = shift === 'evening' ? 'Rajapalayam New Bus Stand' : 'RIT College Campus';
+        const notifTitle = `🏁 ${driverProfile.busNumber || 'BUS-01'} Trip Completed — ${shift === 'evening' ? 'Evening Return' : 'Morning Pickup'}`;
+        const notifMsg = `Bus ${driverProfile.busNumber || 'BUS-01'} has safely arrived at ${destName} at ${endFormatted}. Total duration: ${formatTimer(elapsedSeconds)}, Distance: ${formatDistance(distanceTravelledKm)}.`;
+
         const tripEndNotif: SystemNotification = {
           id: 'trip_end_' + Date.now(),
-          title: `🏁 ${driverProfile.busNumber || 'BUS-01'} Trip Completed`,
-          message: `Bus ${driverProfile.busNumber || 'BUS-01'} has safely arrived at ${destName} at ${endFormatted}. Total duration: ${formatTimer(elapsedSeconds)}, Distance: ${formatDistance(distanceTravelledKm)}.`,
+          title: notifTitle,
+          message: notifMsg,
           type: 'trip',
           target_type: 'bus',
-          target_id: 'b1',
+          target_id: actualBusId,
           created_at: new Date().toISOString(),
         };
+
+        // 1. Broadcast to all connected passengers and admin
         broadcastSystemNotification(tripEndNotif);
+
+        // 2. Also fire a native push notification directly on the driver's device
+        notificationService.sendPushNotification(
+          notifTitle,
+          notifMsg,
+          'trip_end',
+          'trip_status'
+        );
       } catch (notifErr) {
         console.warn('Trip end broadcast notice:', notifErr);
       }
 
       // Record End Time in Time History for Admin Time History page
       try {
+        const actualBusId = driverProfile.id.startsWith('dr') ? 'b' + driverProfile.id.replace('dr', '') : 'b1';
         const endParams = {
-          busId: 'b1',
+          busId: actualBusId,
           busNumber: driverProfile.busNumber || 'BUS-01',
           registrationNumber: driverProfile.registrationNumber || 'TN 67 AM 9785',
           driverId: driverProfile.id || 'dr1',
           driverName: driverProfile.name || 'Mr. B. Moorthi',
           driverPhone: driverProfile.phone || '+91 9894668646',
           routeName: driverProfile.routeName || 'Route 1 (Old Bus Stand, RJPM ➔ RIT)',
-          startLocation: shift === 'evening' ? 'Ramco Institute of Technology Campus' : 'Old Bus Stand, Rajapalayam',
-          destination: shift === 'evening' ? 'Old Bus Stand, Rajapalayam' : 'Ramco Institute of Technology Campus',
+          startLocation: shift === 'evening' ? 'RIT College Campus' : 'Old Bus Stand, Rajapalayam',
+          destination: shift === 'evening' ? 'Old Bus Stand, Rajapalayam' : 'RIT College Campus',
           shift,
           customEndTime: endFormatted,
           duration: formatTimer(elapsedSeconds),

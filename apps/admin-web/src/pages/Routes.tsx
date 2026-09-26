@@ -213,7 +213,7 @@ export const Routes: React.FC<RoutesProps> = ({
     if (!selectedRouteId || rawRouteStops.length <= 1) return;
     const reversed = [...rawRouteStops].reverse().map((st, i) => ({ ...st, stop_order: i + 1 }));
     if (onReorderStops) {
-      onReorderStops(selectedRouteId, reindexed => onReorderStops(selectedRouteId, reversed));
+      onReorderStops(selectedRouteId, reversed);
     } else {
       reversed.forEach(st => onSaveStop(st));
     }
@@ -458,6 +458,7 @@ export const Routes: React.FC<RoutesProps> = ({
         longitude: startLng,
         stop_order: 1,
         estimated_arrival: startTime || '07:30 AM',
+        status: 'active',
         google_maps_link: routeMapsLink || undefined,
       };
 
@@ -469,6 +470,7 @@ export const Routes: React.FC<RoutesProps> = ({
         longitude: COLLEGE_LOCATION?.longitude || 77.5482,
         stop_order: 2,
         estimated_arrival: endTime || '08:20 AM',
+        status: 'active',
       };
 
       onSaveStop(initialStartStop);

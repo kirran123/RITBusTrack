@@ -27,7 +27,7 @@ export type EmergencyStatus = 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
 
 export type EmergencyType = 'breakdown' | 'accident' | 'medical' | 'emergency' | 'other';
 
-export type NotificationType = 'general' | 'trip' | 'delay' | 'emergency' | 'maintenance' | 'announcement';
+export type NotificationType = 'general' | 'trip' | 'delay' | 'emergency' | 'maintenance' | 'announcement' | 'route_change' | 'sos' | 'urgent';
 
 export type NotificationTargetType = 'all' | 'route' | 'bus' | 'role' | 'user';
 
@@ -219,7 +219,7 @@ export interface CurrentBusLocation {
   longitude: number;
   speed: number;
   heading: number;
-  accuracy: number;
+  accuracy?: number;
   updated_at: string;
   bus?: Bus;
 }
@@ -259,10 +259,15 @@ export interface SystemNotification {
   message: string;
   type: NotificationType;
   sender_id?: string | null;
-  target_type: NotificationTargetType;
+  target_type?: NotificationTargetType;
   target_id?: string | null;
+  target_role?: string;
+  bus_id?: string | null;
+  route_id?: string | null;
   created_at: string;
   read_at?: string | null;
+  priority?: string;
+  is_read?: boolean;
 }
 
 export interface StudentBusAssignment {

@@ -404,12 +404,11 @@ export default function StaffMobileDashboard() {
       }
     }).catch(() => {});
 
-    // 6. Polling sync for cross-client notifications
+    // 6. Polling sync for cross-client notifications (checks every 2.5s for native mobile & web)
     const notifPollTimer = setInterval(() => {
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        try {
-          const raw = localStorage.getItem('bustrack_notifications_v1');
-          if (raw) {
+      authStorage.getItem('bustrack_notifications_v1').then((raw) => {
+        if (raw) {
+          try {
             const list = JSON.parse(raw);
             if (Array.isArray(list) && list.length > 0) {
               setSystemBroadcasts((prev) => {
@@ -419,15 +418,19 @@ export default function StaffMobileDashboard() {
                   const newest = newItems[0];
                   setIncomingAlertModal(newest);
                   setIncomingToast(newest);
-                  notificationService.sendPushNotification(`📢 ${newest.title}`, newest.message, newest.type || 'broadcast');
+                  notificationService.sendPushNotification(
+                    `📢 ${newest.title}`,
+                    newest.message,
+                    newest.type || 'broadcast'
+                  );
                   return [...newItems, ...prev];
                 }
                 return prev;
               });
             }
-          }
-        } catch {}
-      }
+          } catch {}
+        }
+      }).catch(() => {});
     }, 2500);
 
     // 7. Seconds counter for telemetry freshness and dynamic ETA recalibration
@@ -1432,39 +1435,32 @@ export default function StaffMobileDashboard() {
       </View>
 
       {/* ================= BOTTOM COMMUTER NAVIGATION BAR ================= */}
-      <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'track' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('track')}
-        >
-          <Text style={styles.tabBarIcon}>📍</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'track' && styles.tabBarLabelActive]}>Track</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'stops' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('stops')}
-        >
-          <Text style={styles.tabBarIcon}>🚏</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'stops' && styles.tabBarLabelActive]}>Stops</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'alerts' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('alerts')}
-        >
-          <Text style={styles.tabBarIcon}>🔔</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'alerts' && styles.tabBarLabelActive]}>Alerts</Text>
-          {swapNoticesList.length > 0 && <View style={styles.alertDotBadge} />}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'profile' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('profile')}
-        >
-          <Text style={styles.tabBarIcon}>👤</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'profile' && styles.tabBarLabelActive]}>Profile</Text>
-        </TouchableOpacity>
+      <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        {(['track', 'stops', 'alerts', 'profile'] as StaffTab[]).map((tab) => {
+          const isActive = activeTab === tab;
+          const icons: Record<StaffTab, string> = { track: '📍', stops: '🚏', alerts: '🔔', profile: '👤' };
+          const labels: Record<StaffTab, string> = { track: 'Track', stops: 'Stops', alerts: 'Alerts', profile: 'Profile' };
+          const hasAlertBadge = tab === 'alerts' && (unreadNotifCount > 0 || swapNoticesList.length > 0);
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={styles.tabBarItem}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.75}
+            >
+              {isActive && <View style={styles.tabActiveIndicator} />}
+              <View style={styles.tabIconWrap}>
+                <Text style={[styles.tabBarIcon, isActive && styles.tabBarIconActive]}>{icons[tab]}</Text>
+                {hasAlertBadge && (
+                  <View style={styles.tabBadgeDot}>
+                    <Text style={styles.tabBadgeDotText}>{unreadNotifCount > 9 ? '9+' : Math.max(unreadNotifCount, swapNoticesList.length)}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.tabBarLabel, isActive && styles.tabBarLabelActive]}>{labels[tab]}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* ================= 1-DAY LEAVE SUBMISSION MODAL ================= */}
@@ -2495,26 +2491,67 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     borderTopWidth: 1,
     borderTopColor: '#1e293b',
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 6,
+    paddingTop: 6,
   },
   tabBarItem: {
     flex: 1,
     alignItems: 'center',
+    paddingVertical: 4,
     position: 'relative',
+  },
+  tabActiveIndicator: {
+    position: 'absolute',
+    top: 0,
+    left: '25%',
+    right: '25%',
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#c084fc',
+  },
+  tabIconWrap: {
+    position: 'relative',
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  tabBadgeDot: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#f59e0b',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+    borderWidth: 1.5,
+    borderColor: '#0f172a',
+  },
+  tabBadgeDotText: {
+    color: '#000000',
+    fontSize: 8,
+    fontWeight: '900',
   },
   tabBarItemActive: {},
   tabBarIcon: {
-    fontSize: 18,
+    fontSize: 20,
+    opacity: 0.5,
+  },
+  tabBarIconActive: {
+    opacity: 1,
   },
   tabBarLabel: {
     color: '#64748b',
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
-    marginTop: 2,
+    marginTop: 0,
   },
   tabBarLabelActive: {
-    color: '#38bdf8',
+    color: '#c084fc',
     fontWeight: '900',
   },
   alertDotBadge: {

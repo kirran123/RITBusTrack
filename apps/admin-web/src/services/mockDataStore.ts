@@ -1,5 +1,5 @@
 import { 
-  Bus, Driver, Student, Route, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, COLLEGE_LOCATION, StaffUser, StaffCommuter 
+  Bus, BusStatus, Driver, Student, Route, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, COLLEGE_LOCATION, StaffUser, StaffCommuter 
 } from '@college-bus/shared';
 
 // 30 Official Real College Bus Routes
@@ -764,9 +764,10 @@ export const INITIAL_BUSES: Bus[] = [
   { id: 'b30', bus_number: 'BUS-32', registration_number: 'TN 84 AZ 3976', bus_name: 'Kansapuram Express', capacity: 55, route_id: 'r32', assigned_driver_id: 'dr30', status: 'active' }
 ].map((b, idx) => ({
   ...b,
+  status: b.status as BusStatus,
   route: INITIAL_ROUTES[idx],
   driver: INITIAL_DRIVERS[idx]
-}));
+})) as Bus[];
 
 // Route Stops for All 30 Routes
 export const INITIAL_STOPS: Stop[] = [

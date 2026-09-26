@@ -24,6 +24,9 @@ export interface TripLogParams {
   customEndTime?: string;
 }
 
+let memoryRecords: BusTimeRecord[] = [];
+const memoryListeners: Set<(records: BusTimeRecord[]) => void> = new Set();
+
 export const timeHistoryStore = {
   getRecords(): BusTimeRecord[] {
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
@@ -31,14 +34,19 @@ export const timeHistoryStore = {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         }
       } catch {}
     }
-    return [];
+    return memoryRecords;
   },
 
   saveRecords(records: BusTimeRecord[]) {
+    memoryRecords = [...records];
+    memoryListeners.forEach((fn) => {
+      try { fn(memoryRecords); } catch {}
+    });
+
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
@@ -144,7 +152,13 @@ export const timeHistoryStore = {
   },
 
   subscribe(callback: (records: BusTimeRecord[]) => void) {
-    if (typeof window === 'undefined') return () => {};
+    memoryListeners.add(callback);
+
+    if (typeof window === 'undefined') {
+      return () => {
+        memoryListeners.delete(callback);
+      };
+    }
 
     const handleStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {

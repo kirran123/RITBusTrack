@@ -372,7 +372,9 @@ export const App: React.FC = () => {
         });
 
       return () => {
-        supabase.removeChannel(channel);
+        if (supabase) {
+          supabase.removeChannel(channel);
+        }
       };
     } catch (err) {
       console.warn('Realtime subscription error:', err);
@@ -482,7 +484,7 @@ export const App: React.FC = () => {
           route_id: bus.route_id || null,
           assigned_driver_id: bus.assigned_driver_id || null,
           status: bus.status
-        }).catch(() => {});
+        } as any).then(null, () => {});
       } catch (e) {
         // Fallback
       }
@@ -501,7 +503,7 @@ export const App: React.FC = () => {
 
     if (supabase) {
       try {
-        supabase.from('buses').delete().eq('id', busId).catch(() => {});
+        (supabase.from('buses').delete().eq('id', busId) as any).then(null, () => {});
       } catch (e) {
         // Fallback
       }
@@ -560,7 +562,7 @@ export const App: React.FC = () => {
           phone: driver.phone,
           assigned_bus_id: driver.assigned_bus_id || null,
           status: driver.status
-        }).catch(() => {});
+        } as any).then(null, () => {});
       } catch (e) {
         // Fallback
       }
@@ -578,7 +580,7 @@ export const App: React.FC = () => {
 
     if (supabase) {
       try {
-        supabase.from('drivers').delete().eq('id', driverId).catch(() => {});
+        (supabase.from('drivers').delete().eq('id', driverId) as any).then(null, () => {});
       } catch (e) {
         // Fallback
       }
@@ -629,7 +631,7 @@ export const App: React.FC = () => {
           event: 'leave_toggle',
           payload: { studentId, isOnLeave: nextState }
         }).catch(() => {});
-        supabase.from('students').update({ is_on_leave: nextState }).eq('id', studentId).catch(() => {});
+        (supabase.from('students').update({ is_on_leave: nextState } as any).eq('id', studentId) as any).then(null, () => {});
       } catch {}
     }
   };

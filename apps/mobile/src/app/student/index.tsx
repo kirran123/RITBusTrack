@@ -383,12 +383,11 @@ export default function StudentDashboard() {
       }
     }).catch(() => {});
 
-    // 6. Polling sync for cross-client notifications (checks every 2.5s)
+    // 6. Polling sync for cross-client notifications (checks every 2.5s for native mobile & web)
     const notifPollTimer = setInterval(() => {
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        try {
-          const raw = localStorage.getItem('bustrack_notifications_v1');
-          if (raw) {
+      authStorage.getItem('bustrack_notifications_v1').then((raw) => {
+        if (raw) {
+          try {
             const list = JSON.parse(raw);
             if (Array.isArray(list) && list.length > 0) {
               setSystemBroadcasts((prev) => {
@@ -398,15 +397,19 @@ export default function StudentDashboard() {
                   const newest = newItems[0];
                   setIncomingAlertModal(newest);
                   setIncomingToast(newest);
-                  notificationService.sendPushNotification(`📢 ${newest.title}`, newest.message, newest.type || 'broadcast');
+                  notificationService.sendPushNotification(
+                    `📢 ${newest.title}`,
+                    newest.message,
+                    newest.type || 'broadcast'
+                  );
                   return [...newItems, ...prev];
                 }
                 return prev;
               });
             }
-          }
-        } catch {}
-      }
+          } catch {}
+        }
+      }).catch(() => {});
     }, 2500);
 
     // 7. Seconds counter for telemetry freshness and dynamic ETA recalibration
@@ -826,7 +829,7 @@ export default function StudentDashboard() {
                 routeColor="#2563eb"
                 stops={activeStops}
                 boardingStop={boardingStop}
-                height={260}
+                height={280}
               />
             </View>
 
@@ -896,6 +899,52 @@ export default function StudentDashboard() {
                   <Text style={styles.stopTimeText}>{boardingStop.estimated_arrival}</Text>
                 </View>
               </View>
+            </View>
+
+            {/* Quick Info Row */}
+            <View style={styles.quickInfoRow}>
+              <View style={styles.quickInfoCard}>
+                <Text style={styles.quickInfoIcon}>🚶</Text>
+                <Text style={styles.quickInfoValue}>{walkingMinutes} min</Text>
+                <Text style={styles.quickInfoLabel}>Walk to Stop</Text>
+              </View>
+              <View style={styles.quickInfoCard}>
+                <Text style={styles.quickInfoIcon}>📏</Text>
+                <Text style={styles.quickInfoValue}>{formatDistance(distanceBusToStopKm)}</Text>
+                <Text style={styles.quickInfoLabel}>Bus Distance</Text>
+              </View>
+              <View style={styles.quickInfoCard}>
+                <Text style={styles.quickInfoIcon}>🕐</Text>
+                <Text style={styles.quickInfoValue}>{dynamicETA.formattedEta === 'Arrived' ? 'Here!' : dynamicETA.formattedEta}</Text>
+                <Text style={styles.quickInfoLabel}>ETA</Text>
+              </View>
+              <View style={styles.quickInfoCard}>
+                <Text style={styles.quickInfoIcon}>⚡</Text>
+                <Text style={styles.quickInfoValue}>{Math.round(busLocation.speed || 0)}</Text>
+                <Text style={styles.quickInfoLabel}>km/h</Text>
+              </View>
+            </View>
+
+            {/* Driver Contact Card */}
+            <View style={styles.driverContactCard}>
+              <View style={styles.driverContactLeft}>
+                <View style={styles.driverAvatar}>
+                  <Text style={{ fontSize: 18 }}>👨‍✈️</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.driverContactName}>Mr. B. Moorthi</Text>
+                  <Text style={styles.driverContactRole}>Bus Driver • Route 1</Text>
+                  <Text style={styles.driverContactReg}>🚌 TN 67 AM 9785</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.driverCallBtn}
+                onPress={() => handleCallHelpline('+919894668646')}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 14 }}>📞</Text>
+                <Text style={styles.driverCallBtnText}>Call</Text>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         )}
@@ -1376,38 +1425,32 @@ export default function StudentDashboard() {
       )}
 
       {/* ================= BOTTOM NAVIGATION BAR ================= */}
-      <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'track' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('track')}
-        >
-          <Text style={[styles.tabBarIcon, activeTab === 'track' && styles.tabBarIconActive]}>📍</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'track' && styles.tabBarLabelActive]}>Live Map</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'stops' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('stops')}
-        >
-          <Text style={[styles.tabBarIcon, activeTab === 'stops' && styles.tabBarIconActive]}>🚏</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'stops' && styles.tabBarLabelActive]}>Route</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'alerts' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('alerts')}
-        >
-          <Text style={[styles.tabBarIcon, activeTab === 'alerts' && styles.tabBarIconActive]}>🔔</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'alerts' && styles.tabBarLabelActive]}>Alerts</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'profile' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('profile')}
-        >
-          <Text style={[styles.tabBarIcon, activeTab === 'profile' && styles.tabBarIconActive]}>👤</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'profile' && styles.tabBarLabelActive]}>Profile</Text>
-        </TouchableOpacity>
+      <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        {(['track', 'stops', 'alerts', 'profile'] as StudentTab[]).map((tab) => {
+          const isActive = activeTab === tab;
+          const icons: Record<StudentTab, string> = { track: '📍', stops: '🚏', alerts: '🔔', profile: '👤' };
+          const labels: Record<StudentTab, string> = { track: 'Live Map', stops: 'Route', alerts: 'Alerts', profile: 'Profile' };
+          const hasAlertBadge = tab === 'alerts' && unreadNotifCount > 0;
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={styles.tabBarItem}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.75}
+            >
+              {isActive && <View style={styles.tabActiveIndicator} />}
+              <View style={styles.tabIconWrap}>
+                <Text style={[styles.tabBarIcon, isActive && styles.tabBarIconActive]}>{icons[tab]}</Text>
+                {hasAlertBadge && (
+                  <View style={styles.tabBadgeDot}>
+                    <Text style={styles.tabBadgeDotText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.tabBarLabel, isActive && styles.tabBarLabelActive]}>{labels[tab]}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Permission Modal */}
@@ -2214,32 +2257,160 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     borderTopWidth: 1,
     borderTopColor: '#1e293b',
-    paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+    paddingVertical: 6,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 6,
   },
   tabBarItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 3,
+    paddingVertical: 4,
+    position: 'relative',
+  },
+  tabActiveIndicator: {
+    position: 'absolute',
+    top: 0,
+    left: '25%',
+    right: '25%',
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#38bdf8',
+  },
+  tabIconWrap: {
+    position: 'relative',
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  tabBadgeDot: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#ef4444',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+    borderWidth: 1.5,
+    borderColor: '#0f172a',
+  },
+  tabBadgeDotText: {
+    color: '#ffffff',
+    fontSize: 8,
+    fontWeight: '900',
   },
   tabBarItemActive: {
-    transform: [{ scale: 1.05 }],
+    // handled by tabActiveIndicator
   },
   tabBarIcon: {
-    fontSize: 18,
-    opacity: 0.6,
+    fontSize: 20,
+    opacity: 0.5,
   },
   tabBarIconActive: {
     opacity: 1,
   },
   tabBarLabel: {
     color: '#64748b',
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
   },
   tabBarLabelActive: {
     color: '#38bdf8',
     fontWeight: '800',
+  },
+  // Quick Info Row
+  quickInfoRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  quickInfoCard: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'center',
+    marginHorizontal: 3,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  quickInfoIcon: {
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  quickInfoValue: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  quickInfoLabel: {
+    color: '#64748b',
+    fontSize: 9,
+    fontWeight: '700',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  // Driver Contact Card
+  driverContactCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    marginBottom: 14,
+  },
+  driverContactLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  driverAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#1e3a8a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+  driverContactName: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  driverContactRole: {
+    color: '#64748b',
+    fontSize: 10,
+    marginTop: 1,
+  },
+  driverContactReg: {
+    color: '#38bdf8',
+    fontSize: 10,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  driverCallBtn: {
+    backgroundColor: '#059669',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  driverCallBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+    marginLeft: 4,
   },
   studentLeaveNoticeCard: {
     backgroundColor: '#450a0a',

@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
-import { GPSCoordinate, EmergencyAlert, SystemNotification } from '@college-bus/shared';
+import { GPSCoordinate, EmergencyAlert, SystemNotification, timeHistoryStore } from '@college-bus/shared';
+import { authStorage } from './authStorage';
 
 // Read Supabase credentials with fallback to live production project
 const supabaseUrl = 
@@ -141,6 +142,12 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.addE
             tripListeners.forEach((l) => l(data.payload));
           } else if (data.type === 'broadcast_notification') {
             notificationListeners.forEach((l) => l(data.payload));
+          } else if (data.type === 'time_history_update') {
+            if (data.payload?.action === 'start') {
+              timeHistoryStore.recordTripStart(data.payload.params);
+            } else if (data.payload?.action === 'end') {
+              timeHistoryStore.recordTripEnd(data.payload.params);
+            }
           }
         } catch {}
       }
@@ -179,6 +186,15 @@ export function initRealtimeChannel() {
       })
       .on('broadcast', { event: 'broadcast_notification' }, ({ payload }: { payload: SystemNotification }) => {
         notificationListeners.forEach((listener) => listener(payload));
+      })
+      .on('broadcast', { event: 'time_history_update' }, ({ payload }: { payload: any }) => {
+        if (payload && payload.params) {
+          if (payload.action === 'start') {
+            timeHistoryStore.recordTripStart(payload.params);
+          } else if (payload.action === 'end') {
+            timeHistoryStore.recordTripEnd(payload.params);
+          }
+        }
       })
       .subscribe((status: string) => {
         isSubscribing = false;
@@ -391,18 +407,66 @@ export async function broadcastTripUpdate(payload: TripUpdatePayload) {
 }
 
 /**
- * Broadcast System Notification / Announcement
+ * Broadcast System Notification / Announcement to ALL connected clients (admin, students, staff)
+ * Also persists to localStorage so any client that polls will receive it
  */
 export async function broadcastSystemNotification(notification: SystemNotification) {
+  // 1. Notify in-memory local listeners immediately (same session)
   notificationListeners.forEach((listener) => listener(notification));
+
+  // 2. Persist to authStorage and localStorage so polling clients pick it up
+  const key = 'bustrack_notifications_v1';
+  authStorage.getItem(key).then((raw) => {
+    let list: SystemNotification[] = [];
+    if (raw) {
+      try { list = JSON.parse(raw); } catch {}
+    }
+    if (!Array.isArray(list)) list = [];
+    if (!list.some((n) => n.id === notification.id)) {
+      list.unshift(notification);
+      if (list.length > 50) list = list.slice(0, 50);
+    }
+    authStorage.setItem(key, JSON.stringify(list)).catch(() => {});
+  }).catch(() => {});
+
+  if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+    try {
+      const existing = localStorage.getItem(key);
+      let list: SystemNotification[] = [];
+      if (existing) {
+        try { list = JSON.parse(existing); } catch {}
+      }
+      if (!Array.isArray(list)) list = [];
+      if (!list.some((n) => n.id === notification.id)) {
+        list.unshift(notification);
+        if (list.length > 50) list = list.slice(0, 50);
+      }
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch {}
+  }
+
+  // 3. Cross-client channel (BroadcastChannel + localStorage event)
   postCrossClient('broadcast_notification', notification);
 
+  // 4. Supabase Realtime channel for cross-device push
   if (telemetryChannel) {
     try {
       await telemetryChannel.send({
         type: 'broadcast',
         event: 'broadcast_notification',
         payload: notification,
+      });
+    } catch {}
+  }
+
+  // 5. Persist to Supabase DB for admin history and cross-session retrieval
+  if (isLiveBackendConfigured) {
+    try {
+      await supabase.from('emergency_alerts').insert({
+        bus_id: (notification as any).target_id || 'b1',
+        type: notification.type?.toUpperCase() || 'GENERAL',
+        message: `${notification.title} | ${notification.message}`,
+        status: 'ACTIVE',
       });
     } catch {}
   }

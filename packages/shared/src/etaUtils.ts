@@ -15,6 +15,9 @@ export interface DynamicETA {
   trafficCondition: 'Smooth' | 'Moderate' | 'Heavy / Congested';
   distanceKm: number;
   formattedDistance: string;
+  status?: string;
+  badgeText?: string;
+  etaFormatted?: string;
 }
 
 // Haversine formula to compute geodesic distance between two points in km
@@ -148,6 +151,9 @@ export function calculateDynamicETA(
     trafficCondition,
     distanceKm,
     formattedDistance: formatDistance(distanceKm),
+    status: statusTag,
+    badgeText: statusLabel,
+    etaFormatted: totalEtaMinutes <= 1 ? '1 min' : `${totalEtaMinutes} mins`,
   };
 }
 
@@ -178,6 +184,9 @@ export function calculateStopLiveETA(
       trafficCondition: 'Moderate',
       distanceKm: 0,
       formattedDistance: '--',
+      status: 'ON_TIME',
+      badgeText: 'Scheduled',
+      etaFormatted: '--',
     };
   }
 

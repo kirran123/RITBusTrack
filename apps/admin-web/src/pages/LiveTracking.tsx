@@ -305,6 +305,7 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
       latitude: Number(newStopLat),
       longitude: Number(newStopLng),
       estimated_arrival: newStopArrival,
+      status: 'active',
       google_maps_link: newStopGoogleLink || undefined,
     };
 
@@ -402,6 +403,8 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
     const newDriver: Driver = {
       id: 'd_' + Date.now(),
       user_id: 'u_' + Date.now(),
+      employee_id: 'EMP-' + Date.now().toString().slice(-4),
+      phone: driverPhone,
       license_number: driverLicense,
       assigned_bus_id: driverBusId || null,
       status: 'active',
@@ -431,12 +434,14 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
       route_id: routes[0]?.id || null,
       bus_id: studentBusId || null,
       boarding_stop_id: studentStopId || null,
+      status: 'active',
       is_on_leave: false,
       profile: {
         id: 'u_stu_' + Date.now(),
         auth_user_id: 'auth_stu_' + Date.now(),
         name: studentName,
         email: studentEmail,
+        phone: '',
         role: 'student',
         status: 'active',
       },
