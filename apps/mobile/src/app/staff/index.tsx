@@ -37,6 +37,7 @@ import {
   TripUpdatePayload,
 } from '../../services/supabase';
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop } from '@college-bus/shared';
+import { authStorage } from '../../services/authStorage';
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {
@@ -213,6 +214,33 @@ export default function StaffMobileDashboard() {
     passNumber: 'FAC-PASS-2024-88',
     isOnLeave: false,
   });
+
+  // Load saved faculty profile from persistent session
+  useEffect(() => {
+    const loadSavedStaff = async () => {
+      try {
+        const session = await authStorage.getSession();
+        if (session && session.role === 'staff' && session.user) {
+          const u = session.user;
+          setFacultyProfile((prev) => ({
+            ...prev,
+            id: u.id || prev.id,
+            name: u.name || prev.name,
+            staffId: u.employee_id || u.staffId || prev.staffId,
+            designation: u.designation || prev.designation,
+            department: u.department || prev.department,
+            boardingStopName: u.boarding_stop || prev.boardingStopName,
+            phone: u.phone || prev.phone,
+            email: u.email || prev.email,
+            busNumber: u.bus_number || u.busNumber || prev.busNumber,
+          }));
+        }
+      } catch (e) {
+        console.warn('Staff session load error:', e);
+      }
+    };
+    loadSavedStaff();
+  }, []);
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedLeaveDate, setSelectedLeaveDate] = useState('Today (20 Sep)');
@@ -1273,7 +1301,13 @@ export default function StaffMobileDashboard() {
             </View>
 
             {/* Sign Out Button */}
-            <TouchableOpacity style={styles.signOutBtn} onPress={() => router.replace('/')}>
+            <TouchableOpacity
+              style={styles.signOutBtn}
+              onPress={async () => {
+                await authStorage.clearSession();
+                router.replace('/');
+              }}
+            >
               <Text style={styles.signOutBtnText}>Sign Out &bull; Switch Portal</Text>
             </TouchableOpacity>
 

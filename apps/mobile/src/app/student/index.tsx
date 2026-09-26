@@ -38,6 +38,7 @@ import {
 } from '../../services/supabase';
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop } from '@college-bus/shared';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
+import { authStorage } from '../../services/authStorage';
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {
@@ -186,6 +187,21 @@ export default function StudentDashboard() {
   });
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedLeaveDate, setSelectedLeaveDate] = useState('Today (20 Sep)');
+
+  // Load saved student profile from persistent session
+  useEffect(() => {
+    const loadSavedStudent = async () => {
+      try {
+        const session = await authStorage.getSession();
+        if (session && session.role === 'student' && session.user) {
+          setCurrentStudent((prev) => ({ ...prev, ...session.user }));
+        }
+      } catch (e) {
+        console.warn('Student session load error:', e);
+      }
+    };
+    loadSavedStudent();
+  }, []);
 
   // Sync with Student Roster Store
   useEffect(() => {
@@ -1159,7 +1175,13 @@ export default function StudentDashboard() {
             </TouchableOpacity>
 
             {/* Logout / Switch Role */}
-            <TouchableOpacity style={styles.signOutBtn} onPress={() => router.replace('/')}>
+            <TouchableOpacity
+              style={styles.signOutBtn}
+              onPress={async () => {
+                await authStorage.clearSession();
+                router.replace('/');
+              }}
+            >
               <Text style={styles.signOutText}>Sign Out &bull; Switch Portal</Text>
             </TouchableOpacity>
 

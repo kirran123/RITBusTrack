@@ -24,8 +24,8 @@ import {
 import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, subscribeToSystemNotifications, fetchSystemNotificationsFromDB } from '../../services/supabase';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
-import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
 import { GPSCoordinate, INITIAL_STOPS, EmergencyType, EmergencyAlert, Stop, SystemNotification, timeHistoryStore } from '@college-bus/shared';
+import { authStorage } from '../../services/authStorage';
 
 type DriverTab = 'nav' | 'students' | 'cockpit' | 'sos' | 'profile';
 
@@ -180,31 +180,35 @@ export default function DriverDashboard() {
   });
 
   useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+    const loadSavedDriver = async () => {
       try {
-        const stored = localStorage.getItem('bustrack_current_mobile_driver');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed && (parsed.name || parsed.profile?.name)) {
-            setDriverProfile((prev) => ({
-              ...prev,
-              id: parsed.id || prev.id,
-              name: parsed.profile?.name || parsed.name || prev.name,
-              employeeId: parsed.employee_id || prev.employeeId,
-              phone: parsed.phone || parsed.profile?.phone || prev.phone,
-              licenseNumber: parsed.license_number || prev.licenseNumber,
-              busNumber: parsed.bus?.bus_number || parsed.bus_number || prev.busNumber,
-              registrationNumber:
-                parsed.bus?.registration_number || parsed.registration_number || prev.registrationNumber,
-              routeName: parsed.route_name || prev.routeName,
-            }));
-            if (parsed.bus?.bus_number || parsed.bus_number) {
-              setDriverBusNumber(parsed.bus?.bus_number || parsed.bus_number);
-            }
+        const session = await authStorage.getSession();
+        const parsed = (session && session.role === 'driver' && session.user)
+          ? session.user
+          : null;
+
+        if (parsed && (parsed.name || parsed.profile?.name)) {
+          setDriverProfile((prev) => ({
+            ...prev,
+            id: parsed.id || prev.id,
+            name: parsed.profile?.name || parsed.name || prev.name,
+            employeeId: parsed.employee_id || prev.employeeId,
+            phone: parsed.phone || parsed.profile?.phone || prev.phone,
+            licenseNumber: parsed.license_number || prev.licenseNumber,
+            busNumber: parsed.bus?.bus_number || parsed.bus_number || prev.busNumber,
+            registrationNumber:
+              parsed.bus?.registration_number || parsed.registration_number || prev.registrationNumber,
+            routeName: parsed.route_name || prev.routeName,
+          }));
+          if (parsed.bus?.bus_number || parsed.bus_number) {
+            setDriverBusNumber(parsed.bus?.bus_number || parsed.bus_number);
           }
         }
-      } catch {}
-    }
+      } catch (e) {
+        console.warn('Driver session load error:', e);
+      }
+    };
+    loadSavedDriver();
   }, []);
 
   // Real-time Students Roster State
@@ -1621,7 +1625,13 @@ export default function DriverDashboard() {
             </View>
 
             {/* Sign out */}
-            <TouchableOpacity style={styles.signOutBtn} onPress={() => router.replace('/')}>
+            <TouchableOpacity
+              style={styles.signOutBtn}
+              onPress={async () => {
+                await authStorage.clearSession();
+                router.replace('/');
+              }}
+            >
               <Text style={styles.signOutText}>Sign Out &bull; Switch Portal</Text>
             </TouchableOpacity>
 

@@ -17,6 +17,7 @@
     "@college-bus/shared": "file:../../packages/shared",
     "@expo/metro": "^56.1.0",
     "@expo/metro-runtime": "~57.0.16",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.45.0",
     "expo": "^57.0.24",
     "expo-constants": "~57.0.19",

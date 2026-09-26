@@ -17,12 +17,14 @@ import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { locationTracker } from '../services/locationService';
 import { notificationService } from '../services/notificationService';
+import { authStorage, MobilePortalRole } from '../services/authStorage';
 
-export type MobilePortalRole = 'driver' | 'student' | 'staff';
+export { MobilePortalRole };
 
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [role, setRole] = useState<MobilePortalRole>('student');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -30,6 +32,38 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auto-restore logged-in session on app launch (persists across close / re-open)
+  useEffect(() => {
+    let isMounted = true;
+    const checkActiveSession = async () => {
+      try {
+        const session = await authStorage.getSession();
+        if (session && session.role && isMounted) {
+          if (session.role === 'driver') {
+            router.replace('/driver');
+            return;
+          } else if (session.role === 'student') {
+            router.replace('/student');
+            return;
+          } else if (session.role === 'staff') {
+            router.replace('/staff');
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Session auto-restore notice:', e);
+      } finally {
+        if (isMounted) {
+          setIsCheckingSession(false);
+        }
+      }
+    };
+    checkActiveSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const showAlert = (title: string, message: string) => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.alert === 'function') {
@@ -75,112 +109,108 @@ export default function LoginScreen() {
       await locationTracker.requestForegroundPermission();
       await notificationService.requestPermission();
 
-      // Sync user profile state (Web & Mobile local session)
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-        if (role === 'student') {
-          const storedStudentsRaw = localStorage.getItem('bustrack_students_v1');
-          let matchedStudent: any = null;
-          if (storedStudentsRaw) {
-            try {
-              const list = JSON.parse(storedStudentsRaw);
-              if (Array.isArray(list)) {
-                matchedStudent = list.find(
-                  (s: any) =>
-                    (s.profile?.email || s.email || '').toLowerCase() === email.trim().toLowerCase() ||
-                    (s.register_number || s.rollNumber || '').toLowerCase() === email.trim().toLowerCase()
-                );
-                if (matchedStudent && matchedStudent.password && matchedStudent.password !== password.trim()) {
-                  showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
-                  setIsSubmitting(false);
-                  return;
-                }
+      let matchedUser: any = null;
+
+      if (role === 'student') {
+        const storedStudentsRaw = await authStorage.getItem('bustrack_students_v1');
+        if (storedStudentsRaw) {
+          try {
+            const list = JSON.parse(storedStudentsRaw);
+            if (Array.isArray(list)) {
+              matchedUser = list.find(
+                (s: any) =>
+                  (s.profile?.email || s.email || '').toLowerCase() === email.trim().toLowerCase() ||
+                  (s.register_number || s.rollNumber || '').toLowerCase() === email.trim().toLowerCase()
+              );
+              if (matchedUser && matchedUser.password && matchedUser.password !== password.trim()) {
+                showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
+                setIsSubmitting(false);
+                return;
               }
-            } catch {}
-          }
-          if (!matchedStudent) {
-            matchedStudent = {
-              id: 'st_' + Date.now(),
-              name: email.split('@')[0].toUpperCase(),
-              email: email.trim(),
-              register_number: '953621104023',
-              department: 'Information Technology',
-              year: 4,
-              bus_number: 'BUS-01',
-              boarding_stop: 'Gandhi Statue Junction (Stop 2)',
-            };
-          }
-          localStorage.setItem('bustrack_current_mobile_student', JSON.stringify(matchedStudent));
-        } else if (role === 'staff') {
-          const storedStaffRaw = localStorage.getItem('bustrack_staff_commuters_v1');
-          let matchedStaff: any = null;
-          if (storedStaffRaw) {
-            try {
-              const list = JSON.parse(storedStaffRaw);
-              if (Array.isArray(list)) {
-                matchedStaff = list.find(
-                  (s: any) =>
-                    (s.email || s.profile?.email || '').toLowerCase() === email.trim().toLowerCase() ||
-                    (s.employee_id || '').toLowerCase() === email.trim().toLowerCase()
-                );
-                if (matchedStaff && matchedStaff.password && matchedStaff.password !== password.trim()) {
-                  showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
-                  setIsSubmitting(false);
-                  return;
-                }
+            }
+          } catch {}
+        }
+        if (!matchedUser) {
+          matchedUser = {
+            id: 'st_' + Date.now(),
+            name: email.split('@')[0].toUpperCase(),
+            email: email.trim(),
+            register_number: '953621104023',
+            department: 'Information Technology',
+            year: 4,
+            bus_number: 'BUS-01',
+            boarding_stop: 'Gandhi Statue Junction (Stop 2)',
+          };
+        }
+      } else if (role === 'staff') {
+        const storedStaffRaw = await authStorage.getItem('bustrack_staff_commuters_v1');
+        if (storedStaffRaw) {
+          try {
+            const list = JSON.parse(storedStaffRaw);
+            if (Array.isArray(list)) {
+              matchedUser = list.find(
+                (s: any) =>
+                  (s.email || s.profile?.email || '').toLowerCase() === email.trim().toLowerCase() ||
+                  (s.employee_id || '').toLowerCase() === email.trim().toLowerCase()
+              );
+              if (matchedUser && matchedUser.password && matchedUser.password !== password.trim()) {
+                showAlert('Authentication Failed', 'Incorrect password. Please verify and try again.');
+                setIsSubmitting(false);
+                return;
               }
-            } catch {}
-          }
-          if (!matchedStaff) {
-            matchedStaff = {
-              id: 'fac_' + Date.now(),
-              name: email.split('@')[0].toUpperCase(),
-              email: email.trim(),
-              employee_id: 'EMP-STAFF-04',
-              department: 'Faculty Commuter',
-              designation: 'Faculty Member',
-              bus_number: 'BUS-01',
-              boarding_stop: 'PACR Mill Circle (Stop 3)',
-            };
-          }
-          localStorage.setItem('bustrack_current_mobile_staff', JSON.stringify(matchedStaff));
-        } else if (role === 'driver') {
-          const storedDriversRaw = localStorage.getItem('bustrack_drivers_v1');
-          let matchedDriver: any = null;
-          if (storedDriversRaw) {
-            try {
-              const list = JSON.parse(storedDriversRaw);
-              if (Array.isArray(list)) {
-                matchedDriver = list.find(
-                  (d: any) =>
-                    (d.phone || d.profile?.phone || '').replace(/\D/g, '').includes(phone.trim().replace(/\D/g, '')) ||
-                    (d.employee_id || '').toLowerCase() === phone.trim().toLowerCase()
-                );
-              }
-            } catch {}
-          }
-          if (!matchedDriver) {
-            matchedDriver = {
-              id: 'dr1',
-              name: 'Driver (' + phone.trim() + ')',
-              employee_id: 'EMP-DRV-01',
-              phone: phone.trim(),
-              license_number: 'TN-67-2015-001',
-              bus_number: 'BUS-01',
-              registration_number: 'TN 67 AM 9785',
-              route_name: 'Route 1 (Rajapalayam ➔ RIT)',
-            };
-          }
-          localStorage.setItem('bustrack_current_mobile_driver', JSON.stringify(matchedDriver));
+            }
+          } catch {}
+        }
+        if (!matchedUser) {
+          matchedUser = {
+            id: 'fac_' + Date.now(),
+            name: email.split('@')[0].toUpperCase(),
+            email: email.trim(),
+            employee_id: 'EMP-STAFF-04',
+            department: 'Faculty Commuter',
+            designation: 'Faculty Member',
+            bus_number: 'BUS-01',
+            boarding_stop: 'PACR Mill Circle (Stop 3)',
+          };
+        }
+      } else if (role === 'driver') {
+        const storedDriversRaw = await authStorage.getItem('bustrack_drivers_v1');
+        if (storedDriversRaw) {
+          try {
+            const list = JSON.parse(storedDriversRaw);
+            if (Array.isArray(list)) {
+              matchedUser = list.find(
+                (d: any) =>
+                  (d.phone || d.profile?.phone || '').replace(/\D/g, '').includes(phone.trim().replace(/\D/g, '')) ||
+                  (d.employee_id || '').toLowerCase() === phone.trim().toLowerCase()
+              );
+            }
+          } catch {}
+        }
+        if (!matchedUser) {
+          matchedUser = {
+            id: 'dr1',
+            name: 'Driver (' + phone.trim() + ')',
+            employee_id: 'EMP-DRV-01',
+            phone: phone.trim(),
+            license_number: 'TN-67-2015-001',
+            bus_number: 'BUS-01',
+            registration_number: 'TN 67 AM 9785',
+            route_name: 'Route 1 (Rajapalayam ➔ RIT)',
+          };
         }
       }
 
-      // Navigate to destination
+      // Persist session across app close and reboots
+      await authStorage.saveSession(role, matchedUser);
+
+      // Navigate to portal
       if (role === 'driver') {
-        router.push('/driver');
+        router.replace('/driver');
       } else if (role === 'student') {
-        router.push('/student');
+        router.replace('/student');
       } else {
-        router.push('/staff');
+        router.replace('/staff');
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -189,6 +219,24 @@ export default function LoginScreen() {
       setIsSubmitting(false);
     }
   };
+
+  if (isCheckingSession) {
+    return (
+      <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.logoImage}
+            resizeMode="cover"
+          />
+        </View>
+        <Text style={[styles.collegeTitle, { marginTop: 16 }]}>RAMCO INSTITUTE OF TECHNOLOGY</Text>
+        <Text style={styles.appTitle}>Bus Track</Text>
+        <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 24 }} />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
