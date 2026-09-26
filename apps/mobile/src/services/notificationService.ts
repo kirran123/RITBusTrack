@@ -161,10 +161,9 @@ class NotificationService {
               title,
               body,
               sound: 'default',
-              priority: Notifications.AndroidNotificationPriority.MAX,
               vibrate: [0, 250, 250, 250],
               data: { tag, type },
-              color: type === 'emergency' ? '#ef4444' : '#2563eb',
+              color: type === 'emergency' || type === 'emergency_sos' ? '#ef4444' : '#2563eb',
             },
             trigger: null, // deliver immediately to status bar
           });

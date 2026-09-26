@@ -464,26 +464,27 @@ export default function StaffMobileDashboard() {
   };
 
   const checkAndFetchStaffLocation = async () => {
-    const perm = await locationTracker.checkPermissions();
-    if (perm.granted) {
-      setHasLocationPermission(true);
-      const pos = await locationTracker.getCurrentPosition();
-      if (pos) {
-        setStaffLocation(pos);
+    try {
+      const perm = await locationTracker.checkPermissions();
+      if (perm.granted) {
+        setHasLocationPermission(true);
+        try {
+          const pos = await locationTracker.getCurrentPosition();
+          if (pos && typeof pos.latitude === 'number' && typeof pos.longitude === 'number') {
+            setStaffLocation(pos);
+          } else {
+            setStaffLocation({ latitude: 9.4490, longitude: 77.5480, accuracy: 6 });
+          }
+        } catch {
+          setStaffLocation({ latitude: 9.4490, longitude: 77.5480, accuracy: 6 });
+        }
       } else {
-        setStaffLocation({
-          latitude: 9.4490,
-          longitude: 77.5480,
-          accuracy: 6,
-        });
+        setHasLocationPermission(false);
+        setStaffLocation({ latitude: 9.4490, longitude: 77.5480, accuracy: 6 });
       }
-    } else {
+    } catch {
       setHasLocationPermission(false);
-      setStaffLocation({
-        latitude: 9.4490,
-        longitude: 77.5480,
-        accuracy: 6,
-      });
+      setStaffLocation({ latitude: 9.4490, longitude: 77.5480, accuracy: 6 });
     }
   };
 

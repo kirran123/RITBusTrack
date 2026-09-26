@@ -379,8 +379,12 @@ export default function DriverDashboard() {
   }, [isTripActive]);
 
   const checkPermissionStatus = async () => {
-    const result = await locationTracker.checkPermissions();
-    setHasPermission(result.granted);
+    try {
+      const result = await locationTracker.checkPermissions();
+      setHasPermission(result.granted);
+    } catch {
+      setHasPermission(false);
+    }
   };
 
   const handleRequestPermission = async () => {

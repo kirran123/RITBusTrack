@@ -1,12 +1,19 @@
 import React, { useEffect, Component, ReactNode } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Platform, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Platform, View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { authStorage } from '../services/authStorage';
+
+// Prevent the splash screen from auto-hiding until we're done loading
+try {
+  SplashScreen.preventAutoHideAsync().catch(() => {});
+} catch {}
+
+const { width: SCREEN_W } = Dimensions.get('window');
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -28,7 +35,7 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    console.warn('Mobile App Caught Error:', error?.message || error, errorInfo);
+    console.warn('[BusTrack] Caught error:', error?.message || String(error));
   }
 
   handleReset = async () => {
@@ -42,33 +49,37 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
     if (this.state.hasError) {
       const errorMsg = this.state.error
         ? String(this.state.error.message || this.state.error.name || this.state.error)
-        : '';
+        : 'Unknown error';
       return (
         <View style={styles.errorContainer}>
-          <Text style={{ fontSize: 36, marginBottom: 12 }}>🚌</Text>
-          <Text style={styles.errorTitle}>Application Restored</Text>
+          <View style={styles.errorIconCircle}>
+            <Text style={styles.errorIconText}>🚌</Text>
+          </View>
+          <Text style={styles.errorTitle}>Something went wrong</Text>
           <Text style={styles.errorSub}>
-            A minor UI rendering notice occurred. Tap below to refresh your view smoothly.
+            A rendering error occurred. Tap below to reload the app.
           </Text>
           {errorMsg ? (
             <View style={styles.errorDetailBox}>
-              <Text style={styles.errorDetailText} numberOfLines={4}>
+              <Text style={styles.errorDetailText} numberOfLines={3}>
                 {errorMsg}
               </Text>
             </View>
           ) : null}
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+          <View style={styles.errorButtonRow}>
             <TouchableOpacity
               style={styles.retryButton}
               onPress={() => this.setState({ hasError: false, error: undefined })}
+              activeOpacity={0.8}
             >
-              <Text style={styles.retryButtonText}>🔄 Reload Screen</Text>
+              <Text style={styles.retryButtonText}>🔄 Reload</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.retryButton, { backgroundColor: '#334155' }]}
+              style={[styles.retryButton, styles.resetButton]}
               onPress={this.handleReset}
+              activeOpacity={0.8}
             >
-              <Text style={styles.retryButtonText}>🏠 Reset View</Text>
+              <Text style={styles.retryButtonText}>🏠 Reset</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -80,24 +91,25 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
 
 export default function RootLayout() {
   useEffect(() => {
-    // Hide splash screen smoothly once React tree mounts
-    try {
-      SplashScreen.hideAsync().catch(() => {});
-    } catch {}
+    // Give the JS bundle 80ms to settle then safely hide the splash
+    const timer = setTimeout(() => {
+      try {
+        SplashScreen.hideAsync().catch(() => {});
+      } catch {}
+    }, 80);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
+        <StatusBar style="light" backgroundColor="#090d16" translucent={false} />
         <MobileErrorBoundary>
           <Stack
             screenOptions={{
               headerShown: false,
-              headerStyle: { backgroundColor: '#0f172a' },
-              headerTintColor: '#ffffff',
-              headerTitleStyle: { fontWeight: 'bold' },
               contentStyle: { backgroundColor: '#090d16' },
+              animation: 'fade',
             }}
           />
         </MobileErrorBoundary>
@@ -116,46 +128,69 @@ const styles = StyleSheet.create({
     backgroundColor: '#090d16',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 28,
+  },
+  errorIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  errorIconText: {
+    fontSize: 32,
   },
   errorTitle: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '900',
+    color: '#f8fafc',
+    fontSize: 19,
+    fontWeight: '800',
     marginBottom: 8,
+    textAlign: 'center',
   },
   errorSub: {
     color: '#94a3b8',
     fontSize: 13,
     textAlign: 'center',
     marginBottom: 20,
-    lineHeight: 18,
-  },
-  retryButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 14,
-  },
-  retryButtonText: {
-    color: '#ffffff',
-    fontWeight: '800',
-    fontSize: 14,
+    lineHeight: 20,
   },
   errorDetailBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(239,68,68,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 16,
-    maxWidth: '90%',
+    borderColor: 'rgba(239,68,68,0.25)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 20,
+    maxWidth: SCREEN_W - 56,
   },
   errorDetailText: {
     color: '#f87171',
     fontSize: 11,
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  errorButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+    borderRadius: 14,
+    marginHorizontal: 6,
+  },
+  resetButton: {
+    backgroundColor: '#334155',
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 14,
   },
 });

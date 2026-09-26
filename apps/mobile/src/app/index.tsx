@@ -38,10 +38,10 @@ export default function LoginScreen() {
   useEffect(() => {
     let isMounted = true;
 
-    // Safety fallback: Never allow screen to remain stuck on loader for more than 350ms
+    // Safety fallback: Never allow screen to remain stuck on loader for more than 600ms
     const safetyTimer = setTimeout(() => {
       if (isMounted) setIsCheckingSession(false);
-    }, 350);
+    }, 600);
 
     const checkActiveSession = async () => {
       try {
@@ -49,16 +49,25 @@ export default function LoginScreen() {
         if (session && session.role && isMounted) {
           clearTimeout(safetyTimer);
           const targetPath = session.role === 'driver' ? '/driver' : session.role === 'student' ? '/student' : '/staff';
+          // Wait for navigation state to be ready
+          const doNavigate = () => {
+            if (!isMounted) return;
+            try {
+              router.replace(targetPath as any);
+            } catch {}
+          };
           if (rootNavState?.key) {
-            router.replace(targetPath as any);
+            doNavigate();
           } else {
+            // Poll until navigation is ready, max 2 seconds
+            let attempts = 0;
             const retryInterval = setInterval(() => {
-              if (rootNavState?.key && isMounted) {
+              attempts++;
+              if ((rootNavState?.key && isMounted) || attempts > 40) {
                 clearInterval(retryInterval);
-                router.replace(targetPath as any);
+                if (attempts <= 40) doNavigate();
               }
-            }, 30);
-            setTimeout(() => clearInterval(retryInterval), 1200);
+            }, 50);
           }
           return;
         }
@@ -517,7 +526,7 @@ export default function LoginScreen() {
 
   if (isCheckingSession) {
     return (
-      <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.logoContainer}>
           <Image
@@ -526,9 +535,10 @@ export default function LoginScreen() {
             resizeMode="cover"
           />
         </View>
-        <Text style={[styles.collegeTitle, { marginTop: 16 }]}>RAMCO INSTITUTE OF TECHNOLOGY</Text>
+        <Text style={[styles.collegeTitle, { marginTop: 16, textAlign: 'center' }]}>RAMCO INSTITUTE OF TECHNOLOGY</Text>
         <Text style={styles.appTitle}>Bus Track</Text>
-        <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 24 }} />
+        <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 28 }} />
+        <Text style={{ color: '#475569', fontSize: 12, marginTop: 14 }}>Loading your session...</Text>
       </View>
     );
   }
@@ -1006,7 +1016,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   supportList: {
-    gap: 8,
+    flexDirection: 'column',
   },
   supportItem: {
     flexDirection: 'row',
@@ -1016,6 +1026,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderWidth: 1,
     borderColor: '#1e293b',
+    marginBottom: 8,
   },
   supportItemIcon: {
     width: 28,
