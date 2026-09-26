@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
-import { GPSCoordinate, EmergencyAlert } from '@college-bus/shared';
+import { GPSCoordinate, EmergencyAlert, SystemNotification } from '@college-bus/shared';
 
 // Read Supabase credentials with fallback to live production project
 const supabaseUrl = 
@@ -84,12 +84,14 @@ type SOSListener = (payload: EmergencyAlert) => void;
 type FleetSwapListener = (payload: FleetSwapNotice) => void;
 type LeaveListener = (payload: LeaveTogglePayload) => void;
 type TripListener = (payload: TripUpdatePayload) => void;
+type NotificationListener = (payload: SystemNotification) => void;
 
 const telemetryListeners: Set<TelemetryListener> = new Set();
 const sosListeners: Set<SOSListener> = new Set();
 const fleetSwapListeners: Set<FleetSwapListener> = new Set();
 const leaveListeners: Set<LeaveListener> = new Set();
 const tripListeners: Set<TripListener> = new Set();
+const notificationListeners: Set<NotificationListener> = new Set();
 
 // Cross-Tab / Cross-Window Broadcast Channel for instant local sync (Web Only)
 let crossClientChannel: any = null;
@@ -110,6 +112,8 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && 'BroadcastChannel'
         leaveListeners.forEach((l) => l(data.payload));
       } else if (data.type === 'trip_update') {
         tripListeners.forEach((l) => l(data.payload));
+      } else if (data.type === 'broadcast_notification') {
+        notificationListeners.forEach((l) => l(data.payload));
       }
     };
   } catch (bcErr) {
@@ -134,6 +138,8 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.addE
             leaveListeners.forEach((l) => l(data.payload));
           } else if (data.type === 'trip_update') {
             tripListeners.forEach((l) => l(data.payload));
+          } else if (data.type === 'broadcast_notification') {
+            notificationListeners.forEach((l) => l(data.payload));
           }
         } catch {}
       }
@@ -170,12 +176,35 @@ export function initRealtimeChannel() {
       .on('broadcast', { event: 'trip_update' }, ({ payload }: { payload: TripUpdatePayload }) => {
         tripListeners.forEach((listener) => listener(payload));
       })
+      .on('broadcast', { event: 'broadcast_notification' }, ({ payload }: { payload: SystemNotification }) => {
+        notificationListeners.forEach((listener) => listener(payload));
+      })
       .subscribe((status: string) => {
         isSubscribing = false;
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Realtime Telemetry Channel: CONNECTED (Live GPS active)');
+          console.log('✅ Realtime Telemetry Channel: CONNECTED (Live GPS & Broadcasts active)');
         }
       });
+
+    // Also listen to direct DB table inserts on emergency_alerts as a resilient fallback
+    supabase
+      .channel('schema_emergency_broadcasts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'emergency_alerts' }, (payload: any) => {
+        const row = payload.new;
+        if (!row) return;
+        const parts = (row.message || '').split(' | ');
+        const title = parts.length > 1 ? parts[0] : (row.type || 'Announcement');
+        const message = parts.length > 1 ? parts.slice(1).join(' | ') : row.message;
+        const notif: SystemNotification = {
+          id: row.id,
+          title,
+          message,
+          type: row.type?.toLowerCase() === 'sos' ? 'urgent' : (row.type?.toLowerCase() || 'general'),
+          created_at: row.created_at || new Date().toISOString(),
+        };
+        notificationListeners.forEach((listener) => listener(notif));
+      })
+      .subscribe();
   } catch (err) {
     isSubscribing = false;
     console.warn('Realtime channel initialization note:', err);
@@ -329,6 +358,24 @@ export async function broadcastTripUpdate(payload: TripUpdatePayload) {
   }
 }
 
+/**
+ * Broadcast System Notification / Announcement
+ */
+export async function broadcastSystemNotification(notification: SystemNotification) {
+  notificationListeners.forEach((listener) => listener(notification));
+  postCrossClient('broadcast_notification', notification);
+
+  if (telemetryChannel) {
+    try {
+      await telemetryChannel.send({
+        type: 'broadcast',
+        event: 'broadcast_notification',
+        payload: notification,
+      });
+    } catch {}
+  }
+}
+
 export function subscribeToTelemetry(listener: TelemetryListener) {
   telemetryListeners.add(listener);
   return () => {
@@ -361,6 +408,13 @@ export function subscribeToTrip(listener: TripListener) {
   tripListeners.add(listener);
   return () => {
     tripListeners.delete(listener);
+  };
+}
+
+export function subscribeToSystemNotifications(listener: NotificationListener) {
+  notificationListeners.add(listener);
+  return () => {
+    notificationListeners.delete(listener);
   };
 }
 
@@ -404,6 +458,37 @@ export async function fetchLiveStudentsFromDB(): Promise<any[] | null> {
     return data;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Fetch persistent system announcements and admin broadcast alerts from Supabase
+ */
+export async function fetchSystemNotificationsFromDB(): Promise<SystemNotification[]> {
+  if (!isLiveBackendConfigured) return [];
+  try {
+    const { data, error } = await supabase
+      .from('emergency_alerts')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(15);
+
+    if (error || !data) return [];
+
+    return data.map((row: any) => {
+      const parts = (row.message || '').split(' | ');
+      const title = parts.length > 1 ? parts[0] : (row.type || 'Announcement');
+      const message = parts.length > 1 ? parts.slice(1).join(' | ') : row.message;
+      return {
+        id: row.id,
+        title,
+        message,
+        type: row.type?.toLowerCase() === 'sos' ? 'urgent' : (row.type?.toLowerCase() || 'general'),
+        created_at: row.created_at || new Date().toISOString(),
+      };
+    });
+  } catch {
+    return [];
   }
 }
 

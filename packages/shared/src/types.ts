@@ -289,3 +289,30 @@ export interface GPSCoordinate {
 export interface RouteSimulationPoint extends GPSCoordinate {
   stop_name?: string;
 }
+
+export interface BusTimeRecord {
+  id: string;
+  bus_id: string;
+  bus_number: string;
+  bus_name?: string;
+  registration_number?: string;
+  driver_id?: string;
+  driver_name: string;
+  driver_phone?: string;
+  route_id?: string;
+  route_name: string;
+  start_location?: string;
+  destination?: string;
+  shift: 'morning' | 'evening';
+  date: string; // YYYY-MM-DD
+  scheduled_start_time?: string;
+  scheduled_end_time?: string;
+  start_time: string | null; // recorded when driver clicks start
+  end_time: string | null;   // recorded when driver clicks end
+  duration?: string;
+  distance_km?: number;
+  avg_speed_kmh?: number;
+  status: 'completed' | 'in_progress' | 'standby' | 'scheduled';
+  notes?: string;
+  updated_at?: string;
+}

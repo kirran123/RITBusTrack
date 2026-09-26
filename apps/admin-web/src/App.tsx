@@ -13,6 +13,7 @@ import { Students } from './pages/Students';
 import { Routes as RoutesPage } from './pages/Routes';
 import { Staff as StaffPage } from './pages/Staff';
 import { Trips } from './pages/Trips';
+import { TimeHistory } from './pages/TimeHistory';
 import { Emergency } from './pages/Emergency';
 import { Notifications } from './pages/Notifications';
 import { Reports } from './pages/Reports';
@@ -324,6 +325,13 @@ export const App: React.FC = () => {
         .on('broadcast', { event: 'leave_toggle' }, ({ payload }: any) => {
           if (!payload || !payload.studentId) return;
           setStudents(prev => prev.map(s => s.id === payload.studentId ? { ...s, is_on_leave: payload.isOnLeave } : s));
+        })
+        .on('broadcast', { event: 'broadcast_notification' }, ({ payload }: any) => {
+          if (!payload || !payload.id) return;
+          setNotifications(prev => {
+            if (prev.some(n => n.id === payload.id)) return prev;
+            return [payload, ...prev];
+          });
         })
         .subscribe((status) => {
           console.log('📡 Supabase Live GPS Channel Status:', status);
@@ -1052,8 +1060,52 @@ export const App: React.FC = () => {
     setEmergencies(prev => prev.map(e => e.id === id ? { ...e, status: 'RESOLVED', resolved_at: new Date().toISOString() } : e));
   };
 
-  const handleSendNotification = (notification: SystemNotification) => {
+  const handleSendNotification = async (notification: SystemNotification) => {
     setNotifications(prev => [notification, ...prev]);
+
+    // 1. Cross-client sync for same browser/tabs
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('bustrack_cross_client_sync');
+        bc.postMessage({ type: 'broadcast_notification', payload: notification, timestamp: Date.now() });
+      }
+      localStorage.setItem('bustrack_cross_sync_event', JSON.stringify({ type: 'broadcast_notification', payload: notification, timestamp: Date.now() }));
+    } catch {}
+
+    // 2. Supabase Realtime broadcast to all live mobile connected devices
+    if (supabase) {
+      try {
+        const channel = supabase.channel('bus_tracking_live');
+        channel.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await channel.send({
+              type: 'broadcast',
+              event: 'broadcast_notification',
+              payload: notification,
+            });
+          }
+        });
+        // Also send immediately if channel was already established
+        await channel.send({
+          type: 'broadcast',
+          event: 'broadcast_notification',
+          payload: notification,
+        }).catch(() => {});
+      } catch (err) {
+        console.warn('Realtime broadcast error:', err);
+      }
+
+      // 3. Persist to DB emergency_alerts table so mobile apps fetching alerts will immediately see it!
+      try {
+        await supabase.from('emergency_alerts').insert({
+          type: notification.type || 'BROADCAST',
+          message: `${notification.title} | ${notification.message}`,
+          status: 'ACTIVE',
+        });
+      } catch (dbErr) {
+        console.warn('DB alert insert error:', dbErr);
+      }
+    }
   };
 
   const handleDeleteNotification = (id: string) => {
@@ -1265,6 +1317,17 @@ export const App: React.FC = () => {
                     buses={buses}
                     drivers={drivers}
                     routes={routes}
+                  />
+                </ErrorBoundary>
+              } />
+
+              <Route path="/time-history" element={
+                <ErrorBoundary fallbackTitle="Time History & Shift Logs">
+                  <TimeHistory
+                    buses={buses}
+                    drivers={drivers}
+                    routes={routes}
+                    currentUser={currentUser}
                   />
                 </ErrorBoundary>
               } />

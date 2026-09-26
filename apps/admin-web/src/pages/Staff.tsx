@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StaffUser, StaffAccessLevel, StaffCommuter, Bus, Route, Stop, UserProfile } from '@college-bus/shared';
+import { StaffUser, StaffAccessLevel, StaffCommuter, Bus, Route, Stop, UserProfile, RIT_DEPARTMENTS, matchesDepartment } from '@college-bus/shared';
 import {
   ShieldCheck,
   UserCheck,
@@ -89,6 +89,8 @@ export const Staff: React.FC<StaffProps> = ({
   // -------------------------------------------------------------
   const [commuterSearchTerm, setCommuterSearchTerm] = useState('');
   const [commuterLeaveFilter, setCommuterLeaveFilter] = useState<'all' | 'on_leave' | 'active'>('all');
+  const [commuterDepartmentFilter, setCommuterDepartmentFilter] = useState<string>('all');
+  const [commuterBusFilter, setCommuterBusFilter] = useState<string>('all');
   const [isCommuterModalOpen, setIsCommuterModalOpen] = useState(false);
   const [isCommuterCSVModalOpen, setIsCommuterCSVModalOpen] = useState(false);
   const [editingCommuter, setEditingCommuter] = useState<StaffCommuter | null>(null);
@@ -138,7 +140,7 @@ export const Staff: React.FC<StaffProps> = ({
     setShowCPassword(false);
     setCEmployeeId(`FAC-${String(staffCommuters.length + 10).padStart(3, '0')}`);
     setCPhone('+91 94432 ' + (10000 + staffCommuters.length + 1));
-    setCDepartment('Computer Science & Engineering');
+    setCDepartment('Computer Science and Engineering (CSE)');
     setCDesignation('Assistant Professor');
     setCRouteId(routes[0]?.id || '');
     setCBusId(buses[0]?.id || '');
@@ -273,6 +275,19 @@ export const Staff: React.FC<StaffProps> = ({
   const commuterOnLeaveCount = staffCommuters.filter(c => c.is_on_leave).length;
   const commuterActiveCount = staffCommuters.length - commuterOnLeaveCount;
 
+  const hasActiveCommuterFilters =
+    commuterDepartmentFilter !== 'all' ||
+    commuterBusFilter !== 'all' ||
+    commuterLeaveFilter !== 'all' ||
+    commuterSearchTerm.trim() !== '';
+
+  const handleResetCommuterFilters = () => {
+    setCommuterSearchTerm('');
+    setCommuterLeaveFilter('all');
+    setCommuterDepartmentFilter('all');
+    setCommuterBusFilter('all');
+  };
+
   const filteredCommuters = staffCommuters.filter((c) => {
     const matchesSearch =
       (c.name || c.profile?.name || '').toLowerCase().includes(commuterSearchTerm.toLowerCase()) ||
@@ -288,7 +303,10 @@ export const Staff: React.FC<StaffProps> = ({
         ? c.is_on_leave
         : !c.is_on_leave;
 
-    return matchesSearch && matchesLeave;
+    const matchesDept = commuterDepartmentFilter === 'all' || matchesDepartment(c.department, commuterDepartmentFilter);
+    const matchesBus = commuterBusFilter === 'all' || c.bus_id === commuterBusFilter || (c.bus?.bus_number === commuterBusFilter);
+
+    return matchesSearch && matchesLeave && matchesDept && matchesBus;
   });
 
   // -------------------------------------------------------------
@@ -492,51 +510,122 @@ export const Staff: React.FC<StaffProps> = ({
       {/* ========================================================================= */}
       {activeSection === 'commuters' && (
         <div className="space-y-6">
-          {/* Commuters Search & Leave Filters */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-            <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500" />
-              <input
-                type="text"
-                placeholder="Search staff by name, emp ID or department..."
-                value={commuterSearchTerm}
-                onChange={(e) => setCommuterSearchTerm(e.target.value)}
-                className="w-full bg-slate-950 text-white text-sm pl-10 pr-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500"
-              />
+          {/* Commuters Filter & Search Control Section */}
+          <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+              {/* Search Input */}
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search staff by name, employee ID, department, email..."
+                  value={commuterSearchTerm}
+                  onChange={(e) => setCommuterSearchTerm(e.target.value)}
+                  className="w-full bg-slate-950 text-white text-xs pl-10 pr-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 placeholder:text-slate-600"
+                />
+              </div>
+
+              {/* Leave Status Filter Pills */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => setCommuterLeaveFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                    commuterLeaveFilter === 'all'
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                  }`}
+                >
+                  All Faculty ({staffCommuters.length})
+                </button>
+                <button
+                  onClick={() => setCommuterLeaveFilter('on_leave')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center space-x-1 cursor-pointer ${
+                    commuterLeaveFilter === 'on_leave'
+                      ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
+                      : 'bg-slate-950 text-rose-400 border-rose-900/40 hover:bg-rose-950/20'
+                  }`}
+                >
+                  <span>⛔ On Leave ({commuterOnLeaveCount})</span>
+                </button>
+                <button
+                  onClick={() => setCommuterLeaveFilter('active')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                    commuterLeaveFilter === 'active'
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                  }`}
+                >
+                  Travelling ({commuterActiveCount})
+                </button>
+              </div>
             </div>
 
-            {/* Leave Status Filter Pills */}
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setCommuterLeaveFilter('all')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
-                  commuterLeaveFilter === 'all'
-                    ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                }`}
-              >
-                All Faculty ({staffCommuters.length})
-              </button>
-              <button
-                onClick={() => setCommuterLeaveFilter('on_leave')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border flex items-center space-x-1.5 ${
-                  commuterLeaveFilter === 'on_leave'
-                    ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
-                    : 'bg-slate-950 text-rose-400 border-rose-900/40 hover:bg-rose-950/20'
-                }`}
-              >
-                <span>⛔ On Leave ({commuterOnLeaveCount})</span>
-              </button>
-              <button
-                onClick={() => setCommuterLeaveFilter('active')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
-                  commuterLeaveFilter === 'active'
-                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                }`}
-              >
-                Travelling ({commuterActiveCount})
-              </button>
+            {/* Multi-Section Dropdown Filters (Department, Bus) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              {/* 1. Department Filter */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>🏛️ Department</span>
+                </label>
+                <select
+                  value={commuterDepartmentFilter}
+                  onChange={(e) => setCommuterDepartmentFilter(e.target.value)}
+                  className="w-full bg-slate-950 text-white text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
+                >
+                  <option value="all">All 10 Departments ({staffCommuters.length})</option>
+                  {RIT_DEPARTMENTS.map(dept => {
+                    const count = staffCommuters.filter(c => matchesDepartment(c.department, dept.code)).length;
+                    return (
+                      <option key={dept.code} value={dept.code}>
+                        {dept.code} — {dept.name} ({count})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* 2. Bus Allocation Filter */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>🚌 Bus Number</span>
+                </label>
+                <select
+                  value={commuterBusFilter}
+                  onChange={(e) => setCommuterBusFilter(e.target.value)}
+                  className="w-full bg-slate-950 text-white text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
+                >
+                  <option value="all">All Allocated Buses ({buses.length})</option>
+                  {buses.map(b => {
+                    const count = staffCommuters.filter(c => c.bus_id === b.id || c.bus?.bus_number === b.bus_number).length;
+                    return (
+                      <option key={b.id} value={b.id}>
+                        {b.bus_number} — {b.bus_name} ({count} faculty)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* 3. Active Results & Reset Button */}
+              <div className="space-y-1 flex flex-col justify-end">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                  <span>Showing Results</span>
+                  <span className="text-emerald-400 font-mono font-bold">{filteredCommuters.length} / {staffCommuters.length}</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleResetCommuterFilters}
+                  disabled={!hasActiveCommuterFilters}
+                  className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 border ${
+                    hasActiveCommuterFilters
+                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 cursor-pointer'
+                      : 'bg-slate-950/60 text-slate-600 border-slate-800 cursor-not-allowed opacity-60'
+                  }`}
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Reset All Filters</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1116,14 +1205,17 @@ export const Staff: React.FC<StaffProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Department</label>
-                  <input
-                    type="text"
-                    required
+                  <select
                     value={cDepartment}
                     onChange={(e) => setCDepartment(e.target.value)}
                     className="w-full bg-slate-950 text-white text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500"
-                    placeholder="Electronics & Communication Engg"
-                  />
+                  >
+                    {RIT_DEPARTMENTS.map(d => (
+                      <option key={d.code} value={`${d.name} (${d.code})`}>
+                        {d.code} — {d.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -1356,14 +1448,18 @@ export const Staff: React.FC<StaffProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Department</label>
-                  <input
-                    type="text"
-                    required
+                  <select
                     value={pDepartment}
                     onChange={(e) => setPDepartment(e.target.value)}
                     className="w-full bg-slate-950 text-white text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500"
-                    placeholder="Transport Department"
-                  />
+                  >
+                    <option value="Transport Department">Transport Department</option>
+                    {RIT_DEPARTMENTS.map(d => (
+                      <option key={d.code} value={`${d.name} (${d.code})`}>
+                        {d.code} — {d.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

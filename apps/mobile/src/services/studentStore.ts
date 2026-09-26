@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { broadcastLeaveToggle, subscribeToLeave, fetchLiveStudentsFromDB } from './supabase';
 
 export interface BusStudent {

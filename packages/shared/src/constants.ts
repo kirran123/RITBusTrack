@@ -7,7 +7,107 @@ export const COLLEGE_LOCATION = {
   name: "Ramco Institute of Technology",
 };
 
-export const DEFAULT_TRACKING_INTERVAL_MS = 5000; // 5 seconds interval
+export const DEFAULT_TRACKING_INTERVAL_MS = 10000; // 10 seconds interval
+
+export interface DepartmentInfo {
+  code: string;
+  name: string;
+  hodName: string;
+  hodEmail: string;
+}
+
+// 10 Official College Departments (Ramco Institute of Technology)
+export const RIT_DEPARTMENTS: DepartmentInfo[] = [
+  {
+    code: 'IT',
+    name: 'Information Technology',
+    hodName: 'Mariappan',
+    hodEmail: 'mariappan@ritrjpm.ac.in',
+  },
+  {
+    code: 'AI&DS',
+    name: 'Artificial Intelligence and Data Science',
+    hodName: 'Kaliappan',
+    hodEmail: 'kaliappan@ritrjpm.ac.in',
+  },
+  {
+    code: 'AIML',
+    name: 'Artificial Intelligence and Machine Learning',
+    hodName: 'Kesavan',
+    hodEmail: 'vtkesavan@ritrjpm.ac.in',
+  },
+  {
+    code: 'CIVIL',
+    name: 'Civil Engineering',
+    hodName: 'Meyyappan',
+    hodEmail: 'meyyappan@ritrjpm.ac.in',
+  },
+  {
+    code: 'CSBS',
+    name: 'Computer Science and Business Systems',
+    hodName: 'Gomathynayagam',
+    hodEmail: 'gomathynayagam@ritrjpm.ac.in',
+  },
+  {
+    code: 'CSE',
+    name: 'Computer Science and Engineering',
+    hodName: 'Vijayalakshmi K',
+    hodEmail: 'vijayalakshmik@ritrjpm.ac.in',
+  },
+  {
+    code: 'EEE',
+    name: 'Electrical and Electronics Engineering',
+    hodName: 'Kannan',
+    hodEmail: 'kannan@ritrjpm.ac.in',
+  },
+  {
+    code: 'ECE',
+    name: 'Electronics and Communication Engineering',
+    hodName: 'Arunachala Perumal C',
+    hodEmail: 'arunachalaperumal@ritrjpm.ac.in',
+  },
+  {
+    code: 'MECH',
+    name: 'Mechanical Engineering',
+    hodName: 'Suresh Kumar',
+    hodEmail: 'sureshkumar@ritrjpm.ac.in',
+  },
+  {
+    code: 'CYBER',
+    name: 'Cyber Security',
+    hodName: 'Pending Appointment',
+    hodEmail: 'cyberhod@rit.edu.in',
+  },
+];
+
+export const matchesDepartment = (deptText: string | undefined | null, filterCode: string): boolean => {
+  if (!deptText || filterCode === 'all') return true;
+  const target = RIT_DEPARTMENTS.find(d => d.code === filterCode || d.name === filterCode);
+  if (!target) {
+    return deptText.toLowerCase().includes(filterCode.toLowerCase());
+  }
+  const clean = deptText.toLowerCase();
+  const codeClean = target.code.toLowerCase();
+  const nameClean = target.name.toLowerCase();
+  
+  if (clean === codeClean || clean === nameClean) return true;
+  if (clean.includes(codeClean) || clean.includes(nameClean)) return true;
+  
+  // Aliases and abbreviations
+  if (target.code === 'IT' && (clean.includes('information tech') || clean === 'it')) return true;
+  if (target.code === 'CSE' && (clean.includes('comp') || clean.includes('computer') || clean === 'cse')) return true;
+  if (target.code === 'ECE' && (clean.includes('electronics') || clean.includes('ece') || clean.includes('comm'))) return true;
+  if (target.code === 'EEE' && (clean.includes('electrical') || clean.includes('eee'))) return true;
+  if (target.code === 'MECH' && (clean.includes('mech') || clean.includes('mechanical'))) return true;
+  if (target.code === 'CIVIL' && (clean.includes('civil'))) return true;
+  if (target.code === 'AI&DS' && ((clean.includes('ai') && clean.includes('ds')) || clean.includes('data science') || clean === 'ai&ds' || clean === 'aids')) return true;
+  if (target.code === 'AIML' && (clean.includes('aiml') || (clean.includes('ai') && clean.includes('ml')) || clean.includes('machine learning'))) return true;
+  if (target.code === 'CSBS' && (clean.includes('csbs') || clean.includes('business'))) return true;
+  if (target.code === 'CYBER' && (clean.includes('cyber') || clean.includes('security'))) return true;
+
+  return false;
+};
+
 
 // Standard Initial Stops for Route 1 (Rajapalayam to Campus)
 export const INITIAL_STOPS: Stop[] = [

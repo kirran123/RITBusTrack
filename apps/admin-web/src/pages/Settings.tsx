@@ -147,7 +147,7 @@ export const Settings: React.FC = () => {
               className="w-full bg-slate-950 text-white text-sm px-4 py-3 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 font-mono"
             />
             <p className="text-xs text-slate-500 mt-1">
-              Controls how frequently driver mobile apps transmit GPS coordinates to Supabase (Default: 5000ms / 5s).
+              Controls how frequently driver mobile apps transmit GPS coordinates to Supabase (Default: 10000ms / 10s).
             </p>
           </div>
         </div>

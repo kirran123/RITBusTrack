@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Student, Bus, Route, Stop, UserProfile } from '@college-bus/shared';
+import { Student, Bus, Route, Stop, UserProfile, RIT_DEPARTMENTS, matchesDepartment } from '@college-bus/shared';
 import { 
   GraduationCap, Plus, Search, Upload, Edit2, Trash2, X, FileText, Lock,
   Key, Eye, EyeOff, Check, Copy, RefreshCw, ShieldCheck
@@ -51,7 +51,7 @@ export const Students: React.FC<StudentsProps> = ({
   const [password, setPassword] = useState('student123');
   const [showPassword, setShowPassword] = useState(false);
   const [registerNumber, setRegisterNumber] = useState('');
-  const [department, setDepartment] = useState('Computer Science');
+  const [department, setDepartment] = useState('Computer Science and Engineering (CSE)');
   const [year, setYear] = useState(4);
   const [section, setSection] = useState('A');
   const [routeId, setRouteId] = useState('');
@@ -82,7 +82,7 @@ export const Students: React.FC<StudentsProps> = ({
     setPassword('student123');
     setShowPassword(false);
     setRegisterNumber(`9536211040${students.length + 10}`);
-    setDepartment('Computer Science');
+    setDepartment('Computer Science and Engineering (CSE)');
     setYear(4);
     setSection('A');
     setRouteId(routes[0]?.id || '');
@@ -200,9 +200,25 @@ export const Students: React.FC<StudentsProps> = ({
   };
 
   const [leaveFilter, setLeaveFilter] = useState<'all' | 'on_leave' | 'active'>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [yearFilter, setYearFilter] = useState<string>('all');
+  const [busFilter, setBusFilter] = useState<string>('all');
 
   const onLeaveCount = students.filter(s => s.is_on_leave).length;
   const activeCount = students.length - onLeaveCount;
+
+  // 10 Official RIT Departments
+  const officialDepartments = RIT_DEPARTMENTS;
+
+  const hasActiveFilters = departmentFilter !== 'all' || yearFilter !== 'all' || busFilter !== 'all' || leaveFilter !== 'all' || searchTerm.trim() !== '';
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setLeaveFilter('all');
+    setDepartmentFilter('all');
+    setYearFilter('all');
+    setBusFilter('all');
+  };
 
   const filteredStudents = students.filter(s => {
     const matchesSearch =
@@ -217,7 +233,11 @@ export const Students: React.FC<StudentsProps> = ({
         ? s.is_on_leave
         : !s.is_on_leave;
 
-    return matchesSearch && matchesLeave;
+    const matchesDept = departmentFilter === 'all' || matchesDepartment(s.department, departmentFilter);
+    const matchesYear = yearFilter === 'all' || String(s.year) === yearFilter;
+    const matchesBus = busFilter === 'all' || s.bus_id === busFilter || (s.bus?.bus_number === busFilter);
+
+    return matchesSearch && matchesLeave && matchesDept && matchesYear && matchesBus;
   });
 
   return (
@@ -238,14 +258,14 @@ export const Students: React.FC<StudentsProps> = ({
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setIsCSVModalOpen(true)}
-              className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl border border-slate-700 flex items-center space-x-2 transition-all shadow-sm"
+              className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl border border-slate-700 flex items-center space-x-2 transition-all shadow-sm cursor-pointer"
             >
               <Upload className="w-4 h-4 text-emerald-400" />
               <span>Import CSV</span>
             </button>
             <button
               onClick={openCreateModal}
-              className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center space-x-2 transition-all"
+              className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center space-x-2 transition-all cursor-pointer"
             >
               <Plus className="w-5 h-5" />
               <span>Add Student</span>
@@ -259,51 +279,140 @@ export const Students: React.FC<StudentsProps> = ({
         )}
       </div>
 
-      {/* Search & Leave Filter Row */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search student by name or reg number..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-950 text-white text-sm pl-10 pr-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500"
-          />
+      {/* FILTER & SEARCH CONTROL SECTION */}
+      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          {/* Main Search Input */}
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search student by name, register number, department..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-slate-950 text-white text-xs pl-10 pr-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 placeholder:text-slate-600"
+            />
+          </div>
+
+          {/* Leave Status Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => setLeaveFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                leaveFilter === 'all'
+                  ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
+                  : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+              }`}
+            >
+              All ({students.length})
+            </button>
+            <button
+              onClick={() => setLeaveFilter('on_leave')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center space-x-1 cursor-pointer ${
+                leaveFilter === 'on_leave'
+                  ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
+                  : 'bg-slate-950 text-rose-400 border-rose-900/40 hover:bg-rose-950/20'
+              }`}
+            >
+              <span>⛔ On Leave ({onLeaveCount})</span>
+            </button>
+            <button
+              onClick={() => setLeaveFilter('active')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                leaveFilter === 'active'
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
+                  : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+              }`}
+            >
+              Travelling ({activeCount})
+            </button>
+          </div>
         </div>
 
-        {/* Leave Status Filter Pills */}
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setLeaveFilter('all')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
-              leaveFilter === 'all'
-                ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
-                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-            }`}
-          >
-            All Students ({students.length})
-          </button>
-          <button
-            onClick={() => setLeaveFilter('on_leave')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border flex items-center space-x-1.5 ${
-              leaveFilter === 'on_leave'
-                ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
-                : 'bg-slate-950 text-rose-400 border-rose-900/40 hover:bg-rose-950/20'
-            }`}
-          >
-            <span>⛔ On Leave Today ({onLeaveCount})</span>
-          </button>
-          <button
-            onClick={() => setLeaveFilter('active')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
-              leaveFilter === 'active'
-                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
-                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-            }`}
-          >
-            Travelling ({activeCount})
-          </button>
+        {/* Multi-Section Dropdown Filters (Department, Year, Bus) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+          {/* 1. Department Filter */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🏛️ Department</span>
+            </label>
+            <select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="w-full bg-slate-950 text-white text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
+            >
+              <option value="all">All 10 Departments ({students.length})</option>
+              {officialDepartments.map(dept => {
+                const count = students.filter(s => matchesDepartment(s.department, dept.code)).length;
+                return (
+                  <option key={dept.code} value={dept.code}>
+                    {dept.code} — {dept.name} ({count})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* 2. Year of Study Filter */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🎓 Year of Study</span>
+            </label>
+            <select
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+              className="w-full bg-slate-950 text-white text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
+            >
+              <option value="all">All Academic Years</option>
+              <option value="1">1st Year ({students.filter(s => s.year === 1).length})</option>
+              <option value="2">2nd Year ({students.filter(s => s.year === 2).length})</option>
+              <option value="3">3rd Year ({students.filter(s => s.year === 3).length})</option>
+              <option value="4">4th Year ({students.filter(s => s.year === 4).length})</option>
+            </select>
+          </div>
+
+          {/* 3. Bus Allocation Filter */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🚌 Bus Number</span>
+            </label>
+            <select
+              value={busFilter}
+              onChange={(e) => setBusFilter(e.target.value)}
+              className="w-full bg-slate-950 text-white text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
+            >
+              <option value="all">All Allocated Buses ({buses.length})</option>
+              {buses.map(b => {
+                const count = students.filter(s => s.bus_id === b.id || s.bus?.bus_number === b.bus_number).length;
+                return (
+                  <option key={b.id} value={b.id}>
+                    {b.bus_number} — {b.bus_name} ({count} students)
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* 4. Active Results & Reset Button */}
+          <div className="space-y-1 flex flex-col justify-end">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>Showing Results</span>
+              <span className="text-emerald-400 font-mono font-bold">{filteredStudents.length} / {students.length}</span>
+            </label>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!hasActiveFilters}
+              className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 border ${
+                hasActiveFilters
+                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 cursor-pointer'
+                  : 'bg-slate-950/60 text-slate-600 border-slate-800 cursor-not-allowed opacity-60'
+              }`}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reset All Filters</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -673,13 +782,17 @@ export const Students: React.FC<StudentsProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Department</label>
-                  <input
-                    type="text"
-                    required
+                  <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
                     className="w-full bg-slate-950 text-white text-sm px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500"
-                  />
+                  >
+                    {officialDepartments.map(d => (
+                      <option key={d.code} value={`${d.name} (${d.code})`}>
+                        {d.code} — {d.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

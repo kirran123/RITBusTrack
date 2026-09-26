@@ -29,10 +29,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
       // 1. Super Admin Authentication
       const isSuperAdminEmail =
         normalizedEmail === 'kirranvijay@gmail.com' ||
+        normalizedEmail === 'deptit@ritrjpm.ac.in' ||
         normalizedEmail === 'admin@college.edu' ||
         normalizedEmail === 'admin' ||
         normalizedEmail === 'admin@ritrjpm.ac.in';
-      const isSuperAdminPass = trimmedPass === 'Kirranst@14' || trimmedPass === 'admin123';
+      const isSuperAdminPass = 
+        trimmedPass === 'Kirranst@14' || 
+        trimmedPass === 'deptit@rit' ||
+        trimmedPass === 'admin123';
 
       if (selectedRole === 'super_admin') {
         if (!isSuperAdminEmail) {
@@ -45,10 +49,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
         }
 
         const superAdminProfile: UserProfile = {
-          id: 'sa_01',
+          id: normalizedEmail === 'deptit@ritrjpm.ac.in' ? 'sa_dept_it' : 'sa_01',
           auth_user_id: 'auth_super_admin',
-          name: 'Super Admin',
-          email: 'kirranvijay@gmail.com',
+          name: normalizedEmail === 'deptit@ritrjpm.ac.in' ? 'Dept of IT Super Admin' : 'Super Admin',
+          email: normalizedEmail === 'deptit@ritrjpm.ac.in' ? 'deptit@ritrjpm.ac.in' : 'kirranvijay@gmail.com',
           phone: '+91 9876543210',
           role: 'admin',
           status: 'active',
@@ -197,7 +201,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950/90 text-white pl-10 pr-4 py-3 rounded-xl border border-slate-800 text-xs font-mono transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-600"
-                  placeholder={selectedRole === 'super_admin' ? 'kirranvijay@gmail.com' : 'name@ritrjpm.ac.in'}
+                  placeholder={selectedRole === 'super_admin' ? 'deptit@ritrjpm.ac.in' : 'name@ritrjpm.ac.in'}
                   autoComplete="username"
                 />
               </div>

@@ -1,17 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Environment variables configured in apps/admin-web/.env or Vercel
+// Environment variables configured in apps/admin-web/.env or Vercel with fallback to live production project
 const supabaseUrl = 
   import.meta.env.VITE_SUPABASE_URL || 
   (import.meta.env as any).NEXT_PUBLIC_SUPABASE_URL || 
-  '';
+  'https://ztsmxehwjyriyihypppu.supabase.co';
 
 const supabaseAnonKey = 
   import.meta.env.VITE_SUPABASE_ANON_KEY || 
   (import.meta.env as any).VITE_SUPABASE_PUBLISHABLE_KEY ||
   (import.meta.env as any).NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   (import.meta.env as any).NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  '';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0c214ZWh3anlyaXlpaHlwcHB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MTA4NTMsImV4cCI6MjEwNTQ4Njg1M30.16sn2O8c1HGA6lJTD0TbWYG9lvnHFrhU6-fZXlbmwi4';
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('your-supabase-url'));
 

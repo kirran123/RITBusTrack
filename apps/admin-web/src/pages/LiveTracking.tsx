@@ -742,11 +742,19 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                 <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-emerald-400 font-black text-[10px]">🟢 START POINT:</span>
-                    <span className="text-white font-medium truncate max-w-[170px]">{selectedRoute?.start_location}</span>
+                    <span className="text-white font-medium truncate max-w-[170px]">
+                      {scheduleType === 'evening'
+                        ? (selectedRoute?.destination || 'Ramco Institute of Technology Campus')
+                        : (selectedRoute?.start_location || 'Start Point')}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between border-t border-slate-800/80 pt-1.5">
                     <span className="text-rose-400 font-black text-[10px]">🏁 END POINT:</span>
-                    <span className="text-white font-medium truncate max-w-[170px]">{selectedRoute?.destination}</span>
+                    <span className="text-white font-medium truncate max-w-[170px]">
+                      {scheduleType === 'evening'
+                        ? (selectedRoute?.start_location || 'Destination')
+                        : (selectedRoute?.destination || 'Ramco Institute of Technology Campus')}
+                    </span>
                   </div>
                 </div>
 

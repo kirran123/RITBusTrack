@@ -13,7 +13,8 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { locationTracker } from '../services/locationService';
 import { notificationService } from '../services/notificationService';
 
@@ -21,6 +22,7 @@ export type MobilePortalRole = 'driver' | 'student' | 'staff';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [role, setRole] = useState<MobilePortalRole>('student');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -29,16 +31,18 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Request permissions smoothly after UI mount
+  // Request permissions smoothly after UI mount (Location -> Notifications)
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
         await locationTracker.requestForegroundPermission().catch(() => false);
-        await notificationService.requestPermission().catch(() => false);
+        setTimeout(async () => {
+          await notificationService.requestPermission().catch(() => false);
+        }, 400);
       } catch (e) {
         console.log('Permission setup:', e);
       }
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, []);
@@ -207,20 +211,28 @@ export default function LoginScreen() {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: Math.max(insets.top + 16, 28),
+            paddingBottom: Math.max(insets.bottom + 24, 32),
+          },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Brand Header */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('../../assets/icon.png')}
-              style={styles.logoImage}
-              resizeMode="cover"
-            />
-          </View>
+        <View style={styles.contentWrapper}>
+          {/* Brand Header */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('../../assets/icon.png')}
+                style={styles.logoImage}
+                resizeMode="cover"
+              />
+            </View>
           <Text style={styles.collegeTitle}>RAMCO INSTITUTE OF TECHNOLOGY</Text>
           <Text style={styles.appTitle}>Bus Track</Text>
           <Text style={styles.appSubtitle}>Live Campus Transport & GPS Fleet Tracking</Text>
@@ -417,6 +429,7 @@ export default function LoginScreen() {
         <View style={styles.footer}>
           <Text style={styles.footerText}>Ramco Institute of Technology &bull; Transport Wing</Text>
         </View>
+      </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -429,9 +442,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 44,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  contentWrapper: {
+    width: '100%',
+    maxWidth: 480,
     alignItems: 'center',
   },
   header: {

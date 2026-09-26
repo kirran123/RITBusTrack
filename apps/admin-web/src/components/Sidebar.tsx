@@ -9,6 +9,7 @@ import {
   Briefcase,
   Route as RouteIcon, 
   History, 
+  Clock,
   AlertTriangle, 
   Bell, 
   BarChart3, 
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { label: 'Staff Management', path: '/staff', icon: Briefcase },
     { label: 'Routes & Stops', path: '/routes', icon: RouteIcon },
     { label: 'Trip History', path: '/trips', icon: History },
+    { label: 'Time History', path: '/time-history', icon: Clock },
   ];
 
   const safetyNav = [

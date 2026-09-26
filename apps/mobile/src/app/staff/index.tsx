@@ -12,6 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OSMMapView } from '../../components/OSMMapView';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
@@ -23,8 +24,17 @@ import {
   calculateDynamicETA,
   DynamicETA,
 } from '../../services/locationService';
-import { subscribeToTelemetry, subscribeToFleetSwap, subscribeToSOS, fetchLatestBusLocation, BusTelemetryPayload, FleetSwapNotice } from '../../services/supabase';
-import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert } from '@college-bus/shared';
+import { 
+  subscribeToTelemetry, 
+  subscribeToFleetSwap, 
+  subscribeToSOS, 
+  subscribeToSystemNotifications,
+  fetchSystemNotificationsFromDB,
+  fetchLatestBusLocation, 
+  BusTelemetryPayload, 
+  FleetSwapNotice 
+} from '../../services/supabase';
+import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification } from '@college-bus/shared';
 
 type StaffTab = 'track' | 'stops' | 'alerts' | 'profile';
 
@@ -48,6 +58,7 @@ export interface FacultyCommuter {
 
 export default function StaffMobileDashboard() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<StaffTab>('track');
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
@@ -60,6 +71,22 @@ export default function StaffMobileDashboard() {
   // Fleet Driver & Bus Swap Notification State
   const [activeSwapNotice, setActiveSwapNotice] = useState<FleetSwapNotice | null>(null);
   const [swapNoticesList, setSwapNoticesList] = useState<FleetSwapNotice[]>([]);
+
+  // System Broadcasts & Announcements from Admin / Transport Control
+  const [systemBroadcasts, setSystemBroadcasts] = useState<SystemNotification[]>(() => {
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('bustrack_notifications_v1');
+        if (stored) {
+          const list = JSON.parse(stored);
+          if (Array.isArray(list)) return list;
+        }
+      } catch {}
+    }
+    return [];
+  });
+  const [incomingToast, setIncomingToast] = useState<SystemNotification | null>(null);
+  const [incomingAlertModal, setIncomingAlertModal] = useState<SystemNotification | null>(null);
 
   // Commuter Faculty Profile & Realtime Leave State
   const [facultyProfile, setFacultyProfile] = useState<FacultyCommuter>({
@@ -190,7 +217,62 @@ export default function StaffMobileDashboard() {
       );
     });
 
-    // 4. Seconds counter for telemetry freshness and dynamic ETA recalibration
+    // 4. Subscribe to Live Admin Broadcast Announcements
+    const unsubSystemNotif = subscribeToSystemNotifications((notif: SystemNotification) => {
+      setSystemBroadcasts((prev) => {
+        if (prev.some((n) => n.id === notif.id)) return prev;
+        return [notif, ...prev];
+      });
+      setIncomingToast(notif);
+      setIncomingAlertModal(notif);
+      setTimeout(() => setIncomingToast(null), 8000);
+
+      // Deliver Push Notification to Notification Tray
+      notificationService.sendPushNotification(
+        `📢 ${notif.title}`,
+        notif.message,
+        notif.type || 'broadcast'
+      );
+    });
+
+    // 5. Initial fetch of active admin announcements from Supabase DB
+    fetchSystemNotificationsFromDB().then((notifs) => {
+      if (notifs && notifs.length > 0) {
+        setSystemBroadcasts((prev) => {
+          const ids = new Set(prev.map((n) => n.id));
+          const fresh = notifs.filter((n) => !ids.has(n.id));
+          return [...fresh, ...prev];
+        });
+      }
+    }).catch(() => {});
+
+    // 6. Polling sync for cross-client notifications
+    const notifPollTimer = setInterval(() => {
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('bustrack_notifications_v1');
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list) && list.length > 0) {
+              setSystemBroadcasts((prev) => {
+                const prevIds = new Set(prev.map((n) => n.id));
+                const newItems = list.filter((n: any) => !prevIds.has(n.id));
+                if (newItems.length > 0) {
+                  const newest = newItems[0];
+                  setIncomingAlertModal(newest);
+                  setIncomingToast(newest);
+                  notificationService.sendPushNotification(`📢 ${newest.title}`, newest.message, newest.type || 'broadcast');
+                  return [...newItems, ...prev];
+                }
+                return prev;
+              });
+            }
+          }
+        } catch {}
+      }
+    }, 2500);
+
+    // 7. Seconds counter for telemetry freshness and dynamic ETA recalibration
     const secTimer = setInterval(() => {
       setLastUpdatedSec((prev) => prev + 1);
     }, 1000);
@@ -199,7 +281,9 @@ export default function StaffMobileDashboard() {
       unsubscribe();
       unsubSwap();
       unsubSOS();
+      unsubSystemNotif();
       clearInterval(secTimer);
+      clearInterval(notifPollTimer);
       clearInterval(pollTimer);
     };
   }, []);
@@ -351,7 +435,7 @@ export default function StaffMobileDashboard() {
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* TOP STATUS HEADER */}
-      <View style={styles.topHeader}>
+      <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 14) }]}>
         <View style={styles.topHeaderLeft}>
           <View style={styles.topLogo}>
             <Text style={{ fontSize: 18 }}>👔</Text>
@@ -371,6 +455,55 @@ export default function StaffMobileDashboard() {
           </View>
         </View>
       </View>
+
+      {/* FLOATING LIVE BROADCAST TOAST */}
+      {incomingToast && (
+        <TouchableOpacity
+          style={[styles.incomingToastBanner, { top: Math.max(insets.top + 60, 70) }]}
+          onPress={() => {
+            setActiveTab('alerts');
+            setIncomingToast(null);
+          }}
+          activeOpacity={0.9}
+        >
+          <View style={styles.toastIconWrap}>
+            <Text style={{ fontSize: 16 }}>📢</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={styles.toastTitle} numberOfLines={1}>NEW BROADCAST: {incomingToast.title}</Text>
+              <Text style={styles.toastBadge}>LIVE</Text>
+            </View>
+            <Text style={styles.toastBody} numberOfLines={2}>{incomingToast.message}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* EXPLICIT IN-APP BROADCAST ALERT BOX MODAL */}
+      {incomingAlertModal && (
+        <Modal transparent animationType="fade" visible={!!incomingAlertModal} onRequestClose={() => setIncomingAlertModal(null)}>
+          <View style={styles.alertModalOverlay}>
+            <View style={styles.alertModalCard}>
+              <View style={styles.alertModalIconCircle}>
+                <Text style={{ fontSize: 26 }}>📢</Text>
+              </View>
+              <Text style={styles.alertModalBadge}>OFFICIAL TRANSPORT BROADCAST</Text>
+              <Text style={styles.alertModalTitle}>{incomingAlertModal.title}</Text>
+              <View style={styles.alertModalMessageWrap}>
+                <Text style={styles.alertModalMessage}>{incomingAlertModal.message}</Text>
+              </View>
+              <View style={styles.alertModalFooter}>
+                <TouchableOpacity
+                  style={styles.alertModalCloseBtn}
+                  onPress={() => setIncomingAlertModal(null)}
+                >
+                  <Text style={styles.alertModalCloseText}>✓ Acknowledge Alert</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
 
       {/* NOTIFICATION PERMISSION BANNER */}
       {!hasNotificationPermission && (
@@ -733,6 +866,47 @@ export default function StaffMobileDashboard() {
             </View>
 
             {/* Active Realtime Emergency SOS Broadcasts */}
+            {systemBroadcasts.length > 0 && (
+              <View style={{ marginBottom: 14 }}>
+                <Text style={styles.sectionHeading}>Campus Transport Broadcasts ({systemBroadcasts.length})</Text>
+                {systemBroadcasts.map((notif) => {
+                  const badge = notif.type === 'emergency'
+                    ? { bg: '#ef4444', text: '#ffffff', label: 'EMERGENCY', icon: '🚨' }
+                    : notif.type === 'delay'
+                    ? { bg: '#f59e0b', text: '#000000', label: 'DELAY NOTICE', icon: '⏳' }
+                    : notif.type === 'trip'
+                    ? { bg: '#10b981', text: '#ffffff', label: 'TRIP UPDATE', icon: '🚌' }
+                    : notif.type === 'maintenance'
+                    ? { bg: '#8b5cf6', text: '#ffffff', label: 'MAINTENANCE', icon: '🔧' }
+                    : { bg: '#3b82f6', text: '#ffffff', label: 'ANNOUNCEMENT', icon: '📢' };
+
+                  return (
+                    <View key={notif.id} style={[styles.emergencyNotifCard, { borderColor: badge.bg, backgroundColor: '#0f172a' }]}>
+                      <View style={styles.emergencyNotifHeader}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                          <Text style={{ fontSize: 16 }}>{badge.icon}</Text>
+                          <Text style={[styles.emergencyNotifTitle, { color: '#ffffff', flex: 1 }]} numberOfLines={1}>{notif.title}</Text>
+                        </View>
+                        <View style={{ backgroundColor: badge.bg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                          <Text style={{ color: badge.text, fontSize: 9, fontWeight: '900' }}>{badge.label}</Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.emergencyNotifBody, { color: '#cbd5e1' }]}>{notif.message}</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#1e293b' }}>
+                        <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '600' }}>
+                          Target: {(notif.target_type || 'all').toUpperCase()}
+                        </Text>
+                        <Text style={{ color: '#94a3b8', fontSize: 10 }}>
+                          {notif.created_at ? new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Active Realtime Emergency SOS Broadcasts */}
             {emergencyAlerts.length > 0 && (
               <View style={{ marginBottom: 14 }}>
                 <Text style={[styles.sectionHeading, { color: '#f87171' }]}>🚨 Active Critical Emergencies ({emergencyAlerts.length})</Text>
@@ -998,7 +1172,7 @@ export default function StaffMobileDashboard() {
       </View>
 
       {/* ================= BOTTOM COMMUTER NAVIGATION BAR ================= */}
-      <View style={styles.bottomTabBar}>
+      <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <TouchableOpacity
           style={[styles.tabBarItem, activeTab === 'track' && styles.tabBarItemActive]}
           onPress={() => setActiveTab('track')}
@@ -2315,6 +2489,140 @@ const styles = StyleSheet.create({
   notifCallEmergencyBtnText: {
     color: '#ffffff',
     fontSize: 11,
+    fontWeight: '900',
+  },
+  incomingToastBanner: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    zIndex: 9999,
+    backgroundColor: '#0f172a',
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: '#3b82f6',
+    shadowColor: '#000000',
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  toastIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#1e3a8a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toastTitle: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+    flex: 1,
+  },
+  toastBadge: {
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
+    fontSize: 8,
+    fontWeight: '900',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  toastBody: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  alertModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(3, 7, 18, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    zIndex: 99999,
+  },
+  alertModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#0f172a',
+    borderRadius: 24,
+    padding: 22,
+    borderWidth: 1.5,
+    borderColor: '#3b82f6',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  alertModalIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#1e3a8a',
+    borderWidth: 2,
+    borderColor: '#60a5fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  alertModalBadge: {
+    backgroundColor: '#1d4ed8',
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  alertModalTitle: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  alertModalMessageWrap: {
+    backgroundColor: '#090d16',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    width: '100%',
+    marginBottom: 16,
+  },
+  alertModalMessage: {
+    color: '#e2e8f0',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  alertModalFooter: {
+    width: '100%',
+  },
+  alertModalCloseBtn: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 13,
+    borderRadius: 14,
+    alignItems: 'center',
+    width: '100%',
+    shadowColor: '#2563eb',
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  alertModalCloseText: {
+    color: '#ffffff',
+    fontSize: 13,
     fontWeight: '900',
   },
 });
