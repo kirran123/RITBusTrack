@@ -394,7 +394,7 @@ export default function DriverDashboard() {
   };
 
   const handleStartTrip = async () => {
-    if (!useSimulation && !hasPermission) {
+    if (!hasPermission) {
       const granted = await locationTracker.requestForegroundPermission();
       if (!granted) {
         setShowPermModal(true);
@@ -414,12 +414,12 @@ export default function DriverDashboard() {
       busNumber: driverProfile.busNumber || 'BUS-01',
       driverName: driverProfile.name || 'Mr. B. Moorthi',
       shift,
-      useSimulation,
+      useSimulation: false,
       onLocationUpdate: (coord, distKm) => {
         setCurrentLoc(coord);
         setDistanceTravelledKm(distKm);
 
-        // Auto-advance stop checklist and passenger boarding when passing stops
+        // Auto-advance stop checklist and passenger boarding when physically reaching stops
         currentStops.slice(0, 5).forEach((stop, sIdx) => {
           const d = calculateDistanceKm(coord.latitude, coord.longitude, stop.latitude, stop.longitude);
           if (d <= 0.08 && sIdx > 0) {

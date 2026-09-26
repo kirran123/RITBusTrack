@@ -402,12 +402,11 @@ class LocationTracker {
       busNumber = 'BUS-01',
       driverName = 'Mr. B. Moorthi',
       shift = 'morning',
-      intervalMs = 2000, // 2-second dynamic telemetry refresh
+      useSimulation = false,
       onLocationUpdate,
       onError,
     } = config;
 
-    this.activeConfig = config;
     this.stopTracking();
     this.isTracking = true;
     this.activeConfig = config;
@@ -415,18 +414,58 @@ class LocationTracker {
     this.waypointIndex = 0;
     this.hasNativeMovement = false;
 
-    const activeWaypoints = shift === 'evening' ? ROUTE_1_EVENING_WAYPOINTS : ROUTE_1_MORNING_WAYPOINTS;
+    // 1. Get current real device position immediately
+    let initialCoord: GPSCoordinate | null = null;
+    try {
+      if (Platform.OS !== 'web') {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        }).catch(() => null);
 
-    // Initial starting coordinate
-    const startPoint = activeWaypoints[0];
-    const initialCoord: GPSCoordinate = {
-      latitude: startPoint.lat,
-      longitude: startPoint.lng,
-      speed: 0,
-      heading: startPoint.heading,
-      accuracy: 3.5,
-      timestamp: new Date().toISOString(),
-    };
+        if (loc) {
+          initialCoord = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            speed: loc.coords.speed ? Math.max(0, loc.coords.speed * 3.6) : 0,
+            heading: loc.coords.heading || 0,
+            accuracy: loc.coords.accuracy || 3.5,
+            timestamp: new Date(loc.timestamp).toISOString(),
+          };
+        }
+      } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        initialCoord = await new Promise<GPSCoordinate | null>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              resolve({
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                speed: pos.coords.speed ? Math.max(0, pos.coords.speed * 3.6) : 0,
+                heading: pos.coords.heading || 0,
+                accuracy: pos.coords.accuracy || 3.5,
+                timestamp: new Date(pos.timestamp).toISOString(),
+              });
+            },
+            () => resolve(null),
+            { enableHighAccuracy: true, timeout: 4000 }
+          );
+        });
+      }
+    } catch (e) {
+      console.warn('Initial GPS acquisition notice:', e);
+    }
+
+    if (!initialCoord) {
+      const activeWaypoints = shift === 'evening' ? ROUTE_1_EVENING_WAYPOINTS : ROUTE_1_MORNING_WAYPOINTS;
+      const startPoint = activeWaypoints[0];
+      initialCoord = {
+        latitude: startPoint.lat,
+        longitude: startPoint.lng,
+        speed: 0,
+        heading: startPoint.heading,
+        accuracy: 3.5,
+        timestamp: new Date().toISOString(),
+      };
+    }
 
     this.lastCoord = initialCoord;
     onLocationUpdate(initialCoord, this.totalDistanceKm);
@@ -442,21 +481,25 @@ class LocationTracker {
       status: 'active',
     });
 
-    // Attempt Real Device Hardware GPS Watcher
-    if (Platform.OS !== 'web') {
-      try {
-        Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.High,
-            timeInterval: 2000,
-            distanceInterval: 5,
-          },
-          (loc) => {
-            if (!this.isTracking) return;
-            const speedKmH = loc.coords.speed ? Math.max(0, loc.coords.speed * 3.6) : 0;
-            if (speedKmH > 2) {
-              this.hasNativeMovement = true;
+    // 2. Start Live Mobile Hardware GPS Tracking (Real-world movement)
+    if (!useSimulation) {
+      if (Platform.OS !== 'web') {
+        try {
+          const sub = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.BestForNavigation,
+              timeInterval: 1000,
+              distanceInterval: 1, // trigger when device moves 1+ meters
+            },
+            (loc) => {
+              if (!this.isTracking) return;
+
+              let speedKmH = loc.coords.speed !== null && loc.coords.speed !== undefined
+                ? Math.max(0, loc.coords.speed * 3.6)
+                : 0;
+
               let heading = loc.coords.heading || 0;
+
               if (this.lastCoord) {
                 const dist = calculateDistanceKm(
                   this.lastCoord.latitude,
@@ -464,7 +507,9 @@ class LocationTracker {
                   loc.coords.latitude,
                   loc.coords.longitude
                 );
-                if (dist > 0.003) {
+
+                // Add to distance traveled when device moves
+                if (dist >= 0.001) {
                   this.totalDistanceKm += dist;
                   heading = calculateBearing(
                     this.lastCoord.latitude,
@@ -478,42 +523,43 @@ class LocationTracker {
               const coord: GPSCoordinate = {
                 latitude: loc.coords.latitude,
                 longitude: loc.coords.longitude,
-                speed: speedKmH,
-                heading,
+                speed: Math.round(speedKmH),
+                heading: Math.round(heading),
                 accuracy: loc.coords.accuracy || 3.5,
                 timestamp: new Date(loc.timestamp).toISOString(),
               };
 
               this.lastCoord = coord;
               onLocationUpdate(coord, this.totalDistanceKm);
+
               broadcastBusTelemetry({
                 busId,
                 tripId,
                 coordinate: coord,
                 busNumber,
                 driverName,
-                distanceKm: this.totalDistanceKm,
+                distanceKm: parseFloat(this.totalDistanceKm.toFixed(2)),
                 status: 'active',
               });
             }
-          }
-        ).then((sub) => {
+          );
           this.subscription = sub;
-        }).catch((err) => {
-          console.log('Hardware GPS watch standby:', err);
-        });
-      } catch (e) {
-        console.log('Native GPS setup notice:', e);
-      }
-    } else if (typeof navigator !== 'undefined' && navigator.geolocation && 'watchPosition' in navigator.geolocation) {
-      try {
-        const watchId = navigator.geolocation.watchPosition(
-          (pos) => {
-            if (!this.isTracking) return;
-            const speedKmH = pos.coords.speed ? Math.max(0, pos.coords.speed * 3.6) : 0;
-            if (speedKmH > 2) {
-              this.hasNativeMovement = true;
+        } catch (err: any) {
+          console.error('Error starting hardware GPS watch:', err);
+          onError?.(err?.message || 'Failed to start mobile GPS sensor');
+        }
+      } else if (typeof navigator !== 'undefined' && navigator.geolocation && 'watchPosition' in navigator.geolocation) {
+        try {
+          const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+              if (!this.isTracking) return;
+
+              let speedKmH = pos.coords.speed !== null && pos.coords.speed !== undefined
+                ? Math.max(0, pos.coords.speed * 3.6)
+                : 0;
+
               let heading = pos.coords.heading || 0;
+
               if (this.lastCoord) {
                 const dist = calculateDistanceKm(
                   this.lastCoord.latitude,
@@ -521,7 +567,8 @@ class LocationTracker {
                   pos.coords.latitude,
                   pos.coords.longitude
                 );
-                if (dist > 0.003) {
+
+                if (dist >= 0.001) {
                   this.totalDistanceKm += dist;
                   heading = calculateBearing(
                     this.lastCoord.latitude,
@@ -535,92 +582,81 @@ class LocationTracker {
               const coord: GPSCoordinate = {
                 latitude: pos.coords.latitude,
                 longitude: pos.coords.longitude,
-                speed: speedKmH,
-                heading,
+                speed: Math.round(speedKmH),
+                heading: Math.round(heading),
                 accuracy: pos.coords.accuracy || 3.5,
                 timestamp: new Date(pos.timestamp).toISOString(),
               };
 
               this.lastCoord = coord;
               onLocationUpdate(coord, this.totalDistanceKm);
+
               broadcastBusTelemetry({
                 busId,
                 tripId,
                 coordinate: coord,
                 busNumber,
                 driverName,
-                distanceKm: this.totalDistanceKm,
+                distanceKm: parseFloat(this.totalDistanceKm.toFixed(2)),
                 status: 'active',
               });
-            }
-          },
-          (err) => console.log('Web GPS watch standby:', err),
-          { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
-        );
-        this.subscription = { remove: () => navigator.geolocation.clearWatch(watchId) } as any;
-      } catch (e) {
-        console.log('Web geolocation watch setup notice:', e);
+            },
+            (err) => console.log('Web GPS watch error:', err),
+            { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
+          );
+          this.subscription = { remove: () => navigator.geolocation.clearWatch(watchId) } as any;
+        } catch (e) {
+          console.log('Web geolocation watch setup notice:', e);
+        }
       }
+    } else {
+      // Manual Test Simulation Mode ONLY (explicitly requested)
+      const activeWaypoints = shift === 'evening' ? ROUTE_1_EVENING_WAYPOINTS : ROUTE_1_MORNING_WAYPOINTS;
+      this.dynamicEngineTimer = setInterval(() => {
+        if (!this.isTracking) return;
+
+        const prevIndex = this.waypointIndex;
+        if (this.waypointIndex < activeWaypoints.length - 1) {
+          this.waypointIndex += 1;
+        }
+
+        const prevPt = activeWaypoints[prevIndex];
+        const curPt = activeWaypoints[this.waypointIndex];
+
+        const deltaKm = calculateDistanceKm(prevPt.lat, prevPt.lng, curPt.lat, curPt.lng);
+        this.totalDistanceKm += deltaKm;
+
+        let dynamicSpeed = curPt.speed;
+        let bearing = curPt.heading;
+        if (this.waypointIndex < activeWaypoints.length - 1) {
+          const nextPt = activeWaypoints[this.waypointIndex + 1];
+          bearing = calculateBearing(curPt.lat, curPt.lng, nextPt.lat, nextPt.lng);
+        }
+
+        const dynamicCoord: GPSCoordinate = {
+          latitude: parseFloat(curPt.lat.toFixed(6)),
+          longitude: parseFloat(curPt.lng.toFixed(6)),
+          speed: dynamicSpeed,
+          heading: bearing,
+          accuracy: 3.5,
+          timestamp: new Date().toISOString(),
+        };
+
+        this.lastCoord = dynamicCoord;
+        onLocationUpdate(dynamicCoord, this.totalDistanceKm);
+
+        broadcastBusTelemetry({
+          busId,
+          tripId,
+          coordinate: dynamicCoord,
+          busNumber,
+          driverName,
+          distanceKm: parseFloat(this.totalDistanceKm.toFixed(2)),
+          currentStopIndex: curPt.stopIdx,
+          status: 'active',
+        });
+      }, 3000);
     }
-
-    // Dynamic Live Telemetry Engine (Updates every 2 seconds)
-    // Ensures real-time animated speedometer, odometer, heading, and GPS coordinates progression
-    this.dynamicEngineTimer = setInterval(() => {
-      if (!this.isTracking) return;
-
-      // If real hardware GPS on a moving bus is driving, avoid overriding
-      if (this.hasNativeMovement) return;
-
-      const prevIndex = this.waypointIndex;
-      // Advance to next waypoint if not reached the terminal
-      if (this.waypointIndex < activeWaypoints.length - 1) {
-        this.waypointIndex += 1;
-      }
-
-      const prevPt = activeWaypoints[prevIndex];
-      const curPt = activeWaypoints[this.waypointIndex];
-
-      // Calculate incremental distance travelled
-      const deltaKm = calculateDistanceKm(prevPt.lat, prevPt.lng, curPt.lat, curPt.lng);
-      this.totalDistanceKm += deltaKm;
-
-      // Add realistic speed micro-fluctuations (e.g. ±2 km/h around base speed)
-      let dynamicSpeed = curPt.speed;
-      if (dynamicSpeed > 0 && this.waypointIndex < activeWaypoints.length - 1) {
-        const jitter = (Math.random() * 4) - 2; // -2 to +2
-        dynamicSpeed = Math.max(15, Math.min(45, Math.round(curPt.speed + jitter)));
-      }
-
-      // Calculate accurate road bearing
-      let bearing = curPt.heading;
-      if (this.waypointIndex < activeWaypoints.length - 1) {
-        const nextPt = activeWaypoints[this.waypointIndex + 1];
-        bearing = calculateBearing(curPt.lat, curPt.lng, nextPt.lat, nextPt.lng);
-      }
-
-      const dynamicCoord: GPSCoordinate = {
-        latitude: parseFloat(curPt.lat.toFixed(6)),
-        longitude: parseFloat(curPt.lng.toFixed(6)),
-        speed: dynamicSpeed,
-        heading: bearing,
-        accuracy: parseFloat((3.2 + Math.random() * 0.8).toFixed(1)), // realistic ~3.2 - 4.0m
-        timestamp: new Date().toISOString(),
-      };
-
-      this.lastCoord = dynamicCoord;
-      onLocationUpdate(dynamicCoord, this.totalDistanceKm);
-
-      broadcastBusTelemetry({
-        busId,
-        tripId,
-        coordinate: dynamicCoord,
-        busNumber,
-        driverName,
-        distanceKm: this.totalDistanceKm,
-        currentStopIndex: curPt.stopIdx,
-        status: 'active',
-      });
-    }, 2000); // 2-second dynamic tick for smooth live updates
 
     return true;
   }
