@@ -1,30 +1,28 @@
-import React, { useEffect, Component, ReactNode } from 'react';
+import React, { Component, ReactNode, useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Platform, View, Text, TouchableOpacity, Dimensions, StatusBar as RNStatusBar } from 'react-native';
+import {
+  StyleSheet,
+  Platform,
+  View,
+  Text,
+  TouchableOpacity,
+  Dimensions,
+  StatusBar as RNStatusBar,
+} from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as SplashScreen from 'expo-splash-screen';
 
 import { authStorage } from '../services/authStorage';
+import { initSplash, hideSplash } from '../services/splashService';
 
-// Prevent the splash screen from auto-hiding until we're done loading
-if (Platform.OS !== 'web') {
-  try {
-    SplashScreen.preventAutoHideAsync().catch(() => {});
-  } catch {}
-}
+// Ensure splash is prevented from auto-hiding prematurely until UI renders
+initSplash();
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-interface ErrorBoundaryProps {
-  children: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error?: Error;
-}
+interface ErrorBoundaryProps { children: ReactNode; }
+interface ErrorBoundaryState { hasError: boolean; error?: Error; }
 
 class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
@@ -36,14 +34,13 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: any) {
+  componentDidCatch(error: Error, _errorInfo: any) {
     console.warn('[BusTrack] Caught error:', error?.message || String(error));
+    hideSplash();
   }
 
   handleReset = async () => {
-    try {
-      await authStorage.clearSession();
-    } catch {}
+    try { await authStorage.clearSession(); } catch {}
     this.setState({ hasError: false, error: undefined });
   };
 
@@ -92,27 +89,31 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 export default function RootLayout() {
+  // Global safety fallback: hide splash after 2.5 seconds if not already hidden
   useEffect(() => {
-    // Give the JS bundle 80ms to settle then safely hide the splash
     const timer = setTimeout(() => {
-      try {
-        SplashScreen.hideAsync().catch(() => {});
-      } catch {}
-    }, 80);
+      hideSplash();
+    }, 2500);
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
-        {Platform.OS === 'android' && <RNStatusBar backgroundColor="#090d16" barStyle="light-content" />}
+        <StatusBar style="light" backgroundColor="#090d16" translucent={false} />
+        {Platform.OS === 'android' && (
+          <RNStatusBar
+            backgroundColor="#090d16"
+            barStyle="light-content"
+            translucent={false}
+          />
+        )}
         <MobileErrorBoundary>
           <Stack
             screenOptions={{
               headerShown: false,
               contentStyle: { backgroundColor: '#090d16' },
-              animation: 'fade',
+              animation: 'none',
             }}
           />
         </MobileErrorBoundary>
@@ -122,78 +123,40 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#090d16',
-  },
+  container: { flex: 1, backgroundColor: '#090d16' },
   errorContainer: {
-    flex: 1,
-    backgroundColor: '#090d16',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 28,
+    flex: 1, backgroundColor: '#090d16',
+    justifyContent: 'center', alignItems: 'center', padding: 28,
   },
   errorIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: '#1e293b',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
+    width: 72, height: 72, borderRadius: 24,
+    backgroundColor: '#1e293b', justifyContent: 'center', alignItems: 'center',
+    marginBottom: 16, borderWidth: 1, borderColor: '#334155',
   },
-  errorIconText: {
-    fontSize: 32,
-  },
+  errorIconText: { fontSize: 32 },
   errorTitle: {
-    color: '#f8fafc',
-    fontSize: 19,
-    fontWeight: '800',
-    marginBottom: 8,
-    textAlign: 'center',
+    color: '#f8fafc', fontSize: 19, fontWeight: '800',
+    marginBottom: 8, textAlign: 'center',
   },
   errorSub: {
-    color: '#94a3b8',
-    fontSize: 13,
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 20,
+    color: '#94a3b8', fontSize: 13, textAlign: 'center',
+    marginBottom: 20, lineHeight: 20,
   },
   errorDetailBox: {
-    backgroundColor: 'rgba(239,68,68,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.25)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 20,
-    maxWidth: SCREEN_W - 56,
+    backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.25)', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 10,
+    marginBottom: 20, maxWidth: SCREEN_W - 56,
   },
   errorDetailText: {
-    color: '#f87171',
-    fontSize: 11,
-    textAlign: 'center',
+    color: '#f87171', fontSize: 11, textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
-  errorButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  errorButtonRow: { flexDirection: 'row', alignItems: 'center' },
   retryButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 24,
-    paddingVertical: 13,
-    borderRadius: 14,
-    marginHorizontal: 6,
+    backgroundColor: '#2563eb', paddingHorizontal: 24,
+    paddingVertical: 13, borderRadius: 14, marginHorizontal: 6,
   },
-  resetButton: {
-    backgroundColor: '#334155',
-  },
-  retryButtonText: {
-    color: '#ffffff',
-    fontWeight: '800',
-    fontSize: 14,
-  },
+  resetButton: { backgroundColor: '#334155' },
+  retryButtonText: { color: '#ffffff', fontWeight: '800', fontSize: 14 },
 });

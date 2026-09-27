@@ -49,6 +49,9 @@
         "ACCESS_NETWORK_STATE"
       ]
     },
+    "plugins": [
+      "expo-router"
+    ],
     "scheme": "college-bus-track",
     "web": {
       "bundler": "metro",

@@ -26,8 +26,8 @@ import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
 import { notificationService } from '../../services/notificationService';
-import { GPSCoordinate, INITIAL_STOPS, EmergencyType, EmergencyAlert, Stop, SystemNotification, timeHistoryStore } from '@college-bus/shared';
 import { authStorage } from '../../services/authStorage';
+import { hideSplash } from '../../services/splashService';
 
 type DriverTab = 'nav' | 'students' | 'cockpit' | 'sos' | 'profile';
 
@@ -148,10 +148,14 @@ export default function DriverDashboard() {
   const [isTripActive, setIsTripActive] = useState(false);
   const [useSimulation, setUseSimulation] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
-  const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
+  const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean | null>(null);
   const [showPermModal, setShowPermModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [driverBusNumber, setDriverBusNumber] = useState('BUS-01');
+
+  useEffect(() => {
+    hideSplash();
+  }, []);
 
   // System Broadcasts from Admin / Transport Control
   const [systemBroadcasts, setSystemBroadcasts] = useState<SystemNotification[]>(() => {
@@ -1025,10 +1029,10 @@ export default function DriverDashboard() {
         {/* ================= TAB 1: LIVE NAVIGATION MAP WITH CURSOR & STOPS ================= */}
         {activeTab === 'nav' && (
           <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 14 }}>
-            {/* Push Notification Permission Prompt Banner if not allowed */}
-            {!hasNotificationPermission && !dismissNotifBanner && (
+            {/* Push Notification Banner — only when definitively denied */}
+            {hasNotificationPermission === false && !dismissNotifBanner && (
               <NotificationPermissionBanner
-                isGranted={hasNotificationPermission}
+                isGranted={false}
                 onRequestPermission={handleRequestNotificationPermission}
                 onDismiss={() => setDismissNotifBanner(true)}
               />

@@ -3,22 +3,26 @@ import * as Notifications from 'expo-notifications';
 
 export type NotificationPermissionStatus = 'granted' | 'denied' | 'undetermined';
 
-// Configure foreground & background notification presentation on native
+// Defer notification handler setup to avoid crashing on module load.
+// On some Android devices (Samsung, Xiaomi, Oppo), calling setNotificationHandler
+// synchronously during module evaluation crashes the JS bridge before React mounts.
 if (Platform.OS !== 'web') {
-  try {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-        priority: Notifications.AndroidNotificationPriority.MAX,
-      } as any),
-    });
-  } catch (e) {
-    console.warn('Expo Notifications handler init:', e);
-  }
+  setTimeout(() => {
+    try {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+          priority: Notifications.AndroidNotificationPriority.MAX,
+        } as any),
+      });
+    } catch (e) {
+      console.warn('Expo Notifications handler init:', e);
+    }
+  }, 0);
 }
 
 class NotificationService {

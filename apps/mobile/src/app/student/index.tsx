@@ -37,8 +37,8 @@ import {
   TripUpdatePayload,
 } from '../../services/supabase';
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop } from '@college-bus/shared';
-import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { authStorage } from '../../services/authStorage';
+import { hideSplash } from '../../services/splashService';
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {
@@ -152,8 +152,8 @@ export default function StudentDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<StudentTab>('track');
-  const [hasLocationPermission, setHasLocationPermission] = useState(false);
-  const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
+  const [hasLocationPermission, setHasLocationPermission] = useState<boolean | null>(null);
+  const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean | null>(null);
   const [showPermModal, setShowPermModal] = useState(false);
   const [scheduleType, setScheduleType] = useState<'morning' | 'evening'>(() => {
     return new Date().getHours() >= 13 ? 'evening' : 'morning';
@@ -206,6 +206,8 @@ export default function StudentDashboard() {
         }
       } catch (e) {
         console.warn('Student session load error:', e);
+      } finally {
+        hideSplash();
       }
     };
     loadSavedStudent();
@@ -688,22 +690,22 @@ export default function StudentDashboard() {
         {/* ================= TAB 1: LIVE TRACK & PROXIMITY RADAR ================= */}
         {activeTab === 'track' && (
           <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 14 }}>
-            {/* Location Permission Prompt Banner if not allowed */}
-            {!hasLocationPermission && (
+            {/* Location Permission Banner — only when definitively denied (not while checking) */}
+            {hasLocationPermission === false && (
               <View style={{ marginBottom: 10 }}>
                 <LocationPermissionBanner
                   role="student"
-                  isGranted={hasLocationPermission}
+                  isGranted={false}
                   onRequestPermission={handleRequestPermission}
                   onOpenSettings={() => locationTracker.openSettings()}
                 />
               </View>
             )}
 
-            {/* Push Notification Permission Banner */}
-            {!hasNotificationPermission && (
+            {/* Push Notification Banner — only when definitively denied */}
+            {hasNotificationPermission === false && (
               <NotificationPermissionBanner
-                isGranted={hasNotificationPermission}
+                isGranted={false}
                 onRequestPermission={handleRequestNotificationPermission}
               />
             )}

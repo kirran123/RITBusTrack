@@ -36,8 +36,8 @@ import {
   FleetSwapNotice,
   TripUpdatePayload,
 } from '../../services/supabase';
-import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop } from '@college-bus/shared';
 import { authStorage } from '../../services/authStorage';
+import { hideSplash } from '../../services/splashService';
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {
@@ -169,13 +169,17 @@ export default function StaffMobileDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<StaffTab>('track');
-  const [hasLocationPermission, setHasLocationPermission] = useState(false);
-  const [hasNotificationPermission, setHasNotificationPermission] = useState(false);
+  const [hasLocationPermission, setHasLocationPermission] = useState<boolean | null>(null);
+  const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean | null>(null);
   const [showPermModal, setShowPermModal] = useState(false);
   const [scheduleType, setScheduleType] = useState<'morning' | 'evening'>(() => {
     return new Date().getHours() >= 13 ? 'evening' : 'morning';
   });
   const [completedStopIds, setCompletedStopIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    hideSplash();
+  }, []);
   // Emergency SOS State
   const [emergencyAlerts, setEmergencyAlerts] = useState<EmergencyAlert[]>([]);
 
@@ -755,19 +759,19 @@ export default function StaffMobileDashboard() {
         </Modal>
       )}
 
-      {/* NOTIFICATION PERMISSION BANNER */}
-      {!hasNotificationPermission && (
+      {/* NOTIFICATION PERMISSION BANNER — only when definitively denied */}
+      {hasNotificationPermission === false && (
         <NotificationPermissionBanner
-          isGranted={hasNotificationPermission}
+          isGranted={false}
           onRequestPermission={handleRequestNotificationPermission}
         />
       )}
 
-      {/* LOCATION PERMISSION BANNER */}
-      {!hasLocationPermission && (
+      {/* LOCATION PERMISSION BANNER — only when definitively denied */}
+      {hasLocationPermission === false && (
         <LocationPermissionBanner
           role="student"
-          isGranted={hasLocationPermission}
+          isGranted={false}
           onRequestPermission={handleRequestPermission}
           onOpenSettings={() => locationTracker.openSettings()}
         />

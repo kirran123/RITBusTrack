@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,17 +13,15 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { Stack, useRouter, useRootNavigationState } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { locationTracker } from '../services/locationService';
-import { notificationService } from '../services/notificationService';
 import { authStorage, MobilePortalRole } from '../services/authStorage';
+import { hideSplash } from '../services/splashService';
 
 export { MobilePortalRole };
 
 export default function LoginScreen() {
   const router = useRouter();
-  const rootNavState = useRootNavigationState();
   const insets = useSafeAreaInsets();
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [role, setRole] = useState<MobilePortalRole>('student');
@@ -34,59 +32,52 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Auto-restore logged-in session on app launch (persists across close / re-open)
+  const routerRef = useRef(router);
+  useEffect(() => { routerRef.current = router; });
+
+  // Session restore — runs ONCE on mount
   useEffect(() => {
     let isMounted = true;
-
-    // Safety fallback: Never allow screen to remain stuck on loader for more than 600ms
-    const safetyTimer = setTimeout(() => {
-      if (isMounted) setIsCheckingSession(false);
-    }, 600);
 
     const checkActiveSession = async () => {
       try {
         const session = await authStorage.getSession();
-        if (session && session.role && isMounted) {
-          clearTimeout(safetyTimer);
-          const targetPath = session.role === 'driver' ? '/driver' : session.role === 'student' ? '/student' : '/staff';
-          // Wait for navigation state to be ready
-          const doNavigate = () => {
-            if (!isMounted) return;
-            try {
-              router.replace(targetPath as any);
-            } catch {}
-          };
-          if (rootNavState?.key) {
-            doNavigate();
-          } else {
-            // Poll until navigation is ready, max 2 seconds
-            let attempts = 0;
-            const retryInterval = setInterval(() => {
-              attempts++;
-              if ((rootNavState?.key && isMounted) || attempts > 40) {
-                clearInterval(retryInterval);
-                if (attempts <= 40) doNavigate();
-              }
-            }, 50);
+        if (session?.role && isMounted) {
+          const targetPath =
+            session.role === 'driver'
+              ? '/driver'
+              : session.role === 'student'
+              ? '/student'
+              : '/staff';
+          try {
+            routerRef.current.replace(targetPath as any);
+            // Give the target screen 250ms to paint, then hide splash.
+            // The user sees: splash → portal screen (no black gap).
+            setTimeout(() => hideSplash(), 250);
+          } catch {
+            if (isMounted) setIsCheckingSession(false);
           }
           return;
         }
       } catch (e) {
-        console.warn('Session auto-restore notice:', e);
-      } finally {
-        if (isMounted) {
-          setIsCheckingSession(false);
-        }
+        console.warn('Session restore notice:', e);
       }
+      // No session — show login form
+      if (isMounted) setIsCheckingSession(false);
     };
 
     checkActiveSession();
+    return () => { isMounted = false; };
+  }, []);
 
-    return () => {
-      isMounted = false;
-      clearTimeout(safetyTimer);
-    };
-  }, [rootNavState?.key]);
+  // Hide splash the frame AFTER the login form becomes visible.
+  // requestAnimationFrame fires after React commits the layout to screen,
+  // guaranteeing the login UI is actually painted before the splash disappears.
+  useEffect(() => {
+    if (!isCheckingSession) {
+      requestAnimationFrame(() => hideSplash());
+    }
+  }, [isCheckingSession]);
 
   const showAlert = (title: string, message: string) => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.alert === 'function') {
@@ -128,9 +119,11 @@ export default function LoginScreen() {
     setIsSubmitting(true);
 
     try {
-      // Ensure GPS & notification access is prompted
-      await locationTracker.requestForegroundPermission();
-      await notificationService.requestPermission();
+      // Request permissions non-blocking — never let them crash or block login
+      Promise.all([
+        locationTracker.requestForegroundPermission().catch(() => {}),
+        notificationService.requestPermission().catch(() => {}),
+      ]).catch(() => {});
 
       let matchedUser: any = null;
 
@@ -295,7 +288,7 @@ export default function LoginScreen() {
           return;
         }
       } else if (role === 'staff') {
-        // 2. Built-in registered staff
+        // Built-in staff (matches admin web defaults + hardcoded from screenshots)
         const defaultStaff = [
           {
             id: 'fac_1',
@@ -305,13 +298,11 @@ export default function LoginScreen() {
             staffId: 'EMP-STAFF-01',
             department: 'Mechanical Engineering',
             designation: 'Associate Professor',
-            bus_number: 'BUS-01',
-            busNumber: 'BUS-01',
+            bus_number: 'BUS-01', busNumber: 'BUS-01',
             boarding_stop: 'Rajapalayam New Bus Stand (Stop 1)',
             boardingStopName: 'Rajapalayam New Bus Stand (Stop 1)',
             boardingStopId: 'stop_1',
-            isOnLeave: false,
-            password: 'staff123',
+            isOnLeave: false, password: 'staff123',
           },
           {
             id: 'fac_2',
@@ -321,13 +312,11 @@ export default function LoginScreen() {
             staffId: 'EMP-STAFF-02',
             department: 'Electronics & Comm.',
             designation: 'Assistant Professor',
-            bus_number: 'BUS-01',
-            busNumber: 'BUS-01',
+            bus_number: 'BUS-01', busNumber: 'BUS-01',
             boarding_stop: 'Gandhi Statue Junction (Stop 2)',
             boardingStopName: 'Gandhi Statue Junction (Stop 2)',
             boardingStopId: 'stop_2',
-            isOnLeave: false,
-            password: 'staff123',
+            isOnLeave: false, password: 'staff123',
           },
           {
             id: 'fac_3',
@@ -337,13 +326,11 @@ export default function LoginScreen() {
             staffId: 'EMP-STAFF-03',
             department: 'Computer Science',
             designation: 'Assistant Professor (SG)',
-            bus_number: 'BUS-01',
-            busNumber: 'BUS-01',
+            bus_number: 'BUS-01', busNumber: 'BUS-01',
             boarding_stop: 'PACR Mill Circle (Stop 3)',
             boardingStopName: 'PACR Mill Circle (Stop 3)',
             boardingStopId: 'stop_3',
-            isOnLeave: false,
-            password: 'staff123',
+            isOnLeave: false, password: 'staff123',
           },
           {
             id: 'fac_4',
@@ -353,13 +340,11 @@ export default function LoginScreen() {
             staffId: 'EMP-STAFF-04',
             department: 'Science & Humanities',
             designation: 'Professor',
-            bus_number: 'BUS-01',
-            busNumber: 'BUS-01',
+            bus_number: 'BUS-01', busNumber: 'BUS-01',
             boarding_stop: 'PACR Mill Circle (Stop 3)',
             boardingStopName: 'PACR Mill Circle (Stop 3)',
             boardingStopId: 'stop_3',
-            isOnLeave: false,
-            password: 'staff123',
+            isOnLeave: false, password: 'staff123',
           },
           {
             id: 'fac_5',
@@ -369,24 +354,80 @@ export default function LoginScreen() {
             staffId: 'EMP-STAFF-05',
             department: 'Faculty Commuter Wing',
             designation: 'Staff Member',
-            bus_number: 'BUS-01',
-            busNumber: 'BUS-01',
+            bus_number: 'BUS-01', busNumber: 'BUS-01',
             boarding_stop: 'PACR Mill Circle (Stop 3)',
             boardingStopName: 'PACR Mill Circle (Stop 3)',
             boardingStopId: 'stop_3',
-            isOnLeave: false,
-            password: 'staff123',
+            isOnLeave: false, password: 'staff123',
+          },
+          // Admin web accounts (from Faculty & Staff Commuters panel)
+          {
+            id: 'fac_6',
+            name: 'Dr. S. Ganesh',
+            email: 'ganesh.staff@ritrjpm.ac.in',
+            employee_id: 'EMP-FAC-01',
+            staffId: 'EMP-FAC-01',
+            department: 'Computer Science & Engg',
+            designation: 'Professor & Head of Dept',
+            bus_number: 'BUS-01', busNumber: 'BUS-01',
+            boarding_stop: 'Old Bus Stand, RJPM',
+            boardingStopName: 'Old Bus Stand, RJPM',
+            boardingStopId: 'stop_1',
+            isOnLeave: false, password: 'staff123',
+          },
+          {
+            id: 'fac_7',
+            name: 'Prof. P. Deepa',
+            email: 'deepa.staff@ritrjpm.ac.in',
+            employee_id: 'EMP-FAC-02',
+            staffId: 'EMP-FAC-02',
+            department: 'Information Technology',
+            designation: 'Associate Professor',
+            bus_number: 'BUS-01', busNumber: 'BUS-01',
+            boarding_stop: 'Tenkasi Road Junction',
+            boardingStopName: 'Tenkasi Road Junction',
+            boardingStopId: 'stop_2',
+            isOnLeave: false, password: 'staff123',
+          },
+          {
+            id: 'fac_8',
+            name: 'Dr. K. Vijayalakshmi',
+            email: 'vijaya.staff@ritrjpm.ac.in',
+            employee_id: 'EMP-FAC-03',
+            staffId: 'EMP-FAC-03',
+            department: 'Electronics & Comm Engg',
+            designation: 'Assistant Professor (Sr. Gr)',
+            bus_number: 'BUS-07', busNumber: 'BUS-07',
+            boarding_stop: 'New Bus Stand - RJPM',
+            boardingStopName: 'New Bus Stand - RJPM',
+            boardingStopId: 'stop_1',
+            isOnLeave: false, password: 'staff123',
+          },
+          {
+            id: 'fac_9',
+            name: 'Mr. M. Selvam',
+            email: 'selvam.staff@ritrjpm.ac.in',
+            employee_id: 'EMP-FAC-04',
+            staffId: 'EMP-FAC-04',
+            department: 'Mechanical Engineering',
+            designation: 'Lab Instructor & Route Coordinator',
+            bus_number: 'BUS-17', busNumber: 'BUS-17',
+            boarding_stop: 'Bus Stand - SRIVI',
+            boardingStopName: 'Bus Stand - SRIVI',
+            boardingStopId: 'stop_5',
+            isOnLeave: false, password: 'staff123',
           },
         ];
 
         let allStaff = [...defaultStaff];
 
-        // Combine with Admin Web created staff
+        // Combine with Admin Web created staff commuters
         const storedStaffRaw = await authStorage.getItem('bustrack_staff_commuters_v1');
         if (storedStaffRaw) {
           try {
             const list = JSON.parse(storedStaffRaw);
             if (Array.isArray(list)) {
+              // Admin-created staff goes FIRST so it overrides defaults
               allStaff = [...list, ...allStaff];
             }
           } catch {}
@@ -394,15 +435,26 @@ export default function LoginScreen() {
 
         const inputEmail = email.trim().toLowerCase();
         matchedUser = allStaff.find((s: any) => {
-          const sEmail = (s.email || s.profile?.email || '').toLowerCase();
-          const sEmp = (s.employee_id || s.staffId || '').toLowerCase();
+          // Support all data shapes from admin web:
+          // profile.email (nested), email (direct), employee_id, staffId
+          const sEmail = (
+            s.profile?.email ||
+            s.email ||
+            ''
+          ).toLowerCase();
+          const sEmp = (
+            s.employee_id ||
+            s.staffId ||
+            s.empId ||
+            ''
+          ).toLowerCase();
           return sEmail === inputEmail || sEmp === inputEmail;
         });
 
         if (!matchedUser) {
           showAlert(
             'Invalid Credentials',
-            'No registered staff / faculty account found with this email. Please check your credentials or contact the Transport Office.'
+            'No registered staff / faculty account found with this email or employee ID. Please check your credentials or contact the Transport Office.'
           );
           setIsSubmitting(false);
           return;
@@ -508,14 +560,9 @@ export default function LoginScreen() {
       // Persist session across app close and reboots
       await authStorage.saveSession(role, matchedUser);
 
-      // Navigate to portal
-      if (role === 'driver') {
-        router.replace('/driver');
-      } else if (role === 'student') {
-        router.replace('/student');
-      } else {
-        router.replace('/staff');
-      }
+      // Navigate to portal — use routerRef to always get the latest instance
+      const targetPath = role === 'driver' ? '/driver' : role === 'student' ? '/student' : '/staff';
+      routerRef.current.replace(targetPath as any);
     } catch (err) {
       console.error('Login error:', err);
       showAlert('Error', 'An unexpected error occurred during sign-in.');
@@ -526,7 +573,9 @@ export default function LoginScreen() {
 
   if (isCheckingSession) {
     return (
-      <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
+      <View
+        style={[styles.screen, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}
+      >
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.logoContainer}>
           <Image
