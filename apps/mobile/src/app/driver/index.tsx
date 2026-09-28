@@ -28,6 +28,7 @@ import { NotificationPermissionBanner } from '../../components/NotificationPermi
 import { notificationService } from '../../services/notificationService';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
+import { Stop, SystemNotification, GPSCoordinate, timeHistoryStore, EmergencyType, EmergencyAlert } from '@college-bus/shared';
 
 type DriverTab = 'nav' | 'students' | 'cockpit' | 'sos' | 'profile';
 

@@ -38,6 +38,7 @@ import {
 } from '../../services/supabase';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
+import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop } from '@college-bus/shared';
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {

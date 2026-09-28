@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create Enum Types
-CREATE TYPE user_role AS ENUM ('student', 'driver', 'admin');
+CREATE TYPE user_role AS ENUM ('student', 'driver', 'staff', 'admin');
 CREATE TYPE bus_status AS ENUM ('active', 'inactive', 'maintenance');
 CREATE TYPE trip_status AS ENUM ('scheduled', 'active', 'completed', 'cancelled');
 CREATE TYPE emergency_status AS ENUM ('ACTIVE', 'ACKNOWLEDGED', 'RESOLVED');
@@ -271,3 +271,65 @@ CREATE POLICY "Admins can update emergency alerts" ON public.emergency_alerts FO
 -- RLS POLICIES FOR NOTIFICATIONS
 CREATE POLICY "Anyone can view notifications" ON public.notifications FOR SELECT USING (true);
 CREATE POLICY "Admin can create notifications" ON public.notifications FOR ALL USING (public.get_auth_user_role() = 'admin');
+
+-- ============================================================================
+-- AUTH SYNC TRIGGERS
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  assigned_role user_role := 'student';
+  raw_role text;
+  display_name text;
+BEGIN
+  raw_role := LOWER(COALESCE(NEW.raw_user_meta_data->>'role', 'student'));
+  IF raw_role IN ('admin', 'super_admin') THEN
+    assigned_role := 'admin';
+  ELSIF raw_role IN ('driver') THEN
+    assigned_role := 'driver';
+  ELSIF raw_role IN ('staff', 'faculty') THEN
+    assigned_role := 'staff';
+  ELSE
+    assigned_role := 'student';
+  END IF;
+
+  display_name := COALESCE(
+    NEW.raw_user_meta_data->>'name',
+    NEW.raw_user_meta_data->>'full_name',
+    split_part(NEW.email, '@', 1)
+  );
+
+  INSERT INTO public.profiles (
+    id, auth_user_id, name, email, phone, role, status, created_at, updated_at
+  )
+  VALUES (
+    NEW.id,
+    NEW.id,
+    display_name,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'phone', NEW.phone, ''),
+    assigned_role,
+    'active',
+    NOW(),
+    NOW()
+  )
+  ON CONFLICT (email) DO UPDATE SET
+    auth_user_id = EXCLUDED.auth_user_id,
+    name = COALESCE(NULLIF(EXCLUDED.name, ''), public.profiles.name),
+    phone = COALESCE(NULLIF(EXCLUDED.phone, ''), public.profiles.phone),
+    role = CASE 
+      WHEN public.profiles.role = 'admin' THEN public.profiles.role 
+      ELSE EXCLUDED.role 
+    END,
+    status = 'active',
+    updated_at = NOW();
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+

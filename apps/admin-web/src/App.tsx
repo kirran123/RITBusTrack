@@ -367,8 +367,34 @@ export const App: React.FC = () => {
             return [payload, ...prev];
           });
         })
+        .on('broadcast', { event: 'request_user_registry' }, () => {
+          channel.send({
+            type: 'broadcast',
+            event: 'sync_user_registry',
+            payload: {
+              drivers,
+              students,
+              staffCommuters,
+              staffList,
+              timestamp: Date.now()
+            }
+          }).catch(() => {});
+        })
         .subscribe((status) => {
           console.log('📡 Supabase Live GPS Channel Status:', status);
+          if (status === 'SUBSCRIBED') {
+            channel.send({
+              type: 'broadcast',
+              event: 'sync_user_registry',
+              payload: {
+                drivers,
+                students,
+                staffCommuters,
+                staffList,
+                timestamp: Date.now()
+              }
+            }).catch(() => {});
+          }
         });
 
       return () => {
@@ -380,6 +406,25 @@ export const App: React.FC = () => {
       console.warn('Realtime subscription error:', err);
     }
   }, []);
+
+  // Broadcast user changes across Realtime channel so Mobile App automatically gets updated
+  useEffect(() => {
+    if (!supabase) return;
+    try {
+      const channel = supabase.channel('bus_tracking_live');
+      channel.send({
+        type: 'broadcast',
+        event: 'sync_user_registry',
+        payload: {
+          drivers,
+          students,
+          staffCommuters,
+          staffList,
+          timestamp: Date.now()
+        }
+      }).catch(() => {});
+    } catch {}
+  }, [drivers, students, staffCommuters, staffList]);
 
   // Live Simulation Timer for Demo Mode (Pauses when live mobile app driver is actively transmitting!)
   useEffect(() => {

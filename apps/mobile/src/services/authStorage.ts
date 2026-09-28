@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-export type UserRole = 'driver' | 'student' | 'staff';
+export type UserRole = 'driver' | 'student' | 'staff' | 'admin';
 export type MobilePortalRole = UserRole;
 
 export interface UserSession {
@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   STUDENT_PROFILE: 'bustrack_current_mobile_student',
   STAFF_PROFILE: 'bustrack_current_mobile_staff',
   DRIVER_PROFILE: 'bustrack_current_mobile_driver',
+  ADMIN_PROFILE: 'bustrack_current_mobile_admin',
   NOTIFICATIONS: 'bustrack_notifications_v1',
 };
 
@@ -37,8 +38,9 @@ class AuthStorageService {
       // Also persist role-specific profile key
       if (role === 'student') {
         await AsyncStorage.setItem(STORAGE_KEYS.STUDENT_PROFILE, JSON.stringify(user));
-      } else if (role === 'staff') {
+      } else if (role === 'staff' || role === 'admin') {
         await AsyncStorage.setItem(STORAGE_KEYS.STAFF_PROFILE, JSON.stringify(user));
+        await AsyncStorage.setItem(STORAGE_KEYS.ADMIN_PROFILE, JSON.stringify(user));
       } else if (role === 'driver') {
         await AsyncStorage.setItem(STORAGE_KEYS.DRIVER_PROFILE, JSON.stringify(user));
       }
@@ -48,8 +50,9 @@ class AuthStorageService {
         localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, jsonStr);
         if (role === 'student') {
           localStorage.setItem(STORAGE_KEYS.STUDENT_PROFILE, JSON.stringify(user));
-        } else if (role === 'staff') {
+        } else if (role === 'staff' || role === 'admin') {
           localStorage.setItem(STORAGE_KEYS.STAFF_PROFILE, JSON.stringify(user));
+          localStorage.setItem(STORAGE_KEYS.ADMIN_PROFILE, JSON.stringify(user));
         } else if (role === 'driver') {
           localStorage.setItem(STORAGE_KEYS.DRIVER_PROFILE, JSON.stringify(user));
         }
@@ -94,12 +97,14 @@ class AuthStorageService {
       await AsyncStorage.removeItem(STORAGE_KEYS.STUDENT_PROFILE);
       await AsyncStorage.removeItem(STORAGE_KEYS.STAFF_PROFILE);
       await AsyncStorage.removeItem(STORAGE_KEYS.DRIVER_PROFILE);
+      await AsyncStorage.removeItem(STORAGE_KEYS.ADMIN_PROFILE);
 
       if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
         localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
         localStorage.removeItem(STORAGE_KEYS.STUDENT_PROFILE);
         localStorage.removeItem(STORAGE_KEYS.STAFF_PROFILE);
         localStorage.removeItem(STORAGE_KEYS.DRIVER_PROFILE);
+        localStorage.removeItem(STORAGE_KEYS.ADMIN_PROFILE);
       }
     } catch (error) {
       console.warn('AuthStorageService clearSession error:', error);

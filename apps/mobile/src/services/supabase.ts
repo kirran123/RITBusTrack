@@ -196,10 +196,32 @@ export function initRealtimeChannel() {
           }
         }
       })
+      .on('broadcast', { event: 'sync_user_registry' }, async ({ payload }: any) => {
+        if (!payload) return;
+        try {
+          if (Array.isArray(payload.drivers) && payload.drivers.length > 0) {
+            await authStorage.setItem('bustrack_drivers_v1', JSON.stringify(payload.drivers));
+          }
+          if (Array.isArray(payload.students) && payload.students.length > 0) {
+            await authStorage.setItem('bustrack_students_v1', JSON.stringify(payload.students));
+          }
+          if (Array.isArray(payload.staffCommuters) && payload.staffCommuters.length > 0) {
+            await authStorage.setItem('bustrack_staff_commuters_v1', JSON.stringify(payload.staffCommuters));
+          }
+          if (Array.isArray(payload.staffList) && payload.staffList.length > 0) {
+            await authStorage.setItem('bustrack_staff_v1', JSON.stringify(payload.staffList));
+          }
+          console.log('✅ Synchronized updated user accounts from Admin Control');
+        } catch (syncErr) {
+          console.warn('Sync registry notice:', syncErr);
+        }
+      })
       .subscribe((status: string) => {
         isSubscribing = false;
         if (status === 'SUBSCRIBED') {
           console.log('✅ Realtime Telemetry Channel: CONNECTED (Live GPS & Broadcasts active)');
+          // Request fresh registry from online admin web
+          requestUserRegistrySync().catch(() => {});
         }
       });
 
@@ -618,6 +640,36 @@ export async function fetchSystemNotificationsFromDB(): Promise<SystemNotificati
   }
 }
 
+/**
+ * Request real-time user registry sync from active Admin Web clients
+ */
+export async function requestUserRegistrySync() {
+  if (telemetryChannel) {
+    try {
+      await telemetryChannel.send({
+        type: 'broadcast',
+        event: 'request_user_registry',
+        payload: { timestamp: Date.now() },
+      });
+    } catch {}
+  }
+}
+
+/**
+ * Fetch registered user profiles from Supabase database
+ */
+export async function fetchLiveProfilesFromDB(): Promise<any[] | null> {
+  if (!isLiveBackendConfigured) return null;
+  try {
+    const { data, error } = await supabase.from('profiles').select('*');
+    if (error || !data || data.length === 0) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 // Auto-initialize realtime channel on load
 initRealtimeChannel();
+
 

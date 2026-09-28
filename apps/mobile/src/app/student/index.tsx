@@ -39,6 +39,7 @@ import {
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop } from '@college-bus/shared';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
+import { studentRosterStore, BusStudent } from '../../services/studentStore';
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {

@@ -100,7 +100,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <StatusBar style="light" backgroundColor="#090d16" translucent={false} />
+        <StatusBar style="light" />
         {Platform.OS === 'android' && (
           <RNStatusBar
             backgroundColor="#090d16"
