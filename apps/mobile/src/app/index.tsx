@@ -33,7 +33,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [role, setRole] = useState<MobilePortalRole>('student');
+  const [role, setRole] = useState<'student' | 'staff' | 'driver'>('student');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -96,7 +96,7 @@ export default function LoginScreen() {
     }
   };
 
-  const handleRoleChange = (selectedRole: MobilePortalRole) => {
+  const handleRoleChange = (selectedRole: 'student' | 'staff' | 'driver') => {
     setRole(selectedRole);
     setPhone('');
     setEmail('');
@@ -113,9 +113,9 @@ export default function LoginScreen() {
         'Missing Identifier',
         role === 'driver'
           ? 'Please enter your registered mobile number or driver ID.'
-          : role === 'admin'
-            ? 'Please enter your administrator email or username.'
-            : 'Please enter your registered institutional email or roll number.'
+          : role === 'student'
+            ? 'Please enter your registered student email or roll number.'
+            : 'Please enter your registered staff institutional email.'
       );
       return;
     }
@@ -152,8 +152,8 @@ export default function LoginScreen() {
         trimmedPass === 'staff123' ||
         trimmedPass === 'password';
 
-      if (isSuperAdminEmail || role === 'admin') {
-        if (isSuperAdminEmail && isSuperAdminPass) {
+      if (isSuperAdminEmail) {
+        if (isSuperAdminPass) {
           const adminUser = {
             id: normalizedIdentifier === 'deptit@ritrjpm.ac.in' ? 'sa_dept_it' : 'sa_01',
             name: normalizedIdentifier === 'deptit@ritrjpm.ac.in' ? 'Dept of IT Super Admin' : 'Kirran S T (Super Admin)',
@@ -168,8 +168,8 @@ export default function LoginScreen() {
           routerRef.current.replace('/staff' as any);
           setIsSubmitting(false);
           return;
-        } else if (isSuperAdminEmail && !isSuperAdminPass) {
-          showAlert('Authentication Failed', 'Incorrect password for Super Admin. (Default: admin123 or Kirranst@14)');
+        } else if (!isSuperAdminPass) {
+          showAlert('Authentication Failed', 'Incorrect password for administrator.');
           setIsSubmitting(false);
           return;
         }
@@ -365,7 +365,7 @@ export default function LoginScreen() {
           return;
         }
 
-        const effectiveRole = resolvedRole === 'admin' ? 'staff' : resolvedRole;
+        const effectiveRole = resolvedRole;
         await authStorage.saveSession(effectiveRole, matchedUser);
         const target = effectiveRole === 'driver' ? '/driver' : effectiveRole === 'student' ? '/student' : '/staff';
         routerRef.current.replace(target as any);
@@ -401,7 +401,7 @@ export default function LoginScreen() {
 
       showAlert(
         'Invalid Credentials',
-        'Account not found. For testing, you can use:\n• Super Admin: admin or deptit@ritrjpm.ac.in / admin123\n• Driver: 9894668646 / driver123\n• Student: 21IT045 or kavitha.cse@ritrjpm.ac.in / student123\n• Staff: staff@ritrjpm.ac.in / staff123'
+        'Account not found. Please verify your credentials or contact the Transport Office coordinator.'
       );
       setIsSubmitting(false);
     } catch (err) {
@@ -487,16 +487,6 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.segmentBtn, role === 'admin' && styles.segmentBtnActiveAdmin]}
-              onPress={() => handleRoleChange('admin')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.segmentText, role === 'admin' && styles.segmentTextActive]}>
-                Admin
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={[styles.segmentBtn, role === 'driver' && styles.segmentBtnActiveDriver]}
               onPress={() => handleRoleChange('driver')}
               activeOpacity={0.8}
@@ -514,9 +504,7 @@ export default function LoginScreen() {
                 ? 'Driver Sign In'
                 : role === 'student'
                   ? 'Student Sign In'
-                  : role === 'admin'
-                    ? 'Admin Transit Command'
-                    : 'Staff / Faculty Sign In'}
+                  : 'Staff / Faculty Sign In'}
             </Text>
 
             {role === 'driver' ? (
@@ -541,13 +529,11 @@ export default function LoginScreen() {
                 <Text style={styles.fieldLabel}>
                   {role === 'student'
                     ? 'Institutional Email or Roll Number'
-                    : role === 'admin'
-                      ? 'Admin Email or Username'
-                      : 'Staff Institutional Email'}
+                    : 'Staff Institutional Email'}
                 </Text>
                 <View style={styles.inputContainer}>
                   <Text style={styles.fieldIcon}>
-                    {role === 'student' ? '🎓' : role === 'admin' ? '🛡️' : '✉️'}
+                    {role === 'student' ? '🎓' : '✉️'}
                   </Text>
                   <TextInput
                     style={styles.input}
@@ -555,10 +541,8 @@ export default function LoginScreen() {
                     onChangeText={setEmail}
                     placeholder={
                       role === 'student'
-                        ? 'e.g. 21IT045 or kavitha.cse@ritrjpm.ac.in'
-                        : role === 'admin'
-                          ? 'e.g. admin or deptit@ritrjpm.ac.in'
-                          : 'e.g. staff@ritrjpm.ac.in'
+                        ? 'student@ritrjpm.ac.in'
+                        : 'e.g. staff@ritrjpm.ac.in'
                     }
                     placeholderTextColor="#64748b"
                     keyboardType="email-address"
@@ -622,9 +606,7 @@ export default function LoginScreen() {
                   ? styles.signInButtonDriver
                   : role === 'staff'
                     ? styles.signInButtonStaff
-                    : role === 'admin'
-                      ? styles.signInButtonAdmin
-                      : styles.signInButtonStudent,
+                    : styles.signInButtonStudent,
                 isSubmitting && { opacity: 0.7 },
               ]}
               onPress={handleLogin}
@@ -634,25 +616,9 @@ export default function LoginScreen() {
               {isSubmitting ? (
                 <ActivityIndicator color="#ffffff" size="small" />
               ) : (
-                <Text style={styles.signInButtonText}>
-                  {role === 'admin' ? 'Sign In as Admin' : 'Sign In'}
-                </Text>
+                <Text style={styles.signInButtonText}>Sign In</Text>
               )}
             </TouchableOpacity>
-
-            {/* Quick Demo Credentials Assistant */}
-            <View style={styles.demoCredentialsBox}>
-              <Text style={styles.demoTitle}>💡 Quick Sign-in Credentials</Text>
-              <Text style={styles.demoItem}>
-                {role === 'admin'
-                  ? '• Super Admin: admin or deptit@ritrjpm.ac.in (pass: admin123)'
-                  : role === 'driver'
-                    ? '• Driver 1 (BUS-01): 9894668646 (pass: driver123)'
-                    : role === 'staff'
-                      ? '• Staff: staff@ritrjpm.ac.in (pass: staff123)'
-                      : '• Student: 21IT045 or kavitha.cse@ritrjpm.ac.in (pass: student123)'}
-              </Text>
-            </View>
           </View>
 
           {/* Transport Help Hotline */}
@@ -788,13 +754,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  segmentBtnActiveAdmin: {
-    backgroundColor: '#7c3aed',
-    shadowColor: '#7c3aed',
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 4,
-  },
   segmentBtnActiveDriver: {
     backgroundColor: '#059669',
     shadowColor: '#059669',
@@ -923,9 +882,6 @@ const styles = StyleSheet.create({
   signInButtonStaff: {
     backgroundColor: '#d97706',
   },
-  signInButtonAdmin: {
-    backgroundColor: '#7c3aed',
-  },
   signInButtonDriver: {
     backgroundColor: '#059669',
   },
@@ -934,27 +890,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.3,
-  },
-  demoCredentialsBox: {
-    marginTop: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(30, 41, 59, 0.5)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  demoTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#94a3b8',
-    marginBottom: 4,
-  },
-  demoItem: {
-    fontSize: 11,
-    color: '#38bdf8',
-    fontWeight: '600',
-    lineHeight: 16,
   },
   supportCard: {
     width: '100%',
