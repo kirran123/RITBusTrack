@@ -1027,14 +1027,17 @@ export const Routes: React.FC<RoutesProps> = ({
                                 <span className="text-slate-600">&bull;</span>
                                 <span>Lng: <strong className="text-slate-200">{stop.longitude.toFixed(4)}</strong></span>
                                 <span className="text-slate-600">&bull;</span>
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold">
-                                  <span>🌅 Morning:</span>
-                                  <span>{stop.morning_time || stop.estimated_arrival || '07:45 AM'}</span>
-                                </span>
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold">
-                                  <span>🌆 Evening:</span>
-                                  <span>{stop.evening_time || '04:45 PM'}</span>
-                                </span>
+                                {activeShiftView === 'morning' ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-extrabold text-xs shadow-sm">
+                                    <span>🌅 Morning Time:</span>
+                                    <span>{stop.morning_time || stop.estimated_arrival || '08:20 AM'}</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 font-extrabold text-xs shadow-sm">
+                                    <span>🌆 Evening Time:</span>
+                                    <span>{stop.evening_time || '04:45 PM'}</span>
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>

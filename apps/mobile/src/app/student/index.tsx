@@ -44,106 +44,102 @@ import { studentRosterStore, BusStudent } from '../../services/studentStore';
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {
-    id: 'stop_1',
+    id: 'st1_1',
     route_id: 'r1',
-    stop_name: 'Rajapalayam New Bus Stand',
-    latitude: 9.4475,
-    longitude: 77.5450,
+    stop_name: 'Old Bus Stand, RJPM',
+    latitude: 9.4485,
+    longitude: 77.5505,
     stop_order: 1,
-    estimated_arrival: '07:45 AM',
+    estimated_arrival: '08:20 AM',
+    morning_time: '08:20 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_2',
+    id: 'st1_2',
     route_id: 'r1',
-    stop_name: 'Gandhi Statue Junction',
-    latitude: 9.4490,
-    longitude: 77.5472,
+    stop_name: 'Tenkasi Road Junction',
+    latitude: 9.4498,
+    longitude: 77.5518,
     stop_order: 2,
-    estimated_arrival: '07:52 AM',
+    estimated_arrival: '08:28 AM',
+    morning_time: '08:28 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_3',
+    id: 'st1_3',
     route_id: 'r1',
     stop_name: 'PACR Mill Circle',
     latitude: 9.4505,
-    longitude: 77.5495,
+    longitude: 77.5525,
     stop_order: 3,
-    estimated_arrival: '08:00 AM',
+    estimated_arrival: '08:35 AM',
+    morning_time: '08:35 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_4',
+    id: 'st1_4',
     route_id: 'r1',
-    stop_name: 'Samsigapuram Road Turn',
-    latitude: 9.4512,
-    longitude: 77.5510,
-    stop_order: 4,
-    estimated_arrival: '08:08 AM',
-    status: 'active',
-  },
-  {
-    id: 'stop_5',
-    route_id: 'r1',
-    stop_name: 'College Main Gate',
+    stop_name: 'RIT Campus Main Gate',
     latitude: 9.4520,
     longitude: 77.5535,
-    stop_order: 5,
-    estimated_arrival: '08:20 AM',
+    stop_order: 4,
+    estimated_arrival: '08:45 AM',
+    morning_time: '08:45 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
 ];
 
 const EVENING_ROUTE_STOPS: Stop[] = [
   {
-    id: 'stop_5',
+    id: 'st1_4',
     route_id: 'r1',
-    stop_name: 'College Main Gate (Campus Hub)',
+    stop_name: 'RIT Campus Main Gate',
     latitude: 9.4520,
     longitude: 77.5535,
     stop_order: 1,
-    estimated_arrival: '04:30 PM',
+    estimated_arrival: '04:45 PM',
+    morning_time: '08:45 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_4',
-    route_id: 'r1',
-    stop_name: 'Samsigapuram Road Turn',
-    latitude: 9.4512,
-    longitude: 77.5510,
-    stop_order: 2,
-    estimated_arrival: '04:42 PM',
-    status: 'active',
-  },
-  {
-    id: 'stop_3',
+    id: 'st1_3',
     route_id: 'r1',
     stop_name: 'PACR Mill Circle',
     latitude: 9.4505,
-    longitude: 77.5495,
-    stop_order: 3,
+    longitude: 77.5525,
+    stop_order: 2,
     estimated_arrival: '04:55 PM',
+    morning_time: '08:35 AM',
+    evening_time: '04:55 PM',
     status: 'active',
   },
   {
-    id: 'stop_2',
+    id: 'st1_2',
     route_id: 'r1',
-    stop_name: 'Gandhi Statue Junction',
-    latitude: 9.4490,
-    longitude: 77.5472,
+    stop_name: 'Tenkasi Road Junction',
+    latitude: 9.4498,
+    longitude: 77.5518,
+    stop_order: 3,
+    estimated_arrival: '05:05 PM',
+    morning_time: '08:28 AM',
+    evening_time: '05:05 PM',
+    status: 'active',
+  },
+  {
+    id: 'st1_1',
+    route_id: 'r1',
+    stop_name: 'Old Bus Stand, RJPM',
+    latitude: 9.4485,
+    longitude: 77.5505,
     stop_order: 4,
-    estimated_arrival: '05:08 PM',
-    status: 'active',
-  },
-  {
-    id: 'stop_1',
-    route_id: 'r1',
-    stop_name: 'Rajapalayam New Bus Stand',
-    latitude: 9.4475,
-    longitude: 77.5450,
-    stop_order: 5,
-    estimated_arrival: '05:25 PM',
+    estimated_arrival: '05:15 PM',
+    morning_time: '08:20 AM',
+    evening_time: '05:15 PM',
     status: 'active',
   },
 ];
@@ -1117,9 +1113,7 @@ export default function StudentDashboard() {
 
             <Text style={styles.sectionTitle}>{currentStudent.busNumber || 'BUS-01'} &bull; Stop Sequence & Dynamic Timings</Text>
 
-            {(() => {
-              const activeStops = scheduleType === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
-              return activeStops.map((stop, idx) => {
+            {activeStops.map((stop, idx) => {
                 const isBoarding = stop.id === boardingStop.id;
                 const stopDist = calculateDistanceKm(
                   busLocation.latitude,
@@ -1167,12 +1161,15 @@ export default function StudentDashboard() {
                       </View>
 
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                        <Text style={[styles.timelineEta, scheduleType === 'morning' && { color: '#f59e0b', fontWeight: '800' }]}>
-                          🌅 Morning: {stop.morning_time || stop.estimated_arrival || '--:--'}
-                        </Text>
-                        <Text style={[styles.timelineEta, scheduleType === 'evening' && { color: '#a78bfa', fontWeight: '800' }]}>
-                          🌆 Evening: {stop.evening_time || '--:--'}
-                        </Text>
+                        {scheduleType === 'morning' ? (
+                          <Text style={[styles.timelineEta, { color: '#f59e0b', fontWeight: '800' }]}>
+                            🌅 Morning: {stop.morning_time || stop.estimated_arrival || '--:--'}
+                          </Text>
+                        ) : (
+                          <Text style={[styles.timelineEta, { color: '#a78bfa', fontWeight: '800' }]}>
+                            🌆 Evening: {stop.evening_time || stop.estimated_arrival || '--:--'}
+                          </Text>
+                        )}
                       </View>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                         <Text style={[styles.timelineLiveEta, isPassed ? styles.timelineLiveEtaPassed : { color: stopETA.statusColor }]}>
@@ -1191,8 +1188,7 @@ export default function StudentDashboard() {
                     </View>
                   </View>
                 );
-              });
-            })()}
+              })}
           </ScrollView>
         )}
 
