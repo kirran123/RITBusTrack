@@ -14,12 +14,12 @@ export const Reports: React.FC<ReportsProps> = ({ trips, buses }) => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 p-6 rounded-3xl border border-slate-800">
-        <div>
-          <h1 className="text-2xl font-extrabold text-white flex items-center space-x-3">
-            <BarChart3 className="w-7 h-7 text-purple-400" />
-            <span>Transport Analytics & Utilization</span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white flex items-center space-x-3 break-words">
+            <BarChart3 className="w-7 h-7 text-purple-400 shrink-0" />
+            <span className="min-w-0">Transport Analytics & Utilization</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1 leading-relaxed">
             Performance metrics, distance travelled summaries, bus uptime & fuel usage estimators.
           </p>
         </div>
@@ -51,15 +51,15 @@ export const Reports: React.FC<ReportsProps> = ({ trips, buses }) => {
         <h2 className="text-lg font-bold text-white">Daily Trip Summary Table</h2>
         <div className="space-y-2">
           {buses.map(bus => (
-            <div key={bus.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
-              <div className="flex items-center space-x-3">
-                <Bus className="w-5 h-5 text-blue-400" />
-                <div>
-                  <div className="font-bold text-white">{bus.bus_number} &bull; {bus.bus_name}</div>
-                  <div className="text-slate-400">Route: {bus.route?.route_name || 'Assigned Route'}</div>
+            <div key={bus.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                <Bus className="w-5 h-5 text-blue-400 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-white truncate">{bus.bus_number} &bull; {bus.bus_name}</div>
+                  <div className="text-slate-400 truncate">Route: {bus.route?.route_name || 'Assigned Route'}</div>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-left sm:text-right shrink-0">
                 <div className="font-bold text-emerald-400">Status: {bus.status.toUpperCase()}</div>
                 <div className="text-slate-500">Cap: {bus.capacity} seats</div>
               </div>

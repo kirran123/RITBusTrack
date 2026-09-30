@@ -425,35 +425,35 @@ export const Staff: React.FC<StaffProps> = ({
 
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-xl">
-        <div>
-          <h1 className="text-2xl font-extrabold text-white flex items-center space-x-3">
-            <div className="p-2.5 rounded-2xl bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 shadow-md">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white flex items-center space-x-3 break-words">
+            <div className="p-2.5 rounded-2xl bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 shadow-md shrink-0">
               <Briefcase className="w-6 h-6" />
             </div>
-            <span>Faculty & Staff Management</span>
+            <span className="min-w-0">Faculty & Staff Management</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1 leading-relaxed">
             Manage daily bus pass allocations for faculty commuters, app passwords, daily attendance, and portal administrative access.
           </p>
         </div>
 
         {/* Action Button based on active tab */}
         {isEditable && (
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 shrink-0 flex-wrap gap-2">
             {activeSection === 'commuters' ? (
               <>
                 <button
                   onClick={() => setIsCommuterCSVModalOpen(true)}
-                  className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl border border-slate-700 flex items-center space-x-2 transition-all shadow-sm"
+                  className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl border border-slate-700 flex items-center space-x-2 transition-all shadow-sm shrink-0"
                 >
-                  <Upload className="w-4 h-4 text-emerald-400" />
+                  <Upload className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span className="hidden sm:inline">Import CSV</span>
                 </button>
                 <button
                   onClick={openCreateCommuterModal}
-                  className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center space-x-2 transition-all"
+                  className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center space-x-2 transition-all shrink-0"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-5 h-5 shrink-0" />
                   <span>Register Staff Pass</span>
                 </button>
               </>
@@ -461,9 +461,9 @@ export const Staff: React.FC<StaffProps> = ({
               isSuperAdmin && (
                 <button
                   onClick={openCreatePortalModal}
-                  className="px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center space-x-2 transition-all"
+                  className="px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center space-x-2 transition-all shrink-0"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-5 h-5 shrink-0" />
                   <span>Create Portal Staff Login</span>
                 </button>
               )
@@ -473,7 +473,7 @@ export const Staff: React.FC<StaffProps> = ({
       </div>
 
       {/* Primary Section Switcher Tabs */}
-      <div className="flex items-center space-x-2 p-1.5 bg-slate-900/80 rounded-2xl border border-slate-800 w-full sm:w-fit">
+      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 p-1.5 bg-slate-900/80 rounded-2xl border border-slate-800 w-full sm:w-fit">
         <button
           onClick={() => setActiveSection('commuters')}
           className={`flex-1 sm:flex-initial px-5 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2.5 ${
@@ -1006,21 +1006,21 @@ export const Staff: React.FC<StaffProps> = ({
       {isCommuterPasswordModalOpen && targetCommuterForPassword && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5 gap-3">
+              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0">
                   <Key className="w-5 h-5" />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Staff App Login Password</h2>
-                  <p className="text-xs text-slate-400">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-bold text-white truncate">Staff App Login Password</h2>
+                  <p className="text-xs text-slate-400 truncate">
                     {targetCommuterForPassword.name} ({targetCommuterForPassword.employee_id})
                   </p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsCommuterPasswordModalOpen(false)} 
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1108,21 +1108,21 @@ export const Staff: React.FC<StaffProps> = ({
       {isCommuterModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold shrink-0">
                   <Briefcase className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-bold text-white truncate">
                     {editingCommuter ? `Edit Staff Pass: ${editingCommuter.name}` : 'Register Faculty / Staff Commuter'}
                   </h2>
-                  <p className="text-xs text-slate-400">Assign bus, boarding stop, employee ID, and app login credentials</p>
+                  <p className="text-xs text-slate-400 truncate">Assign bus, boarding stop, employee ID, and app login credentials</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsCommuterModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1331,8 +1331,8 @@ export const Staff: React.FC<StaffProps> = ({
             <div className="w-16 h-16 rounded-2xl bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center mx-auto mb-4">
               <FileText className="w-8 h-8" />
             </div>
-            <h2 className="text-xl font-bold text-white">Bulk Faculty CSV Import</h2>
-            <p className="text-xs text-slate-400 mt-2">
+            <h2 className="text-xl font-bold text-white break-words">Bulk Faculty CSV Import</h2>
+            <p className="text-xs text-slate-400 mt-2 break-words">
               Upload a standard `.csv` file containing employee_id, name, email, department, designation, and bus_id.
             </p>
 
@@ -1364,21 +1364,21 @@ export const Staff: React.FC<StaffProps> = ({
       {isPortalModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold shrink-0">
                   <UserCheck className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-bold text-white truncate">
                     {editingPortalStaff ? `Edit Staff: ${editingPortalStaff.name}` : 'Create Portal Staff Login'}
                   </h2>
-                  <p className="text-xs text-slate-400">Configure login credentials and select Edit or View-Only permission</p>
+                  <p className="text-xs text-slate-400 truncate">Configure login credentials and select Edit or View-Only permission</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsPortalModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1437,7 +1437,7 @@ export const Staff: React.FC<StaffProps> = ({
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
                   Assign Portal Access Permission Level:
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div
                     onClick={() => setPAccessLevel('edit')}
                     className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
@@ -1568,19 +1568,19 @@ export const Staff: React.FC<StaffProps> = ({
       {isPortalPasswordModalOpen && targetPortalStaffForPassword && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold shrink-0">
                   <KeyRound className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Reset Staff Portal Password</h2>
-                  <p className="text-xs text-slate-400">{targetPortalStaffForPassword.name} ({targetPortalStaffForPassword.email})</p>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-bold text-white truncate">Reset Staff Portal Password</h2>
+                  <p className="text-xs text-slate-400 truncate">{targetPortalStaffForPassword.name} ({targetPortalStaffForPassword.email})</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsPortalPasswordModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>

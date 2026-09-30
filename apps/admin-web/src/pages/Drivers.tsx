@@ -161,12 +161,12 @@ export const Drivers: React.FC<DriversProps> = ({
     <div className="space-y-6">
       {/* Top Action Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 p-6 rounded-3xl border border-slate-800">
-        <div>
-          <h1 className="text-2xl font-extrabold text-white flex items-center space-x-3">
-            <Users className="w-7 h-7 text-purple-500" />
-            <span>Driver Personnel & App Login Management</span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-extrabold text-white flex items-center space-x-3 leading-tight">
+            <Users className="w-7 h-7 text-purple-500 shrink-0" />
+            <span className="break-words">Driver Personnel & App Login Management</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1 leading-relaxed break-words">
             Manage licensed drivers, configure mobile app login credentials (phone number & password), and monitor bus assignments.
           </p>
         </div>
@@ -176,11 +176,11 @@ export const Drivers: React.FC<DriversProps> = ({
             onClick={openCreateModal}
             className="px-5 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-purple-600/30 flex items-center space-x-2 transition-all shrink-0"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-5 h-5 shrink-0" />
             <span>Add New Driver</span>
           </button>
         ) : (
-          <span className="px-3.5 py-1.5 rounded-full bg-slate-800 text-slate-400 font-semibold text-xs border border-slate-700">
+          <span className="px-3.5 py-1.5 rounded-full bg-slate-800 text-slate-400 font-semibold text-xs border border-slate-700 shrink-0">
             View-Only Mode
           </span>
         )}
@@ -522,11 +522,11 @@ export const Drivers: React.FC<DriversProps> = ({
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <h2 className="text-lg font-bold text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <h2 className="text-lg font-bold text-white min-w-0 flex-1 truncate pr-2">
                 {editingDriver ? 'Edit Driver & Login Credentials' : 'Register New Driver'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-white">
+              <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-white shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -544,7 +544,7 @@ export const Drivers: React.FC<DriversProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Employee ID</label>
                   <input

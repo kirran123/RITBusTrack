@@ -455,14 +455,14 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
     <div className="space-y-4 min-h-[calc(100vh-90px)] flex flex-col">
       {/* Top Header with Multi-Perspective Command Mode Switcher */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900 p-5 rounded-3xl border border-slate-800 shadow-xl">
-        <div className="flex items-center space-x-3">
-          <div className="p-3 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20 shadow-md">
+        <div className="flex items-center space-x-3 min-w-0 flex-1">
+          <div className="p-3 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20 shadow-md shrink-0">
             <Radio className="w-6 h-6 animate-pulse" />
           </div>
-          <div>
-            <h1 className="text-xl font-black text-white flex items-center space-x-2 flex-wrap gap-y-1">
-              <span>Live Bus Radar & Command Center</span>
-              <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl font-black text-white flex items-center space-x-2 flex-wrap gap-y-1 break-words">
+              <span className="min-w-0">Live Bus Radar & Command Center</span>
+              <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border shrink-0 ${
                 isEditable 
                   ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' 
                   : 'bg-slate-800 text-slate-400 border-slate-750'
@@ -470,14 +470,14 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({
                 {isEditable ? 'SUPER ADMIN ACCESS' : 'VIEW-ONLY ACCESS'}
               </span>
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
               Live bus operations, interactive driver cockpit, and student commuter radar.
             </p>
           </div>
         </div>
 
         {/* 4 Main Perspective Mode Tabs */}
-        <div className="flex flex-wrap items-center bg-slate-950 p-1.5 rounded-2xl border border-slate-800 gap-1.5">
+        <div className="flex flex-wrap items-center bg-slate-950 p-1.5 rounded-2xl border border-slate-800 gap-1.5 shrink-0">
           <button
             onClick={() => setActiveMode('fleet')}
             className={`px-3.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center space-x-1.5 ${

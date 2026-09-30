@@ -4,6 +4,7 @@ import { UserProfile, StaffUser } from '@college-bus/shared';
 import { INITIAL_STAFF, INITIAL_STAFF_COMMUTERS } from '../services/mockDataStore';
 import { MASTER_STAFF_USERS, MASTER_STAFF_COMMUTERS } from '@college-bus/shared';
 import { supabase } from '../services/supabaseClient';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 interface LoginProps {
   onLogin: (user: UserProfile) => void;
@@ -166,10 +167,15 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
   };
 
   return (
-    <div className="min-h-screen bg-[#090D16] flex flex-col items-center justify-center p-4 relative overflow-hidden selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4 relative overflow-hidden selection:bg-blue-600 selection:text-white">
+      {/* Floating Theme Toggle in Top Right Corner */}
+      <div className="absolute top-5 right-5 z-30">
+        <ThemeToggle variant="pill" />
+      </div>
+
       {/* Ambient background glows */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/10 dark:bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-indigo-600/10 dark:bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-[420px] z-10 space-y-6">
         {/* Institutional Branding Header */}
@@ -181,7 +187,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20">
               Campus Transit Command
             </span>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight break-words">
               Ramco Institute of Technology
             </h1>
             <p className="text-xs text-slate-400 font-medium">
@@ -191,7 +197,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
         </div>
 
         {/* Executive Glassmorphic Card */}
-        <div className="bg-slate-900/80 border border-slate-800/80 rounded-3xl p-7 shadow-2xl backdrop-blur-2xl space-y-5 ring-1 ring-white/5">
+        <div className="bg-slate-900/80 border border-slate-800/80 rounded-3xl p-6 sm:p-7 shadow-2xl backdrop-blur-2xl space-y-5 ring-1 ring-white/5">
           {/* Segmented Role Switcher */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -199,7 +205,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
                 Select Account Role
               </label>
               <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                <KeyRound className="w-3 h-3" />
+                <KeyRound className="w-3 h-3 shrink-0" />
                 <span>Authorized Only</span>
               </span>
             </div>
@@ -211,14 +217,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
                   setSelectedRole('super_admin');
                   setError(null);
                 }}
-                className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                className={`py-2.5 px-2 sm:px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
                   selectedRole === 'super_admin'
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 ring-1 ring-blue-400/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                 }`}
               >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Super Admin</span>
+                <Shield className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Super Admin</span>
               </button>
 
               <button
@@ -227,14 +233,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
                   setSelectedRole('admin_staff');
                   setError(null);
                 }}
-                className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                className={`py-2.5 px-2 sm:px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
                   selectedRole === 'admin_staff'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 ring-1 ring-indigo-400/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                 }`}
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Transport Staff</span>
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Transport Staff</span>
               </button>
             </div>
           </div>

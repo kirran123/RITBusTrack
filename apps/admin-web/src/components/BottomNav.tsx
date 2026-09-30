@@ -19,17 +19,17 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onOpenProfile,
 }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 lg:hidden shadow-2xl py-2 px-3">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 lg:hidden shadow-2xl py-2 px-1 sm:px-3">
       <div className="flex items-center justify-around max-w-lg mx-auto">
         {/* Dashboard */}
         <NavLink
           to="/"
           className={({ isActive }) => `
-            flex flex-col items-center py-1 px-2.5 rounded-xl transition-all duration-150
+            flex flex-col items-center py-1 px-1 sm:px-2.5 rounded-xl transition-all duration-150 shrink-0
             ${isActive ? 'text-blue-400 font-extrabold scale-105' : 'text-slate-400 hover:text-slate-200'}
           `}
         >
-          <LayoutDashboard className="w-5 h-5 mb-0.5" />
+          <LayoutDashboard className="w-5 h-5 mb-0.5 shrink-0" />
           <span className="text-[10px] tracking-tight">Overview</span>
         </NavLink>
 
@@ -37,11 +37,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <NavLink
           to="/live"
           className={({ isActive }) => `
-            flex flex-col items-center py-1 px-2.5 rounded-xl transition-all duration-150 relative
+            flex flex-col items-center py-1 px-1 sm:px-2.5 rounded-xl transition-all duration-150 relative shrink-0
             ${isActive ? 'text-blue-400 font-extrabold scale-105' : 'text-slate-400 hover:text-slate-200'}
           `}
         >
-          <div className="relative">
+          <div className="relative shrink-0">
             <MapPin className="w-5 h-5 mb-0.5" />
             <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
           </div>
@@ -52,11 +52,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <NavLink
           to="/buses"
           className={({ isActive }) => `
-            flex flex-col items-center py-1 px-2.5 rounded-xl transition-all duration-150
+            flex flex-col items-center py-1 px-1 sm:px-2.5 rounded-xl transition-all duration-150 shrink-0
             ${isActive ? 'text-blue-400 font-extrabold scale-105' : 'text-slate-400 hover:text-slate-200'}
           `}
         >
-          <BusIcon className="w-5 h-5 mb-0.5" />
+          <BusIcon className="w-5 h-5 mb-0.5 shrink-0" />
           <span className="text-[10px] tracking-tight">Buses</span>
         </NavLink>
 
@@ -64,11 +64,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <NavLink
           to="/students"
           className={({ isActive }) => `
-            flex flex-col items-center py-1 px-2.5 rounded-xl transition-all duration-150
+            flex flex-col items-center py-1 px-1 sm:px-2.5 rounded-xl transition-all duration-150 shrink-0
             ${isActive ? 'text-blue-400 font-extrabold scale-105' : 'text-slate-400 hover:text-slate-200'}
           `}
         >
-          <GraduationCap className="w-5 h-5 mb-0.5" />
+          <GraduationCap className="w-5 h-5 mb-0.5 shrink-0" />
           <span className="text-[10px] tracking-tight">Students</span>
         </NavLink>
 
@@ -76,11 +76,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <NavLink
           to="/emergency"
           className={({ isActive }) => `
-            flex flex-col items-center py-1 px-2.5 rounded-xl transition-all duration-150 relative
+            flex flex-col items-center py-1 px-1 sm:px-2.5 rounded-xl transition-all duration-150 relative shrink-0
             ${isActive ? 'text-rose-400 font-extrabold scale-105' : 'text-slate-400 hover:text-slate-200'}
           `}
         >
-          <div className="relative">
+          <div className="relative shrink-0">
             <AlertTriangle className="w-5 h-5 mb-0.5" />
             {activeEmergenciesCount > 0 && (
               <span className="absolute -top-1 -right-2 px-1.5 py-0.2 bg-rose-500 text-white rounded-full text-[9px] font-black animate-pulse">
@@ -94,9 +94,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {/* Profile Button */}
         <button
           onClick={onOpenProfile}
-          className="flex flex-col items-center py-1 px-2.5 rounded-xl text-slate-400 hover:text-white transition-all duration-150"
+          className="flex flex-col items-center py-1 px-1 sm:px-2.5 rounded-xl text-slate-400 hover:text-white transition-all duration-150 shrink-0"
         >
-          <div className="w-5 h-5 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[11px] font-black text-blue-400 mb-0.5">
+          <div className="w-5 h-5 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[11px] font-black text-blue-400 mb-0.5 shrink-0">
             A
           </div>
           <span className="text-[10px] tracking-tight">Profile</span>

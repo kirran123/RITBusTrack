@@ -137,21 +137,21 @@ export const Trips: React.FC<TripsProps> = ({ trips, buses, drivers, routes }) =
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 p-6 rounded-3xl border border-slate-800">
-        <div>
-          <h1 className="text-2xl font-extrabold text-white flex items-center space-x-3">
-            <History className="w-7 h-7 text-blue-500" />
-            <span>Driver Trip Timings & Telemetry Log</span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white flex items-center space-x-3 break-words">
+            <History className="w-7 h-7 text-blue-500 shrink-0" />
+            <span className="min-w-0">Driver Trip Timings & Telemetry Log</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1 leading-relaxed">
             Real-time audit log of exact departure start times, terminal completion arrival times, duration, and distance logged by each driver.
           </p>
         </div>
 
         <button
           onClick={handleExportCSV}
-          className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl border border-slate-700 flex items-center space-x-2 transition-all shadow-md"
+          className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl border border-slate-700 flex items-center space-x-2 transition-all shadow-md shrink-0"
         >
-          <Download className="w-4 h-4 text-blue-400" />
+          <Download className="w-4 h-4 text-blue-400 shrink-0" />
           <span>Export Trips CSV</span>
         </button>
       </div>
@@ -353,15 +353,15 @@ export const Trips: React.FC<TripsProps> = ({ trips, buses, drivers, routes }) =
       {selectedTrip && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-white">GPS Route Path Audit</h2>
-                <p className="text-xs text-slate-400">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-bold text-white truncate">GPS Route Path Audit</h2>
+                <p className="text-xs text-slate-400 truncate">
                   Trip {selectedTrip.id} &bull; Started: {formatTimestamp(selectedTrip.start_time)} &bull; Ended:{' '}
                   {formatTimestamp(selectedTrip.end_time)}
                 </p>
               </div>
-              <button onClick={() => setSelectedTrip(null)} className="p-1 text-slate-400 hover:text-white">
+              <button onClick={() => setSelectedTrip(null)} className="p-1 text-slate-400 hover:text-white shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>

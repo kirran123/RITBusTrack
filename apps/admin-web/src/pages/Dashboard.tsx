@@ -99,9 +99,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* 1. TOP HERO BANNER: Clean, Premium Gradient & Live Indicator */}
       <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900/90 to-blue-950/40 p-6 lg:p-8 rounded-3xl border border-slate-800 shadow-2xl">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black">
+          <div className="space-y-1.5 min-w-0 flex-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black shrink-0">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span>SYSTEM LIVE &bull; 100% OPERATIONAL</span>
               </span>
@@ -111,28 +111,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </span>
             </div>
 
-            <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight">
+            <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight leading-tight break-words">
               Bus Command Center
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed break-words">
               Real-time multi-route bus monitoring, GPS telemetry radar, driver assignments, and student transport management.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto shrink-0">
             <Link
               to="/live"
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all shrink-0"
             >
-              <MapPin className="w-4 h-4" />
+              <MapPin className="w-4 h-4 shrink-0" />
               <span>Open Live Radar</span>
             </Link>
 
             <Link
               to="/notifications"
-              className="px-4 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-2xl border border-slate-700/80 flex items-center justify-center space-x-2 transition-all"
+              className="px-4 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-2xl border border-slate-700/80 flex items-center justify-center space-x-2 transition-all shrink-0"
             >
-              <Send className="w-3.5 h-3.5 text-blue-400" />
+              <Send className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span>Broadcast</span>
             </Link>
           </div>
@@ -147,18 +147,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {activeEmergencies.length > 0 && (
         <div className="bg-gradient-to-r from-rose-950/80 via-red-950/60 to-slate-900 border-2 border-rose-500/80 rounded-3xl p-5 shadow-2xl space-y-4 animate-pulse">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-rose-500/30 pb-3">
-            <div className="flex items-center space-x-3">
-              <span className="p-2.5 rounded-2xl bg-rose-600 text-white shadow-lg shadow-rose-600/50">
+            <div className="flex items-start sm:items-center space-x-3 min-w-0 flex-1">
+              <span className="p-2.5 rounded-2xl bg-rose-600 text-white shadow-lg shadow-rose-600/50 shrink-0">
                 <AlertTriangle className="w-6 h-6 animate-bounce" />
               </span>
-              <div>
-                <h3 className="text-base font-black text-rose-200 flex items-center space-x-2">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-black text-rose-200 flex items-center gap-2 flex-wrap leading-snug">
                   <span>🚨 ACTIVE CRITICAL EMERGENCY SOS DISPATCHED</span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] bg-rose-600 text-white font-black">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] bg-rose-600 text-white font-black shrink-0">
                     {activeEmergencies.length} Active Alert{activeEmergencies.length !== 1 ? 's' : ''}
                   </span>
                 </h3>
-                <p className="text-xs text-rose-300/90 font-medium">
+                <p className="text-xs text-rose-300/90 font-medium mt-0.5 leading-relaxed break-words">
                   Bus driver dispatched distress signal. Live tracking coordinates and notifications dispatched to all passengers and admins.
                 </p>
               </div>
@@ -166,10 +166,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             <Link
               to="/emergency"
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-rose-600/30 flex items-center space-x-2 transition-all"
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-rose-600/30 flex items-center space-x-2 transition-all shrink-0"
             >
               <span>Manage Emergency</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 shrink-0" />
             </Link>
           </div>
 
@@ -213,26 +213,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {hasActiveTemporaryChanges && (
         <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 rounded-3xl p-5 shadow-xl space-y-3.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-3">
-            <div className="flex items-center space-x-2.5">
-              <span className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+            <div className="flex items-start sm:items-center space-x-2.5 min-w-0 flex-1">
+              <span className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
                 <AlertCircle className="w-5 h-5 animate-pulse" />
               </span>
-              <div>
-                <h3 className="text-sm font-black text-amber-300 flex items-center space-x-2">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-black text-amber-300 flex items-center gap-2 flex-wrap leading-snug">
                   <span>Active Temporary Bus Changes</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-400 font-extrabold border border-amber-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-400 font-extrabold border border-amber-500/30 shrink-0">
                     {busesWithSubDriver.length + standbySwappedBuses.length} Temporary
                   </span>
                 </h3>
-                <p className="text-[11px] text-slate-300">
+                <p className="text-[11px] text-slate-300 leading-relaxed break-words">
                   Drivers or replacement buses currently operating on temporary assignment until restored.
                 </p>
               </div>
             </div>
 
-            <Link to="/buses" className="text-xs font-bold text-amber-400 hover:underline flex items-center space-x-1">
+            <Link to="/buses" className="text-xs font-bold text-amber-400 hover:underline flex items-center space-x-1 shrink-0">
               <span>Manage Buses</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
             </Link>
           </div>
 
@@ -246,11 +246,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
               return (
                 <div key={'sub_' + bus.id} className="bg-slate-950/80 p-3.5 rounded-2xl border border-amber-500/25 flex flex-col justify-between space-y-2.5">
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-black text-[10.5px]">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-black text-[10.5px] shrink-0">
                         👨‍✈️ DRIVER SUBSTITUTION
                       </span>
-                      <span className="text-xs font-bold text-white">
+                      <span className="text-xs font-bold text-white truncate min-w-0">
                         {bus.bus_number} &bull; {busRoute?.route_name || 'Route'}
                       </span>
                     </div>
@@ -385,33 +385,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* Active Selected Bus Quick Strip */}
           {selectedBus && (
             <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-md">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 min-w-0 flex-1">
                 <div
                   className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-white shrink-0 shadow-sm"
                   style={{ backgroundColor: selectedRoute?.route_color || '#2563eb' }}
                 >
                   {selectedBus.bus_number.replace(/^(BUS\s*-\s*|BUS\s*)/i, '').trim() || '01'}
                 </div>
-                <div>
-                  <div className="font-extrabold text-white flex items-center space-x-2">
+                <div className="min-w-0 flex-1">
+                  <div className="font-extrabold text-white flex items-center space-x-2 flex-wrap gap-y-0.5">
                     <span>{selectedBus.bus_number}</span>
-                    <span className="text-slate-400 font-normal">({selectedRoute?.route_name || 'Assigned Route'})</span>
+                    <span className="text-slate-400 font-normal truncate">({selectedRoute?.route_name || 'Assigned Route'})</span>
                   </div>
-                  <div className="text-[11px] font-mono text-slate-400">
+                  <div className="text-[11px] font-mono text-slate-400 truncate">
                     Driver: <span className="text-slate-200 font-semibold">{selectedDriver?.profile?.name || 'Assigned Driver'}</span> &bull; 
                     Speed: <span className="text-emerald-400 font-bold">{Math.round(selectedLoc?.speed || 0)} km/h</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2 w-full sm:w-auto">
+              <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0">
                 <a
                   href={`https://www.google.com/maps?q=${selectedLoc?.latitude || 9.449},${selectedLoc?.longitude || 77.548}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-[11px] border border-slate-700 transition-all flex items-center gap-1"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-[11px] border border-slate-700 transition-all flex items-center gap-1 shrink-0"
                 >
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                  <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
                   <span>Google Maps</span>
                 </a>
               </div>
@@ -421,22 +421,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Right (1 Col): Active Fleet Status List */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center space-x-2 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold shrink-0">
                 <Activity className="w-4 h-4" />
               </div>
-              <div>
-                <h2 className="text-base font-black text-white">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-black text-white truncate">
                   Bus Registry ({safeBuses.length})
                 </h2>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-400 truncate">
                   Select a vehicle to inspect & focus
                 </p>
               </div>
             </div>
 
-            <Link to="/buses" className="text-xs text-slate-400 hover:text-white font-semibold">
+            <Link to="/buses" className="text-xs text-slate-400 hover:text-white font-semibold shrink-0">
               Manage All
             </Link>
           </div>
@@ -460,23 +460,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-850'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2.5 min-w-0 flex-1">
                       <div
                         className="w-3 h-3 rounded-full shrink-0 shadow-sm"
                         style={{ backgroundColor: routeColor }}
                       />
-                      <span className="font-extrabold text-white text-sm">
+                      <span className="font-extrabold text-white text-sm truncate">
                         {bus.bus_number}
                       </span>
                       {bus.is_standby_replacement && (
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">
                           SUB
                         </span>
                       )}
                     </div>
 
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black flex items-center space-x-1 ${
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black flex items-center space-x-1 shrink-0 ${
                       isMoving 
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                         : 'bg-slate-800 text-slate-400 border border-slate-700'
@@ -490,9 +490,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     {route?.route_name || 'Unassigned Route'}
                   </div>
 
-                  <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between border-t border-slate-800/60 pt-1.5">
-                    <span className="truncate">👨‍✈️ {driver?.profile?.name || 'Assigned Driver'}</span>
-                    <span className="text-slate-500 font-mono text-[10px]">
+                  <div className="text-[11px] text-slate-400 mt-2 flex items-center justify-between gap-2 border-t border-slate-800/60 pt-1.5 min-w-0">
+                    <span className="truncate min-w-0 flex-1">👨‍✈️ {driver?.profile?.name || 'Assigned Driver'}</span>
+                    <span className="text-slate-500 font-mono text-[10px] shrink-0">
                       {(loc?.latitude || 9.449).toFixed(3)}, {(loc?.longitude || 77.548).toFixed(3)}
                     </span>
                   </div>
@@ -505,21 +505,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* 5. TODAY'S 1-DAY STUDENT LEAVE SUBMISSIONS */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center font-bold text-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div className="flex items-start sm:items-center space-x-3 min-w-0 flex-1">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center font-bold text-sm shrink-0">
               ⛔
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                 <h2 className="text-base font-black text-white">
                   Today's Student Leave Notices (Not Boarding)
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 shrink-0">
                   {absentStudents.length} Reported Today
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-400 mt-0.5 leading-relaxed break-words">
                 Real-time leave requests synced directly with Driver Rosters to optimize stop times.
               </p>
             </div>
@@ -527,7 +527,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           <Link
             to="/students"
-            className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center space-x-1"
+            className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center space-x-1 shrink-0"
           >
             <span>Passenger Directory</span>
             <ArrowUpRight className="w-3.5 h-3.5" />

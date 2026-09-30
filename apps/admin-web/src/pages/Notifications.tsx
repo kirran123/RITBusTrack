@@ -147,24 +147,24 @@ export const Notifications: React.FC<NotificationsProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-slate-900 p-6 rounded-3xl border border-slate-800 gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-white flex items-center space-x-3">
-            <Bell className="w-7 h-7 text-blue-400" />
-            <span>Transport Notifications & Broadcasts</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-900 p-6 rounded-3xl border border-slate-800 gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-black text-white flex items-center space-x-3 break-words">
+            <Bell className="w-7 h-7 text-blue-400 shrink-0" />
+            <span className="min-w-0">Transport Notifications & Broadcasts</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1 leading-relaxed">
             Dispatch instant status alerts, trip delays, and campus announcements to students, drivers, and transport staff.
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {safeNotifications.length > 0 && onMarkAllRead && (
             <button
               onClick={onMarkAllRead}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 flex items-center space-x-1.5 transition-colors"
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 flex items-center space-x-1.5 transition-colors shrink-0"
             >
-              <CheckCheck className="w-4 h-4 text-blue-400" />
+              <CheckCheck className="w-4 h-4 text-blue-400 shrink-0" />
               <span>Mark All Read</span>
             </button>
           )}
@@ -172,9 +172,9 @@ export const Notifications: React.FC<NotificationsProps> = ({
           {isEditable && safeNotifications.length > 0 && onClearAll && (
             <button
               onClick={onClearAll}
-              className="px-3.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold rounded-xl border border-rose-500/30 flex items-center space-x-1.5 transition-colors"
+              className="px-3.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold rounded-xl border border-rose-500/30 flex items-center space-x-1.5 transition-colors shrink-0"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-4 h-4 shrink-0" />
               <span>Clear History</span>
             </button>
           )}
@@ -419,30 +419,30 @@ export const Notifications: React.FC<NotificationsProps> = ({
                     className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all space-y-2"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full border ${badge.color}`}>
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full border ${badge.color} shrink-0`}>
                             {badge.icon}
                             <span>{badge.label}</span>
                           </span>
 
-                          <span className="text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-800">
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-800 shrink-0">
                             TARGET: {targetText}
                           </span>
 
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[10px] text-slate-500 shrink-0">
                             {formatNotificationTime(n.created_at)}
                           </span>
                         </div>
 
-                        <h3 className="font-extrabold text-white text-sm">{n.title}</h3>
+                        <h3 className="font-extrabold text-white text-sm break-words">{n.title}</h3>
                       </div>
 
                       {isEditable && onDeleteNotification && (
                         <button
                           type="button"
                           onClick={() => onDeleteNotification(n.id)}
-                          className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+                          className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors shrink-0"
                           title="Delete notification entry"
                         >
                           <Trash2 className="w-4 h-4" />

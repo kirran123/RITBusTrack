@@ -35,13 +35,13 @@ export const StatCard: React.FC<StatCardProps> = ({
   };
 
   return (
-    <div className={`p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg relative overflow-hidden transition-all duration-200 hover:border-slate-700`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{title}</p>
-          <h3 className="text-2xl lg:text-3xl font-bold text-white mt-1">{value}</h3>
+    <div className={`p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg relative overflow-hidden transition-all duration-200 hover:border-slate-700 min-h-[110px] flex flex-col justify-between`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider truncate" title={title}>{title}</p>
+          <h3 className="text-2xl lg:text-3xl font-bold text-white mt-1 leading-tight break-words">{value}</h3>
           {subtitle && (
-            <p className="text-xs text-slate-500 mt-1 font-medium">{subtitle}</p>
+            <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed break-words">{subtitle}</p>
           )}
           {trend && (
             <span className="inline-block text-[11px] font-semibold text-emerald-400 mt-2 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -50,8 +50,8 @@ export const StatCard: React.FC<StatCardProps> = ({
           )}
         </div>
 
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md ${iconBgStyles[color]}`}>
-          <Icon className="w-6 h-6" />
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md shrink-0 ${iconBgStyles[color]}`}>
+          <Icon className="w-6 h-6 shrink-0" />
         </div>
       </div>
     </div>

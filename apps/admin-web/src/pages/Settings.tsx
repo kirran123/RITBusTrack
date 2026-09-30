@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Save, RefreshCw, Shield, MapPin, Radio, Database, CheckCircle2, AlertCircle, ExternalLink, Key, Server } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RefreshCw, Shield, MapPin, Radio, Database, CheckCircle2, AlertCircle, ExternalLink, Key, Server, Sun, Moon, Palette } from 'lucide-react';
 import { DEFAULT_TRACKING_INTERVAL_MS } from '@college-bus/shared';
 import { isSupabaseConfigured, testDatabaseConnection } from '../services/supabaseClient';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { useTheme } from '../context/ThemeContext';
 
 export const Settings: React.FC = () => {
   const [intervalMs, setIntervalMs] = useState(DEFAULT_TRACKING_INTERVAL_MS);
@@ -26,33 +28,71 @@ export const Settings: React.FC = () => {
     setTimeout(() => setSaved(false), 3000);
   };
 
+  const { theme, themePreference } = useTheme();
+
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header Banner */}
       <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-xl">
-        <h1 className="text-2xl font-extrabold text-white flex items-center space-x-3">
-          <SettingsIcon className="w-7 h-7 text-blue-500" />
-          <span>System & Database Configuration</span>
+        <h1 className="text-xl sm:text-2xl font-extrabold text-white flex items-center space-x-3 break-words">
+          <SettingsIcon className="w-7 h-7 text-blue-500 shrink-0" />
+          <span className="min-w-0">System & Database Configuration</span>
         </h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Manage Supabase Cloud PostgreSQL database connectivity, GPS broadcast frequencies & institution settings.
+        <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+          Manage interface theme, Supabase Cloud PostgreSQL database connectivity, GPS broadcast frequencies & institution settings.
         </p>
+      </div>
+
+      {/* THEME & APPEARANCE CARD */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold shrink-0">
+              <Palette className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-bold text-white truncate">Appearance & Theme Mode</h2>
+              <p className="text-xs text-slate-400 truncate">Choose between dark mode, light mode, or automatic system synchronization</p>
+            </div>
+          </div>
+
+          <span className={`px-3 py-1 rounded-full text-xs font-bold border shrink-0 ${
+            theme === 'dark'
+              ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+              : 'bg-amber-500/15 text-amber-500 border-amber-500/30'
+          }`}>
+            {theme === 'dark' ? '🌙 Dark Mode Active' : '☀️ Light Mode Active'}
+          </span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-bold text-slate-200 block">Theme Selection</span>
+            <span className="text-[11px] text-slate-400 block mt-0.5 leading-relaxed">
+              Saved automatically to browser storage. Changes take effect instantly across all pages and tabs.
+            </span>
+          </div>
+
+          <div className="shrink-0">
+            <ThemeToggle variant="segmented" />
+          </div>
+        </div>
       </div>
 
       {/* DATABASE CONNECTION CARD */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold">
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold shrink-0">
               <Database className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-white">Database Engine: Supabase (PostgreSQL)</h2>
-              <p className="text-xs text-slate-400">Real-time WebSocket broadcasting for live GPS tracking</p>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-bold text-white truncate">Database Engine: Supabase (PostgreSQL)</h2>
+              <p className="text-xs text-slate-400 truncate">Real-time WebSocket broadcasting for live GPS tracking</p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
               isSupabaseConfigured
                 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
@@ -65,17 +105,17 @@ export const Settings: React.FC = () => {
 
         {/* Connection Status Details */}
         <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3 text-xs">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <span className="text-slate-400 font-medium">Database Type:</span>
             <span className="text-white font-mono font-bold">PostgreSQL 15+ with PostGIS / Extensions</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <span className="text-slate-400 font-medium">Realtime WebSockets:</span>
             <span className="text-emerald-400 font-bold">Enabled (Live GPS & Driver Cockpit)</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <span className="text-slate-400 font-medium">Schema Migrations:</span>
-            <span className="text-blue-400 font-mono">supabase/migrations/20260918000000_initial_schema.sql</span>
+            <span className="text-blue-400 font-mono break-all">supabase/migrations/20260918000000_initial_schema.sql</span>
           </div>
         </div>
 
