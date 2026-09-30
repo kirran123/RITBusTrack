@@ -21,7 +21,7 @@ import { Settings } from './pages/Settings';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { 
-  UserProfile, Bus, Driver, Student, Route as RouteType, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, StaffUser, StaffCommuter, SIMULATION_ROUTE_A
+  UserProfile, Bus, Driver, Student, Route as RouteType, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, StaffUser, StaffCommuter, SIMULATION_ROUTE_A, timeHistoryStore
 } from '@college-bus/shared';
 
 import {
@@ -44,6 +44,22 @@ const saveStorage = <T,>(key: string, data: T): void => {
   } catch (err) {
     console.warn('Storage save failed for', key, err);
   }
+};
+
+const getResolvedEmergencyIds = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem('bustrack_resolved_emergencies_v1');
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set();
+};
+
+const markEmergencyResolvedLocally = (id: string) => {
+  try {
+    const ids = getResolvedEmergencyIds();
+    ids.add(id);
+    localStorage.setItem('bustrack_resolved_emergencies_v1', JSON.stringify(Array.from(ids)));
+  } catch {}
 };
 
 export const App: React.FC = () => {
@@ -89,7 +105,13 @@ export const App: React.FC = () => {
 
   // Helper to trigger Super Admin & Admin Staff emergency notifications + audible alarm + desktop push
   const triggerEmergencySOSAlert = (payload: any) => {
-    if (!payload) return;
+    if (!payload || !payload.id) return;
+
+    // Check if this alert was already marked resolved locally or in DB
+    const resolvedIds = getResolvedEmergencyIds();
+    if (resolvedIds.has(payload.id) || (payload.status || '').toUpperCase() === 'RESOLVED') {
+      return;
+    }
 
     // 1. Update Emergencies list (avoid duplicate IDs)
     setEmergencies(prev => {
@@ -217,6 +239,12 @@ export const App: React.FC = () => {
             });
           } else if (data.type === 'emergency_sos') {
             triggerEmergencySOSAlert(data.payload);
+          } else if (data.type === 'emergency_resolved') {
+            const resolvedId = data.payload?.id;
+            if (resolvedId) {
+              markEmergencyResolvedLocally(resolvedId);
+              setEmergencies(prev => prev.map(e => e.id === resolvedId ? { ...e, status: 'RESOLVED', resolved_at: new Date().toISOString() } : e));
+            }
           } else if (data.type === 'broadcast_notification') {
             const notif = data.payload;
             if (notif && notif.id) {
@@ -293,6 +321,12 @@ export const App: React.FC = () => {
             });
           } else if (data.type === 'emergency_sos') {
             triggerEmergencySOSAlert(data.payload);
+          } else if (data.type === 'emergency_resolved') {
+            const resolvedId = data.payload?.id;
+            if (resolvedId) {
+              markEmergencyResolvedLocally(resolvedId);
+              setEmergencies(prev => prev.map(e => e.id === resolvedId ? { ...e, status: 'RESOLVED', resolved_at: new Date().toISOString() } : e));
+            }
           } else if (data.type === 'broadcast_notification') {
             const notif = data.payload;
             if (notif && notif.id) {
@@ -345,18 +379,34 @@ export const App: React.FC = () => {
         .limit(25);
 
       if (alertRows && Array.isArray(alertRows) && alertRows.length > 0) {
+        const resolvedIds = getResolvedEmergencyIds();
         setEmergencies(prev => {
           const prevMap = new Map(prev.map(e => [e.id, e]));
           let hasNewSOS = false;
           let newestSOS: any = null;
 
           alertRows.forEach((row: any) => {
+            const isRowResolved = (row.status || '').toUpperCase() === 'RESOLVED' || resolvedIds.has(row.id);
+            const effectiveStatus = isRowResolved ? 'RESOLVED' : (row.status || 'ACTIVE');
+
+            // Only trigger audible/push notification if the alert is genuinely new to this session,
+            // ACTIVE (not resolved), and created within the last 2 minutes
+            const alertAgeMs = Date.now() - new Date(row.created_at || 0).getTime();
+            const isFresh = alertAgeMs < 120000;
+
             if (!prevMap.has(row.id)) {
-              if (row.status === 'ACTIVE') {
+              if (effectiveStatus === 'ACTIVE' && isFresh && !isRowResolved) {
                 hasNewSOS = true;
                 newestSOS = row;
               }
+            } else {
+              const existing = prevMap.get(row.id)!;
+              if (existing.status === 'RESOLVED' && !isRowResolved) {
+                // If already marked resolved, do not resurrect
+                return;
+              }
             }
+
             prevMap.set(row.id, {
               id: row.id,
               bus_id: row.bus_id || 'b1',
@@ -366,13 +416,13 @@ export const App: React.FC = () => {
               message: row.message,
               latitude: Number(row.latitude || 9.4475),
               longitude: Number(row.longitude || 77.5450),
-              status: row.status || 'ACTIVE',
+              status: effectiveStatus,
               created_at: row.created_at || new Date().toISOString(),
-              resolved_at: row.resolved_at,
+              resolved_at: row.resolved_at || (isRowResolved ? (row.resolved_at || new Date().toISOString()) : undefined),
             });
           });
 
-          if (hasNewSOS && newestSOS) {
+          if (hasNewSOS && newestSOS && !resolvedIds.has(newestSOS.id)) {
             triggerEmergencySOSAlert(newestSOS);
           }
 
@@ -467,6 +517,16 @@ export const App: React.FC = () => {
           return updated;
         });
       }
+
+      // 5. Fetch latest Fleet Time History Records so all admins and staff see all recorded shifts
+      const { data: timeRows } = await supabase
+        .from('time_records')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (timeRows && Array.isArray(timeRows) && timeRows.length > 0) {
+        timeHistoryStore.mergeRecords(timeRows);
+      }
     } catch (e) {
       console.warn('Sync from Supabase notice:', e);
     }
@@ -555,6 +615,35 @@ export const App: React.FC = () => {
             status: row.status || 'ACTIVE',
             created_at: row.created_at || new Date().toISOString(),
           });
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'emergency_alerts' }, ({ new: row }: any) => {
+          if (!row || !row.id) return;
+          if ((row.status || '').toUpperCase() === 'RESOLVED') {
+            markEmergencyResolvedLocally(row.id);
+            setEmergencies(prev => prev.map(e => e.id === row.id ? { ...e, status: 'RESOLVED', resolved_at: row.resolved_at || new Date().toISOString() } : e));
+          } else {
+            setEmergencies(prev => prev.map(e => e.id === row.id ? { ...e, ...row } : e));
+          }
+        })
+        .on('broadcast', { event: 'emergency_resolved' }, ({ payload }: any) => {
+          if (payload?.id) {
+            markEmergencyResolvedLocally(payload.id);
+            setEmergencies(prev => prev.map(e => e.id === payload.id ? { ...e, status: 'RESOLVED', resolved_at: new Date().toISOString() } : e));
+          }
+        })
+        .on('broadcast', { event: 'time_history_update' }, ({ payload }: any) => {
+          if (payload && payload.params) {
+            if (payload.action === 'start') {
+              timeHistoryStore.recordTripStart(payload.params);
+            } else if (payload.action === 'end') {
+              timeHistoryStore.recordTripEnd(payload.params);
+            }
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'time_records' }, ({ new: row }: any) => {
+          if (row) {
+            timeHistoryStore.mergeRecords([row]);
+          }
         })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, ({ new: row }: any) => {
           if (!row) return;
@@ -1547,12 +1636,52 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleAcknowledgeEmergency = (id: string) => {
+  const handleAcknowledgeEmergency = async (id: string) => {
     setEmergencies(prev => prev.map(e => e.id === id ? { ...e, status: 'ACKNOWLEDGED' } : e));
+    if (supabase) {
+      try {
+        await supabase.from('emergency_alerts').update({ status: 'ACKNOWLEDGED' }).eq('id', id);
+      } catch (err) {
+        console.warn('Error acknowledging emergency in DB:', err);
+      }
+    }
   };
 
-  const handleResolveEmergency = (id: string) => {
-    setEmergencies(prev => prev.map(e => e.id === id ? { ...e, status: 'RESOLVED', resolved_at: new Date().toISOString() } : e));
+  const handleResolveEmergency = async (id: string) => {
+    markEmergencyResolvedLocally(id);
+    const resolvedAt = new Date().toISOString();
+    setEmergencies(prev => prev.map(e => e.id === id ? { ...e, status: 'RESOLVED', resolved_at: resolvedAt } : e));
+
+    // 1. Cross-client tab/window sync
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('bustrack_cross_client_sync');
+        bc.postMessage({ type: 'emergency_resolved', payload: { id }, timestamp: Date.now() });
+      }
+      localStorage.setItem('bustrack_cross_sync_event', JSON.stringify({ type: 'emergency_resolved', payload: { id }, timestamp: Date.now() }));
+    } catch {}
+
+    // 2. Supabase DB update & Realtime broadcast so all admins/staff see it resolved permanently
+    if (supabase) {
+      try {
+        await supabase
+          .from('emergency_alerts')
+          .update({
+            status: 'RESOLVED',
+            resolved_at: resolvedAt,
+          })
+          .eq('id', id);
+
+        const channel = supabase.channel('bus_tracking_live');
+        channel.send({
+          type: 'broadcast',
+          event: 'emergency_resolved',
+          payload: { id },
+        }).catch(() => {});
+      } catch (err) {
+        console.warn('Error resolving emergency in DB:', err);
+      }
+    }
   };
 
   const handleSendNotification = async (notification: SystemNotification) => {
@@ -1649,7 +1778,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const activeEmergenciesCount = emergencies.filter(e => e.status === 'ACTIVE').length;
+  const activeEmergenciesCount = emergencies.filter(e => (e.status || '').toUpperCase() === 'ACTIVE').length;
 
   if (!currentUser) {
     return <Login onLogin={setCurrentUser} staffList={staffList} />;
@@ -1839,16 +1968,7 @@ export const App: React.FC = () => {
                 </ErrorBoundary>
               } />
 
-              <Route path="/trips" element={
-                <ErrorBoundary fallbackTitle="Trip Logs">
-                  <Trips
-                    trips={trips}
-                    buses={buses}
-                    drivers={drivers}
-                    routes={routes}
-                  />
-                </ErrorBoundary>
-              } />
+              <Route path="/trips" element={<Navigate to="/time-history" replace />} />
 
               <Route path="/time-history" element={
                 <ErrorBoundary fallbackTitle="Time History & Shift Logs">

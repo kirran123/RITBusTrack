@@ -65,6 +65,30 @@ export const timeHistoryStore = {
     this.saveRecords([]);
   },
 
+  mergeRecords(incoming: BusTimeRecord[]): BusTimeRecord[] {
+    if (!Array.isArray(incoming) || incoming.length === 0) return this.getRecords();
+    const current = this.getRecords();
+    const map = new Map(current.map(r => [r.id, r]));
+    incoming.forEach(inc => {
+      if (!inc || !inc.id) return;
+      const existing = map.get(inc.id);
+      if (!existing) {
+        map.set(inc.id, inc);
+      } else {
+        const tExisting = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
+        const tIncoming = inc.updated_at ? new Date(inc.updated_at).getTime() : 0;
+        if (tIncoming >= tExisting) {
+          map.set(inc.id, { ...existing, ...inc });
+        }
+      }
+    });
+    const merged = Array.from(map.values()).sort(
+      (a, b) => (new Date(b.updated_at || b.date).getTime()) - (new Date(a.updated_at || a.date).getTime())
+    );
+    this.saveRecords(merged);
+    return merged;
+  },
+
   recordTripStart(params: TripLogParams): BusTimeRecord {
     const today = params.date || new Date().toISOString().split('T')[0];
     const uniqueTripId = params.tripId || `trip_${Date.now()}_${params.busNumber}`;

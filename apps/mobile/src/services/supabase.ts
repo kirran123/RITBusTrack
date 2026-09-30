@@ -600,6 +600,7 @@ export async function broadcastSystemNotification(notification: SystemNotificati
 
 /**
  * Broadcast Real-Time Time History Record for Driver Start / End Trip
+ * and persist to Supabase Database so all admins & staff see it synchronously
  */
 export async function broadcastTimeHistoryUpdate(action: 'start' | 'end', params: any) {
   postCrossClient('time_history_update', { action, params, timestamp: Date.now() });
@@ -612,6 +613,39 @@ export async function broadcastTimeHistoryUpdate(action: 'start' | 'end', params
         payload: { action, params, timestamp: Date.now() },
       });
     } catch {}
+  }
+
+  // Persist directly to Supabase time_records database table
+  if (supabase && params) {
+    try {
+      const recordPayload = {
+        id: params.tripId || `trip_${Date.now()}_${params.busNumber || 'bus'}`,
+        bus_id: params.busId,
+        bus_number: params.busNumber || 'BUS-01',
+        bus_name: params.busName || `Bus ${params.busNumber || '01'}`,
+        registration_number: params.registrationNumber || null,
+        driver_id: params.driverId || null,
+        driver_name: params.driverName || 'Driver',
+        driver_phone: params.driverPhone || null,
+        route_name: params.routeName || (params.shift === 'evening' ? 'Route (Evening Return)' : 'Route (Morning Pickup)'),
+        start_location: params.startLocation || null,
+        destination: params.destination || null,
+        shift: params.shift || 'morning',
+        date: params.date || new Date().toISOString().split('T')[0],
+        scheduled_start_time: params.shift === 'evening' ? '04:30 PM' : '07:30 AM',
+        scheduled_end_time: params.shift === 'evening' ? '05:25 PM' : '08:20 AM',
+        start_time: params.customStartTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        end_time: action === 'end' ? (params.customEndTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) : null,
+        duration: params.duration || (action === 'end' ? 'Completed' : 'In Progress'),
+        distance_km: Number(params.distanceKm || 0),
+        avg_speed_kmh: Number(params.avgSpeedKmh || 0),
+        status: action === 'end' ? 'completed' : 'in_progress',
+        updated_at: new Date().toISOString()
+      };
+      await supabase.from('time_records').upsert(recordPayload);
+    } catch (e) {
+      console.warn('Supabase time_records upsert note:', e);
+    }
   }
 }
 

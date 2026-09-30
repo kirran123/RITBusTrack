@@ -18,8 +18,8 @@ export const Emergency: React.FC<EmergencyProps> = ({
   canEdit,
 }) => {
   const isEditable = canEdit ?? (currentUser?.role === 'admin' || (currentUser?.role === 'staff' && currentUser?.access_level === 'edit'));
-  const activeEmergencies = emergencies.filter(e => e.status !== 'RESOLVED');
-  const resolvedEmergencies = emergencies.filter(e => e.status === 'RESOLVED');
+  const activeEmergencies = emergencies.filter(e => (e.status || '').toUpperCase() !== 'RESOLVED');
+  const resolvedEmergencies = emergencies.filter(e => (e.status || '').toUpperCase() === 'RESOLVED');
 
   return (
     <div className="space-y-6">
