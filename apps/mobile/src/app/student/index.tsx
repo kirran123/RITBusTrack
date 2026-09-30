@@ -36,6 +36,8 @@ import {
   BusTelemetryPayload, 
   FleetSwapNotice,
   TripUpdatePayload,
+  subscribeToStops,
+  fetchLiveStops,
 } from '../../services/supabase';
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop, MASTER_BUSES, MASTER_ROUTES, MASTER_STOPS } from '@college-bus/shared';
 import { authStorage } from '../../services/authStorage';
@@ -310,13 +312,27 @@ export default function StudentDashboard() {
   const [lastUpdatedSec, setLastUpdatedSec] = useState(1);
   const [isDriverActive, setIsDriverActive] = useState(true);
 
+  const [allStops, setAllStops] = useState<Stop[]>(INITIAL_STOPS);
+
+  useEffect(() => {
+    fetchLiveStops().then((loaded) => {
+      if (loaded && loaded.length > 0) setAllStops(loaded);
+    });
+    const unsub = subscribeToStops((freshStops) => {
+      if (freshStops && freshStops.length > 0) setAllStops(freshStops);
+    });
+    return unsub;
+  }, []);
+
   // Dynamic route stops for student's assigned route
   const currentRouteStops: Stop[] = React.useMemo(() => {
     const rId = currentStudent.routeId || 'r1';
-    const matched = MASTER_STOPS.filter(s => s.route_id === rId);
+    const matched = allStops.filter(s => s.route_id === rId);
     if (matched.length > 0) return matched;
+    const masterMatched = MASTER_STOPS.filter(s => s.route_id === rId);
+    if (masterMatched.length > 0) return masterMatched;
     return INITIAL_STOPS;
-  }, [currentStudent.routeId]);
+  }, [allStops, currentStudent.routeId]);
 
   // Active stops sequence based on schedule shift
   const activeStops = React.useMemo(() => {

@@ -1521,18 +1521,30 @@ export const App: React.FC = () => {
   };
 
   const handleSaveStop = async (stop: Stop) => {
+    let nextStops: Stop[] = [];
     setStops(prev => {
       const idx = prev.findIndex(s => s.id === stop.id);
       if (idx >= 0) {
         const copy = [...prev];
         copy[idx] = stop;
+        nextStops = copy;
         return copy;
       }
-      return [...prev, stop];
+      nextStops = [...prev, stop];
+      return nextStops;
     });
+
+    saveStorage('bustrack_stops_v1', nextStops);
 
     if (supabase) {
       try {
+        const channel = supabase.channel('bus_tracking_live');
+        channel.send({
+          type: 'broadcast',
+          event: 'stops_updated',
+          payload: { stops: nextStops }
+        }).catch(() => {});
+
         await supabase.from('stops').upsert({
           id: stop.id,
           route_id: stop.route_id,
@@ -1541,8 +1553,6 @@ export const App: React.FC = () => {
           longitude: stop.longitude,
           stop_order: stop.stop_order,
           estimated_arrival: stop.estimated_arrival,
-          morning_time: stop.morning_time || stop.estimated_arrival,
-          evening_time: stop.evening_time || null,
           status: stop.status || 'active'
         });
       } catch (e) {
@@ -1552,10 +1562,23 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteStop = async (stopId: string) => {
-    setStops(prev => prev.filter(s => s.id !== stopId));
+    let nextStops: Stop[] = [];
+    setStops(prev => {
+      nextStops = prev.filter(s => s.id !== stopId);
+      return nextStops;
+    });
+
+    saveStorage('bustrack_stops_v1', nextStops);
 
     if (supabase) {
       try {
+        const channel = supabase.channel('bus_tracking_live');
+        channel.send({
+          type: 'broadcast',
+          event: 'stops_updated',
+          payload: { stops: nextStops }
+        }).catch(() => {});
+
         await supabase.from('stops').delete().eq('id', stopId);
       } catch (e) {
         console.warn('Supabase stop delete note:', e);
@@ -1565,13 +1588,24 @@ export const App: React.FC = () => {
 
   const handleReorderStops = async (routeId: string, newRouteStops: Stop[]) => {
     const reindexed = newRouteStops.map((s, idx) => ({ ...s, stop_order: idx + 1 }));
+    let nextStops: Stop[] = [];
     setStops(prev => {
       const otherStops = prev.filter(s => s.route_id !== routeId);
-      return [...otherStops, ...reindexed];
+      nextStops = [...otherStops, ...reindexed];
+      return nextStops;
     });
+
+    saveStorage('bustrack_stops_v1', nextStops);
 
     if (supabase) {
       try {
+        const channel = supabase.channel('bus_tracking_live');
+        channel.send({
+          type: 'broadcast',
+          event: 'stops_updated',
+          payload: { stops: nextStops }
+        }).catch(() => {});
+
         for (const st of reindexed) {
           await supabase.from('stops').upsert({
             id: st.id,
@@ -1581,8 +1615,6 @@ export const App: React.FC = () => {
             longitude: st.longitude,
             stop_order: st.stop_order,
             estimated_arrival: st.estimated_arrival,
-            morning_time: st.morning_time || st.estimated_arrival,
-            evening_time: st.evening_time || null,
             status: st.status || 'active'
           });
         }

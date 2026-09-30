@@ -36,6 +36,8 @@ import {
   BusTelemetryPayload, 
   FleetSwapNotice,
   TripUpdatePayload,
+  subscribeToStops,
+  fetchLiveStops,
 } from '../../services/supabase';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
@@ -300,9 +302,41 @@ export default function StaffMobileDashboard() {
   const [lastUpdatedSec, setLastUpdatedSec] = useState(1);
   const [isDriverActive, setIsDriverActive] = useState(true);
 
+  const [allStops, setAllStops] = useState<Stop[]>(INITIAL_STOPS);
+
+  useEffect(() => {
+    fetchLiveStops().then((loaded) => {
+      if (loaded && loaded.length > 0) setAllStops(loaded);
+    });
+    const unsub = subscribeToStops((freshStops) => {
+      if (freshStops && freshStops.length > 0) setAllStops(freshStops);
+    });
+    return unsub;
+  }, []);
+
+  const currentRouteStops: Stop[] = React.useMemo(() => {
+    const rId = facultyProfile.routeId || 'r1';
+    const matched = allStops.filter(s => s.route_id === rId);
+    if (matched.length > 0) return matched;
+    return INITIAL_STOPS;
+  }, [allStops, facultyProfile.routeId]);
+
   // Active stops sequence based on schedule shift
-  const activeStops = scheduleType === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
-  const staffBoardingStop = activeStops.find(s => s.id === 'stop_3') || activeStops[0];
+  const activeStops = React.useMemo(() => {
+    if (scheduleType === 'evening') {
+      return [...currentRouteStops].reverse().map((st, i) => ({
+        ...st,
+        stop_order: i + 1,
+        estimated_arrival: st.evening_time || st.estimated_arrival,
+      }));
+    }
+    return [...currentRouteStops].sort((a, b) => a.stop_order - b.stop_order).map((st) => ({
+      ...st,
+      estimated_arrival: st.morning_time || st.estimated_arrival,
+    }));
+  }, [currentRouteStops, scheduleType]);
+
+  const staffBoardingStop = activeStops.find(s => s.id === 'st1_3' || s.id === 'stop_3') || activeStops[0];
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {

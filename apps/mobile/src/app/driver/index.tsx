@@ -22,7 +22,7 @@ import {
   calculateDistanceKm,
   calculateDynamicETA,
 } from '../../services/locationService';
-import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB } from '../../services/supabase';
+import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB, subscribeToStops, fetchLiveStops } from '../../services/supabase';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
@@ -240,13 +240,27 @@ export default function DriverDashboard() {
     return unsubscribe;
   }, [driverProfile.assignedBusId]);
 
+  const [allStops, setAllStops] = useState<Stop[]>(INITIAL_STOPS);
+
+  useEffect(() => {
+    fetchLiveStops().then((loaded) => {
+      if (loaded && loaded.length > 0) setAllStops(loaded);
+    });
+    const unsub = subscribeToStops((freshStops) => {
+      if (freshStops && freshStops.length > 0) setAllStops(freshStops);
+    });
+    return unsub;
+  }, []);
+
   // Dynamic route stops based on driver's assigned route
   const driverRouteStops: Stop[] = React.useMemo(() => {
     const rId = driverProfile.routeId || 'r1';
-    const matched = MASTER_STOPS.filter(s => s.route_id === rId);
+    const matched = allStops.filter(s => s.route_id === rId);
     if (matched.length > 0) return matched;
+    const masterMatched = MASTER_STOPS.filter(s => s.route_id === rId);
+    if (masterMatched.length > 0) return masterMatched;
     return INITIAL_STOPS;
-  }, [driverProfile.routeId]);
+  }, [allStops, driverProfile.routeId]);
 
   // Active stops sequence based on shift
   const currentStops = React.useMemo(() => {

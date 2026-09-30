@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
-import { GPSCoordinate, EmergencyAlert, SystemNotification, timeHistoryStore } from '@college-bus/shared';
+import { GPSCoordinate, EmergencyAlert, SystemNotification, timeHistoryStore, Stop, INITIAL_STOPS } from '@college-bus/shared';
 import { authStorage } from './authStorage';
 
 // Read Supabase credentials with fallback to live production project
@@ -87,6 +87,7 @@ type FleetSwapListener = (payload: FleetSwapNotice) => void;
 type LeaveListener = (payload: LeaveTogglePayload) => void;
 type TripListener = (payload: TripUpdatePayload) => void;
 type NotificationListener = (payload: SystemNotification) => void;
+type StopsListener = (stops: Stop[]) => void;
 
 const telemetryListeners: Set<TelemetryListener> = new Set();
 const sosListeners: Set<SOSListener> = new Set();
@@ -94,6 +95,7 @@ const fleetSwapListeners: Set<FleetSwapListener> = new Set();
 const leaveListeners: Set<LeaveListener> = new Set();
 const tripListeners: Set<TripListener> = new Set();
 const notificationListeners: Set<NotificationListener> = new Set();
+const stopsListeners: Set<StopsListener> = new Set();
 
 // Deduplication tracking to prevent duplicate message and alert popups
 const recentNotificationDedupe = new Map<string, number>();
@@ -146,6 +148,8 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && 'BroadcastChannel'
         tripListeners.forEach((l) => l(data.payload));
       } else if (data.type === 'broadcast_notification') {
         emitSystemNotification(data.payload);
+      } else if (data.type === 'stops_updated') {
+        stopsListeners.forEach((l) => l(data.payload));
       }
     };
   } catch (bcErr) {
@@ -178,6 +182,8 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.addE
             } else if (data.payload?.action === 'end') {
               timeHistoryStore.recordTripEnd(data.payload.params);
             }
+          } else if (data.type === 'stops_updated') {
+            stopsListeners.forEach((l) => l(data.payload));
           }
         } catch {}
       }
@@ -226,6 +232,18 @@ export function initRealtimeChannel() {
           }
         }
       })
+      .on('broadcast', { event: 'stops_updated' }, async ({ payload }: any) => {
+        if (!payload || !Array.isArray(payload.stops)) return;
+        try {
+          await authStorage.setItem('bustrack_stops_v1', JSON.stringify(payload.stops));
+          stopsListeners.forEach((listener) => {
+            try { listener(payload.stops); } catch {}
+          });
+          console.log('✅ Realtime Stops Synchronized:', payload.stops.length);
+        } catch (e) {
+          console.warn('Stops sync notice:', e);
+        }
+      })
       .on('broadcast', { event: 'sync_user_registry' }, async ({ payload }: any) => {
         if (!payload) return;
         try {
@@ -241,7 +259,13 @@ export function initRealtimeChannel() {
           if (Array.isArray(payload.staffList) && payload.staffList.length > 0) {
             await authStorage.setItem('bustrack_staff_v1', JSON.stringify(payload.staffList));
           }
-          console.log('✅ Synchronized updated user accounts from Admin Control');
+          if (Array.isArray(payload.stops) && payload.stops.length > 0) {
+            await authStorage.setItem('bustrack_stops_v1', JSON.stringify(payload.stops));
+            stopsListeners.forEach((listener) => {
+              try { listener(payload.stops); } catch {}
+            });
+          }
+          console.log('✅ Synchronized updated user accounts & stops from Admin Control');
         } catch (syncErr) {
           console.warn('Sync registry notice:', syncErr);
         }
@@ -868,6 +892,50 @@ export async function fetchLiveProfilesFromDB(): Promise<any[] | null> {
     return data;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Subscribe to realtime stop & timing changes pushed by admin
+ */
+export function subscribeToStops(listener: StopsListener) {
+  stopsListeners.add(listener);
+  return () => {
+    stopsListeners.delete(listener);
+  };
+}
+
+/**
+ * Fetch latest dynamic stops with fallback to persistent storage and INITIAL_STOPS
+ */
+export async function fetchLiveStops(): Promise<Stop[]> {
+  try {
+    const stored = await authStorage.getItem('bustrack_stops_v1');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return INITIAL_STOPS;
+}
+
+/**
+ * Broadcast updated stop list across clients
+ */
+export async function broadcastStopsUpdate(stops: Stop[]) {
+  stopsListeners.forEach((l) => l(stops));
+  postCrossClient('stops_updated', stops);
+  try {
+    await authStorage.setItem('bustrack_stops_v1', JSON.stringify(stops));
+  } catch {}
+  if (telemetryChannel) {
+    try {
+      await telemetryChannel.send({
+        type: 'broadcast',
+        event: 'stops_updated',
+        payload: { stops },
+      });
+    } catch {}
   }
 }
 
