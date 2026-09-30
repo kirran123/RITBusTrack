@@ -119,6 +119,8 @@ export const INITIAL_STOPS: Stop[] = [
     longitude: 77.5450,
     stop_order: 1,
     estimated_arrival: '07:45 AM',
+    morning_time: '07:45 AM',
+    evening_time: '05:15 PM',
     status: 'active',
   },
   {
@@ -129,6 +131,8 @@ export const INITIAL_STOPS: Stop[] = [
     longitude: 77.5472,
     stop_order: 2,
     estimated_arrival: '07:52 AM',
+    morning_time: '07:52 AM',
+    evening_time: '05:08 PM',
     status: 'active',
   },
   {
@@ -139,6 +143,8 @@ export const INITIAL_STOPS: Stop[] = [
     longitude: 77.5495,
     stop_order: 3,
     estimated_arrival: '08:00 AM',
+    morning_time: '08:00 AM',
+    evening_time: '05:00 PM',
     status: 'active',
   },
   {
@@ -149,6 +155,8 @@ export const INITIAL_STOPS: Stop[] = [
     longitude: 77.5510,
     stop_order: 4,
     estimated_arrival: '08:08 AM',
+    morning_time: '08:08 AM',
+    evening_time: '04:50 PM',
     status: 'active',
   },
   {
@@ -159,6 +167,8 @@ export const INITIAL_STOPS: Stop[] = [
     longitude: 77.5535,
     stop_order: 5,
     estimated_arrival: '08:20 AM',
+    morning_time: '08:20 AM',
+    evening_time: '04:30 PM',
     status: 'active',
   },
 ];

@@ -21,7 +21,9 @@ import {
   MASTER_DRIVERS, 
   MASTER_STUDENTS, 
   MASTER_STAFF_USERS, 
-  MASTER_STAFF_COMMUTERS 
+  MASTER_STAFF_COMMUTERS,
+  MASTER_BUSES,
+  MASTER_ROUTES
 } from '@college-bus/shared';
 import { supabase, isLiveBackendConfigured } from '../services/supabase';
 import { locationTracker } from '../services/locationService';
@@ -204,39 +206,56 @@ export default function LoginScreen() {
       }
 
       // 3. Prepare All Data Collections (combining shared MASTER, built-ins, and dynamic Admin Web storage)
+      // BUSES & ROUTES
+      let allBuses: any[] = [...MASTER_BUSES];
+      try {
+        const storedB = await authStorage.getItem('bustrack_buses_v1');
+        if (storedB) {
+          const parsedB = JSON.parse(storedB);
+          if (Array.isArray(parsedB) && parsedB.length > 0) allBuses = [...parsedB, ...allBuses];
+        }
+      } catch {}
+
+      let allRoutes: any[] = [...MASTER_ROUTES];
+      try {
+        const storedR = await authStorage.getItem('bustrack_routes_v1');
+        if (storedR) {
+          const parsedR = JSON.parse(storedR);
+          if (Array.isArray(parsedR) && parsedR.length > 0) allRoutes = [...parsedR, ...allRoutes];
+        }
+      } catch {}
+
       // DRIVERS
-      let allDrivers: any[] = [...MASTER_DRIVERS];
+      let allDrivers: any[] = [];
       try {
         const stored = await authStorage.getItem('bustrack_drivers_v1');
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) allDrivers = [...parsed, ...allDrivers];
+          if (Array.isArray(parsed)) allDrivers = [...parsed];
         }
       } catch {}
-
-      // Add default driver fallbacks
-      allDrivers.push(
-        { id: 'dr1', name: 'Mr. B. Moorthi', driverName: 'Mr. B. Moorthi', phone: '9894668646', employee_id: 'EMP-DRV-01', driverId: 'EMP-DRV-01', bus_number: 'BUS-01', busNumber: 'BUS-01', password: 'driver123' },
-        { id: 'dr2', name: 'Mr. A. Gurumoorthy', driverName: 'Mr. A. Gurumoorthy', phone: '9786470807', employee_id: 'EMP-DRV-02', driverId: 'EMP-DRV-02', bus_number: 'BUS-02', busNumber: 'BUS-02', password: 'driver123' },
-        { id: 'dr3', name: 'Mr. M. Muthuvelpandi', driverName: 'Mr. M. Muthuvelpandi', phone: '9787764316', employee_id: 'EMP-DRV-03', driverId: 'EMP-DRV-03', bus_number: 'BUS-03', busNumber: 'BUS-03', password: 'driver123' }
-      );
+      // Add MASTER_DRIVERS if not already present
+      MASTER_DRIVERS.forEach(md => {
+        if (!allDrivers.some(d => d.id === md.id || d.employee_id === md.employee_id)) {
+          allDrivers.push(md);
+        }
+      });
 
       // STUDENTS
-      let allStudents: any[] = [...MASTER_STUDENTS];
+      let allStudents: any[] = [];
       try {
         const stored = await authStorage.getItem('bustrack_students_v1');
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) allStudents = [...parsed, ...allStudents];
+          if (Array.isArray(parsed)) allStudents = [...parsed];
         }
       } catch {}
-
-      // Add default student fallbacks
-      allStudents.push(
-        { id: 's1', name: 'Kavitha M', email: 'kavitha.cse@ritrjpm.ac.in', register_number: '953621104021', rollNumber: '953621104021', department: 'BE Computer Science & Eng.', year: 4, bus_number: 'BUS-01', busNumber: 'BUS-01', boarding_stop: 'Old Bus Stand, RJPM (Stop 1)', boardingStopName: 'Old Bus Stand, RJPM (Stop 1)', password: 'student123' },
-        { id: 's2', name: 'Vignesh K', email: 'vignesh.mech@ritrjpm.ac.in', register_number: '953621104088', rollNumber: '953621104088', department: 'BE Mechanical Engineering', year: 4, bus_number: 'BUS-01', busNumber: 'BUS-01', boarding_stop: 'Old Bus Stand, RJPM (Stop 1)', boardingStopName: 'Old Bus Stand, RJPM (Stop 1)', password: 'student123' },
-        { id: 's3', name: 'Kishore ST', email: 'kishore.it@ritrjpm.ac.in', register_number: '21IT045', rollNumber: '21IT045', department: 'B.Tech Information Tech.', year: 3, bus_number: 'BUS-01', busNumber: 'BUS-01', boarding_stop: 'Old Bus Stand, RJPM (Stop 1)', boardingStopName: 'Old Bus Stand, RJPM (Stop 1)', password: 'student123' }
-      );
+      // Add MASTER_STUDENTS if not already present
+      MASTER_STUDENTS.forEach(ms => {
+        if (!allStudents.some(s => s.id === ms.id || s.register_number === ms.register_number || (s.email && s.email === ms.profile?.email))) {
+          allStudents.push(ms);
+        }
+      });
 
       // STAFF / FACULTY
       let allStaff: any[] = [
@@ -366,6 +385,64 @@ export default function LoginScreen() {
         }
 
         const effectiveRole = resolvedRole;
+
+        // Dynamically resolve assigned bus and route for matched user
+        if (effectiveRole === 'driver') {
+          const assignedBusId = matchedUser.assigned_bus_id || matchedUser.bus_id || matchedUser.bus?.id;
+          const assignedBus = allBuses.find((b: any) => 
+            (assignedBusId && (b.id === assignedBusId || b.bus_number === assignedBusId)) ||
+            b.assigned_driver_id === matchedUser.id ||
+            b.driver?.id === matchedUser.id ||
+            (matchedUser.employee_id && b.driver?.employee_id === matchedUser.employee_id)
+          );
+          if (assignedBus) {
+            matchedUser.bus = assignedBus;
+            matchedUser.assigned_bus_id = assignedBus.id;
+            matchedUser.bus_id = assignedBus.id;
+            matchedUser.bus_number = assignedBus.bus_number;
+            matchedUser.busNumber = assignedBus.bus_number;
+            matchedUser.registration_number = assignedBus.registration_number;
+            matchedUser.registrationNumber = assignedBus.registration_number;
+            matchedUser.bus_name = assignedBus.bus_name;
+            const assignedRoute = allRoutes.find((r: any) => r.id === assignedBus.route_id);
+            if (assignedRoute) {
+              matchedUser.route = assignedRoute;
+              matchedUser.route_id = assignedRoute.id;
+              matchedUser.routeId = assignedRoute.id;
+              matchedUser.route_name = assignedRoute.route_name;
+              matchedUser.routeName = assignedRoute.route_name;
+            }
+          }
+        } else if (effectiveRole === 'student') {
+          const studentBusId = matchedUser.bus_id || matchedUser.busId || matchedUser.bus?.id;
+          const studentRouteId = matchedUser.route_id || matchedUser.routeId || matchedUser.route?.id;
+          const assignedBus = allBuses.find((b: any) => 
+            (studentBusId && (b.id === studentBusId || b.bus_number === studentBusId)) ||
+            (studentRouteId && b.route_id === studentRouteId)
+          );
+          const assignedRoute = allRoutes.find((r: any) => 
+            (studentRouteId && r.id === studentRouteId) ||
+            (assignedBus?.route_id && r.id === assignedBus.route_id)
+          );
+          if (assignedBus) {
+            matchedUser.bus = assignedBus;
+            matchedUser.bus_id = assignedBus.id;
+            matchedUser.busId = assignedBus.id;
+            matchedUser.bus_number = assignedBus.bus_number;
+            matchedUser.busNumber = assignedBus.bus_number;
+            matchedUser.registration_number = assignedBus.registration_number;
+            matchedUser.registrationNumber = assignedBus.registration_number;
+            matchedUser.bus_name = assignedBus.bus_name;
+          }
+          if (assignedRoute) {
+            matchedUser.route = assignedRoute;
+            matchedUser.route_id = assignedRoute.id;
+            matchedUser.routeId = assignedRoute.id;
+            matchedUser.route_name = assignedRoute.route_name;
+            matchedUser.routeName = assignedRoute.route_name;
+          }
+        }
+
         await authStorage.saveSession(effectiveRole, matchedUser);
         const target = effectiveRole === 'driver' ? '/driver' : effectiveRole === 'student' ? '/student' : '/staff';
         routerRef.current.replace(target as any);

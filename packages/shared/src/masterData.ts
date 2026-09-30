@@ -472,20 +472,20 @@ export const MASTER_BUSES: Bus[] = [
 // Route Stops for All Routes
 export const MASTER_STOPS: Stop[] = [
   // Route 1 Stops
-  { id: 'st1_1', route_id: 'r1', stop_name: 'Old Bus Stand, RJPM', latitude: 9.4485, longitude: 77.5505, stop_order: 1, estimated_arrival: '08:20 AM', status: 'active' },
-  { id: 'st1_2', route_id: 'r1', stop_name: 'Tenkasi Road Junction', latitude: 9.4498, longitude: 77.5518, stop_order: 2, estimated_arrival: '08:28 AM', status: 'active' },
-  { id: 'st1_3', route_id: 'r1', stop_name: 'PACR Mill Circle', latitude: 9.4505, longitude: 77.5525, stop_order: 3, estimated_arrival: '08:35 AM', status: 'active' },
-  { id: 'st1_4', route_id: 'r1', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 4, estimated_arrival: '08:45 AM', status: 'active' },
+  { id: 'st1_1', route_id: 'r1', stop_name: 'Old Bus Stand, RJPM', latitude: 9.4485, longitude: 77.5505, stop_order: 1, estimated_arrival: '08:20 AM', morning_time: '08:20 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st1_2', route_id: 'r1', stop_name: 'Tenkasi Road Junction', latitude: 9.4498, longitude: 77.5518, stop_order: 2, estimated_arrival: '08:28 AM', morning_time: '08:28 AM', evening_time: '05:05 PM', status: 'active' },
+  { id: 'st1_3', route_id: 'r1', stop_name: 'PACR Mill Circle', latitude: 9.4505, longitude: 77.5525, stop_order: 3, estimated_arrival: '08:35 AM', morning_time: '08:35 AM', evening_time: '04:55 PM', status: 'active' },
+  { id: 'st1_4', route_id: 'r1', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 4, estimated_arrival: '08:45 AM', morning_time: '08:45 AM', evening_time: '04:30 PM', status: 'active' },
 
   // Route 2 Stops
-  { id: 'st2_1', route_id: 'r2', stop_name: 'Kollakondan Villakku', latitude: 9.4280, longitude: 77.5380, stop_order: 1, estimated_arrival: '08:00 AM', status: 'active' },
-  { id: 'st2_2', route_id: 'r2', stop_name: 'Ayyanar Kovil Road Turn', latitude: 9.4350, longitude: 77.5420, stop_order: 2, estimated_arrival: '08:15 AM', status: 'active' },
-  { id: 'st2_3', route_id: 'r2', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:35 AM', status: 'active' },
+  { id: 'st2_1', route_id: 'r2', stop_name: 'Kollakondan Villakku', latitude: 9.4280, longitude: 77.5380, stop_order: 1, estimated_arrival: '08:00 AM', morning_time: '08:00 AM', evening_time: '05:20 PM', status: 'active' },
+  { id: 'st2_2', route_id: 'r2', stop_name: 'Ayyanar Kovil Road Turn', latitude: 9.4350, longitude: 77.5420, stop_order: 2, estimated_arrival: '08:15 AM', morning_time: '08:15 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st2_3', route_id: 'r2', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:35 AM', morning_time: '08:35 AM', evening_time: '04:30 PM', status: 'active' },
 
   // Route 7 Stops
-  { id: 'st7_1', route_id: 'r7', stop_name: 'New Bus Stand - RJPM', latitude: 9.4475, longitude: 77.5450, stop_order: 1, estimated_arrival: '08:20 AM', status: 'active' },
-  { id: 'st7_2', route_id: 'r7', stop_name: 'Gandhi Statue Junction', latitude: 9.4490, longitude: 77.5472, stop_order: 2, estimated_arrival: '08:30 AM', status: 'active' },
-  { id: 'st7_3', route_id: 'r7', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', status: 'active' },
+  { id: 'st7_1', route_id: 'r7', stop_name: 'New Bus Stand - RJPM', latitude: 9.4475, longitude: 77.5450, stop_order: 1, estimated_arrival: '08:20 AM', morning_time: '08:20 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st7_2', route_id: 'r7', stop_name: 'Gandhi Statue Junction', latitude: 9.4490, longitude: 77.5472, stop_order: 2, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st7_3', route_id: 'r7', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', morning_time: '08:45 AM', evening_time: '04:30 PM', status: 'active' },
 ];
 
 // Master Students Registered across Routes

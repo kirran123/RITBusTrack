@@ -10,6 +10,7 @@ import {
   Platform,
   Linking,
   Modal,
+  AppState,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -208,6 +209,33 @@ export default function StaffMobileDashboard() {
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const unreadNotifCount = (systemBroadcasts || []).filter((n) => n && n.id && !readNotifIds.includes(n.id)).length;
 
+  // Restore persisted read notification IDs on mount
+  useEffect(() => {
+    authStorage.getItem('bustrack_staff_read_notifs').then((stored) => {
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) setReadNotifIds(parsed);
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
+
+  const markAllNotificationsAsRead = () => {
+    const allIds = (systemBroadcasts || []).map((n) => n.id);
+    setReadNotifIds(allIds);
+    authStorage.setItem('bustrack_staff_read_notifs', JSON.stringify(allIds)).catch(() => {});
+    setShowNotifModal(false);
+  };
+
+  const markSingleNotificationRead = (notifId: string) => {
+    setReadNotifIds((prev) => {
+      const updated = prev.includes(notifId) ? prev : [...prev, notifId];
+      authStorage.setItem('bustrack_staff_read_notifs', JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  };
+
   // Commuter Faculty Profile & Realtime Leave State
   const [facultyProfile, setFacultyProfile] = useState<FacultyCommuter>({
     id: 'fac_042',
@@ -398,19 +426,36 @@ export default function StaffMobileDashboard() {
       );
     });
 
-    // 5. Initial fetch of active admin announcements from Supabase DB
-    fetchSystemNotificationsFromDB().then((notifs) => {
-      if (notifs && notifs.length > 0) {
-        setSystemBroadcasts((prev) => {
-          const ids = new Set(prev.map((n) => n.id));
-          const fresh = notifs.filter((n) => !ids.has(n.id));
-          return [...fresh, ...prev];
-        });
-      }
-    }).catch(() => {});
+    // 5. Fetch announcements from Supabase DB and local cache
+    const syncAnnouncements = async (shouldPushAlerts: boolean = false) => {
+      try {
+        const notifs = await fetchSystemNotificationsFromDB();
+        if (notifs && notifs.length > 0) {
+          setSystemBroadcasts((prev) => {
+            const ids = new Set(prev.map((n) => n.id));
+            const fresh = notifs.filter((n) => !ids.has(n.id));
+            if (fresh.length > 0) {
+              if (shouldPushAlerts) {
+                const unreadFresh = fresh.filter((n) => !readNotifIds.includes(n.id));
+                if (unreadFresh.length > 0) {
+                  const top = unreadFresh[0];
+                  setIncomingAlertModal(top);
+                  setIncomingToast(top);
+                  notificationService.sendPushNotification(
+                    `📢 ${top.title}`,
+                    top.message,
+                    top.type || 'broadcast'
+                  );
+                }
+              }
+              return [...fresh, ...prev];
+            }
+            return prev;
+          });
+        }
+      } catch {}
 
-    // 6. Polling sync for cross-client notifications (checks every 2.5s for native mobile & web)
-    const notifPollTimer = setInterval(() => {
+      // Also check authStorage fallback
       authStorage.getItem('bustrack_notifications_v1').then((raw) => {
         if (raw) {
           try {
@@ -420,14 +465,16 @@ export default function StaffMobileDashboard() {
                 const prevIds = new Set(prev.map((n) => n.id));
                 const newItems = list.filter((n: any) => !prevIds.has(n.id));
                 if (newItems.length > 0) {
-                  const newest = newItems[0];
-                  setIncomingAlertModal(newest);
-                  setIncomingToast(newest);
-                  notificationService.sendPushNotification(
-                    `📢 ${newest.title}`,
-                    newest.message,
-                    newest.type || 'broadcast'
-                  );
+                  if (shouldPushAlerts) {
+                    const newest = newItems[0];
+                    setIncomingAlertModal(newest);
+                    setIncomingToast(newest);
+                    notificationService.sendPushNotification(
+                      `📢 ${newest.title}`,
+                      newest.message,
+                      newest.type || 'broadcast'
+                    );
+                  }
                   return [...newItems, ...prev];
                 }
                 return prev;
@@ -436,7 +483,22 @@ export default function StaffMobileDashboard() {
           } catch {}
         }
       }).catch(() => {});
-    }, 2500);
+    };
+
+    // Initial fetch on mount
+    syncAnnouncements(true);
+
+    // 6. Polling sync every 3.5 seconds
+    const notifPollTimer = setInterval(() => {
+      syncAnnouncements(true);
+    }, 3500);
+
+    // 6b. Foreground sync when app is reopened or focused
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        syncAnnouncements(true);
+      }
+    });
 
     // 7. Seconds counter for telemetry freshness and dynamic ETA recalibration
     const secTimer = setInterval(() => {
@@ -452,6 +514,7 @@ export default function StaffMobileDashboard() {
       clearInterval(secTimer);
       clearInterval(notifPollTimer);
       clearInterval(pollTimer);
+      appStateSub.remove();
     };
   }, []);
 
@@ -701,7 +764,7 @@ export default function StaffMobileDashboard() {
                     <TouchableOpacity
                       key={notif.id}
                       style={[styles.notifCardItem, isRead && { opacity: 0.65 }]}
-                      onPress={() => setReadNotifIds((prev) => (prev.includes(notif.id) ? prev : [...prev, notif.id]))}
+                      onPress={() => markSingleNotificationRead(notif.id)}
                     >
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <Text style={styles.notifCardTitle}>{notif.title}</Text>
@@ -722,10 +785,7 @@ export default function StaffMobileDashboard() {
             <View style={styles.notifModalFooter}>
               <TouchableOpacity
                 style={styles.markAllReadBtn}
-                onPress={() => {
-                  setReadNotifIds(systemBroadcasts.map((n) => n.id));
-                  setShowNotifModal(false);
-                }}
+                onPress={markAllNotificationsAsRead}
               >
                 <Text style={styles.markAllReadText}>✓ Mark All as Read</Text>
               </TouchableOpacity>

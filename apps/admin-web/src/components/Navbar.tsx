@@ -56,7 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isStaff = activeUser?.role === 'staff';
   const isViewOnly = isStaff && activeUser?.access_level === 'view';
 
-  const unreadCount = notifications.filter((n) => !n.read_at).length;
+  const unreadCount = notifications.filter((n) => !n.read_at && n.is_read !== true).length;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -257,7 +257,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         navigate('/notifications');
                       }}
                       className={`p-3.5 hover:bg-slate-800/60 cursor-pointer transition-colors flex items-start space-x-3 ${
-                        !item.read_at ? 'bg-blue-950/20' : ''
+                        !item.read_at && item.is_read !== true ? 'bg-blue-950/20' : ''
                       }`}
                     >
                       <div className="p-2 rounded-xl bg-slate-950 border border-slate-800 shrink-0 mt-0.5">
@@ -266,7 +266,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center justify-between gap-1">
-                          <p className={`text-xs truncate ${!item.read_at ? 'font-black text-white' : 'font-bold text-slate-300'}`}>
+                          <p className={`text-xs truncate ${!item.read_at && item.is_read !== true ? 'font-black text-white' : 'font-bold text-slate-300'}`}>
                             {item.title}
                           </p>
                           <span className="text-[10px] text-slate-400 shrink-0 font-medium">

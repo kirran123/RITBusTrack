@@ -105,9 +105,9 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
     });
   }, [timeRecords, activeShiftTab, selectedDate, busFilter, statusFilter, searchQuery]);
 
-  // Morning and Evening Counts
-  const morningList = useMemo(() => timeRecords.filter(r => r.shift === 'morning' && r.date === selectedDate), [timeRecords, selectedDate]);
-  const eveningList = useMemo(() => timeRecords.filter(r => r.shift === 'evening' && r.date === selectedDate), [timeRecords, selectedDate]);
+  // Morning and Evening Counts (matches selectedDate if specified, otherwise shows all records)
+  const morningList = useMemo(() => timeRecords.filter(r => r.shift === 'morning' && (!selectedDate || r.date === selectedDate)), [timeRecords, selectedDate]);
+  const eveningList = useMemo(() => timeRecords.filter(r => r.shift === 'evening' && (!selectedDate || r.date === selectedDate)), [timeRecords, selectedDate]);
   
   const morningCompleted = morningList.filter(r => r.status === 'completed').length;
   const morningInProgress = morningList.filter(r => r.status === 'in_progress').length;
