@@ -150,6 +150,19 @@ class NotificationService {
     try {
       const cleanTitle = (title || '').trim();
       const cleanBody = (body || '').trim();
+
+      // Ignore internal cloud registry snapshots from firing push notifications
+      if (
+        cleanTitle.includes('REGISTRY_SNAPSHOT') ||
+        cleanTitle.includes('BUST_TRACK_REGISTRY') ||
+        cleanBody.includes('BUST_TRACK_REGISTRY') ||
+        cleanBody.startsWith('{"version"') ||
+        type === 'system_registry' ||
+        type === 'registry_snapshot'
+      ) {
+        return;
+      }
+
       const dedupeKey = `${cleanTitle}::${cleanBody}`;
       const now = Date.now();
       const lastSent = this.recentPushLogs.get(dedupeKey);

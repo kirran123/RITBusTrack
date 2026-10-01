@@ -146,8 +146,8 @@ export async function pushRegistryToCloud(params: {
       id: CLOUD_REGISTRY_SNAPSHOT_ID,
       title: CLOUD_REGISTRY_NOTIFICATION_TITLE,
       message: JSON.stringify(payload),
-      type: 'broadcast',
-      target_type: 'all',
+      type: 'maintenance',
+      target_type: 'user',
     } as any);
 
     if (snapError) {

@@ -1,6 +1,7 @@
 import { Student, Driver, StaffCommuter, StaffUser, Bus, Route, Stop, CLOUD_REGISTRY_SNAPSHOT_ID, CLOUD_REGISTRY_NOTIFICATION_TITLE, SyncedUserRegistryPayload } from '@college-bus/shared';
 import { supabase, isLiveBackendConfigured } from './supabase';
 import { authStorage } from './authStorage';
+import { studentRosterStore } from './studentStore';
 
 let cachedRegistry: SyncedUserRegistryPayload | null = null;
 let lastFetchTime = 0;
@@ -17,6 +18,9 @@ export async function applyRegistryToStorage(payload: SyncedUserRegistryPayload)
 
     if (Array.isArray(payload.students) && payload.students.length > 0) {
       await authStorage.setItem('bustrack_students_v1', JSON.stringify(payload.students));
+      try {
+        studentRosterStore.updateFromRegistry(payload.students);
+      } catch {}
     }
     if (Array.isArray(payload.drivers) && payload.drivers.length > 0) {
       await authStorage.setItem('bustrack_drivers_v1', JSON.stringify(payload.drivers));

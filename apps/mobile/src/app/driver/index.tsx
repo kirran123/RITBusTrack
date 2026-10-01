@@ -22,14 +22,14 @@ import {
   calculateDistanceKm,
   calculateDynamicETA,
 } from '../../services/locationService';
-import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB, subscribeToStops, fetchLiveStops } from '../../services/supabase';
+import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB, subscribeToStops, fetchLiveStops, isInternalRegistryNotification } from '../../services/supabase';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
 import { notificationService } from '../../services/notificationService';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
-import { Stop, SystemNotification, GPSCoordinate, timeHistoryStore, EmergencyType, EmergencyAlert, MASTER_BUSES, MASTER_ROUTES, MASTER_STOPS, INITIAL_STOPS } from '@college-bus/shared';
+import { Stop, SystemNotification, GPSCoordinate, timeHistoryStore, EmergencyType, EmergencyAlert, MASTER_BUSES, MASTER_ROUTES, MASTER_STOPS, INITIAL_STOPS, MASTER_STUDENTS, MASTER_STAFF_COMMUTERS } from '@college-bus/shared';
 
 type DriverTab = 'nav' | 'students' | 'cockpit' | 'sos' | 'profile';
 
@@ -162,7 +162,7 @@ export default function DriverDashboard() {
         const stored = localStorage.getItem('bustrack_notifications_v1');
         if (stored) {
           const list = JSON.parse(stored);
-          if (Array.isArray(list)) return list;
+          if (Array.isArray(list)) return list.filter((n) => !isInternalRegistryNotification(n));
         }
       } catch {}
     }
@@ -224,21 +224,133 @@ export default function DriverDashboard() {
     loadSavedDriver();
   }, []);
 
-  // Real-time Students Roster State for Assigned Bus
+  // Real-time Passengers (Students + Staff) Roster State for Assigned Bus
   const resolvedBusId = driverProfile.assignedBusId || 'b1';
   const [students, setStudents] = useState<BusStudent[]>(() => studentRosterStore.getStudents(resolvedBusId));
+  const [staffPassengers, setStaffPassengers] = useState<any[]>([]);
+  const [passengerFilterType, setPassengerFilterType] = useState<'all' | 'students' | 'staff'>('all');
   const [studentSearch, setStudentSearch] = useState('');
   const [filterStopId, setFilterStopId] = useState('all');
 
+  // Load both allocated students and staff for driver's bus
+  const loadPassengersForBus = async () => {
+    const busId = driverProfile.assignedBusId || 'b1';
+    const bNum = driverProfile.busNumber || 'BUS-01';
+    const cleanTarget = (busId || bNum).toLowerCase().replace(/[- ]/g, '');
+    const cleanBusNum = bNum.toLowerCase().replace(/[- ]/g, '');
+    const rId = (driverProfile.routeId || '').toLowerCase().trim();
+
+    // 1. Students
+    let allSt: any[] = [];
+    try {
+      const rawSt = await authStorage.getItem('bustrack_students_v1');
+      if (rawSt) {
+        const parsed = JSON.parse(rawSt);
+        if (Array.isArray(parsed) && parsed.length > 0) allSt = parsed;
+      }
+    } catch {}
+    if (allSt.length === 0) allSt = [...MASTER_STUDENTS];
+    else {
+      MASTER_STUDENTS.forEach((ms) => {
+        if (!allSt.some((s) => s.id === ms.id || s.register_number === ms.register_number)) {
+          allSt.push(ms);
+        }
+      });
+    }
+
+    const matchedStudents: BusStudent[] = allSt
+      .filter((s: any) => {
+        const sBusId = (s.bus_id || s.busId || '').toLowerCase().replace(/[- ]/g, '');
+        const sBusNum = (s.bus_number || s.busNumber || s.bus?.bus_number || '').toLowerCase().replace(/[- ]/g, '');
+        const sRoute = (s.route_id || s.routeId || s.route?.id || '').toLowerCase().trim();
+        if (sBusNum && cleanBusNum && sBusNum === cleanBusNum) return true;
+        if (sBusId && cleanTarget && sBusId === cleanTarget) return true;
+        if (sRoute && rId && sRoute === rId) return true;
+        if ((!s.bus_id && !s.busId && !s.bus_number && !s.busNumber) && (cleanTarget === 'b1' || cleanBusNum === 'bus01')) return true;
+        return false;
+      })
+      .map((s: any, idx: number) => ({
+        id: s.id || `s_${idx}`,
+        name: s.profile?.name || s.name || 'Student',
+        rollNumber: s.register_number || s.rollNumber || s.roll_number || 'N/A',
+        department: s.department || 'B.Tech Information Tech.',
+        year: s.year || 3,
+        section: s.section || 'A',
+        boardingStopId: s.boarding_stop_id || s.boardingStopId || 'st1',
+        boardingStopName: s.boarding_stop?.stop_name || s.boardingStopName || 'Assigned Stop',
+        phone: s.profile?.phone || s.phone || '+91 98421 00000',
+        email: s.profile?.email || s.email || '',
+        busId: s.bus_id || s.busId || busId,
+        busNumber: s.bus_number || s.busNumber || bNum,
+        routeId: s.route_id || s.routeId || rId,
+        isBoarded: false,
+        isOnLeave: Boolean(s.is_on_leave || s.isOnLeave),
+        leaveDate: s.leave_date || s.leaveDate,
+        leaveReason: s.leave_reason || s.leaveReason,
+        avatarBg: '#1e3a8a',
+      }));
+
+    setStudents(matchedStudents);
+
+    // 2. Staff Commuters
+    let allStaff: any[] = [];
+    try {
+      const rawSc = await authStorage.getItem('bustrack_staff_commuters_v1');
+      if (rawSc) {
+        const parsed = JSON.parse(rawSc);
+        if (Array.isArray(parsed) && parsed.length > 0) allStaff = parsed;
+      }
+    } catch {}
+    if (allStaff.length === 0) allStaff = [...MASTER_STAFF_COMMUTERS];
+    else {
+      MASTER_STAFF_COMMUTERS.forEach((msc) => {
+        if (!allStaff.some((sc) => sc.id === msc.id || sc.employee_id === msc.employee_id)) {
+          allStaff.push(msc);
+        }
+      });
+    }
+
+    const matchedStaff = allStaff
+      .filter((sc: any) => {
+        const scBusId = (sc.bus_id || sc.busId || '').toLowerCase().replace(/[- ]/g, '');
+        const scBusNum = (sc.bus_number || sc.busNumber || sc.bus?.bus_number || '').toLowerCase().replace(/[- ]/g, '');
+        const scRoute = (sc.route_id || sc.routeId || sc.route?.id || '').toLowerCase().trim();
+        if (scBusNum && cleanBusNum && scBusNum === cleanBusNum) return true;
+        if (scBusId && cleanTarget && scBusId === cleanTarget) return true;
+        if (scRoute && rId && scRoute === rId) return true;
+        if ((!sc.bus_id && !sc.busId && !sc.bus_number && !sc.busNumber) && (cleanTarget === 'b1' || cleanBusNum === 'bus01')) return true;
+        return false;
+      })
+      .map((sc: any, idx: number) => ({
+        id: sc.id || `sc_${idx}`,
+        name: sc.profile?.name || sc.name || 'Faculty Member',
+        staffId: sc.employee_id || sc.staffId || 'FAC',
+        department: sc.department || 'Academic Department',
+        designation: sc.designation || 'Staff Commuter',
+        boardingStopId: sc.boarding_stop_id || sc.boardingStopId || 'st1',
+        boardingStopName: typeof sc.boarding_stop === 'object' ? sc.boarding_stop?.stop_name : (sc.boardingStopName || sc.boarding_stop || 'Assigned Stop'),
+        phone: sc.profile?.phone || sc.phone || '+91 94432 00000',
+        email: sc.profile?.email || sc.email || '',
+        busId: sc.bus_id || sc.busId || busId,
+        busNumber: sc.bus_number || sc.busNumber || bNum,
+        isBoarded: false,
+        isOnLeave: Boolean(sc.is_on_leave || sc.isOnLeave),
+        leaveDate: sc.leave_date || sc.leaveDate,
+        leaveReason: sc.leave_reason || sc.leaveReason,
+        avatarBg: '#7c3aed',
+      }));
+
+    setStaffPassengers(matchedStaff);
+  };
+
   // Sync with Admin additions / removals in real-time for driver's assigned bus
   useEffect(() => {
-    const busId = driverProfile.assignedBusId || 'b1';
-    setStudents(studentRosterStore.getStudents(busId));
+    loadPassengersForBus();
     const unsubscribe = studentRosterStore.subscribe(() => {
-      setStudents(studentRosterStore.getStudents(busId));
+      loadPassengersForBus();
     });
     return unsubscribe;
-  }, [driverProfile.assignedBusId]);
+  }, [driverProfile.assignedBusId, driverProfile.busNumber, driverProfile.routeId]);
 
   const [allStops, setAllStops] = useState<Stop[]>(INITIAL_STOPS);
 
@@ -364,6 +476,8 @@ export default function DriverDashboard() {
     checkNotificationPermissionStatus();
 
     const unsubNotifs = subscribeToSystemNotifications((notif: SystemNotification) => {
+      if (isInternalRegistryNotification(notif)) return;
+
       setSystemBroadcasts((prev) => {
         if (prev.some((n) => n.id === notif.id || (n.title?.trim().toLowerCase() === notif.title?.trim().toLowerCase() && n.message?.trim().toLowerCase() === notif.message?.trim().toLowerCase()))) {
           return prev;
@@ -386,8 +500,9 @@ export default function DriverDashboard() {
       try {
         const notifs = await fetchSystemNotificationsFromDB();
         if (notifs && notifs.length > 0) {
+          const cleanNotifs = notifs.filter((n) => !isInternalRegistryNotification(n));
           setSystemBroadcasts((prev) => {
-            const fresh = notifs.filter((n) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
+            const fresh = cleanNotifs.filter((n) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
             if (fresh.length > 0) {
               return [...fresh, ...prev];
             }
@@ -401,8 +516,9 @@ export default function DriverDashboard() {
           try {
             const list = JSON.parse(raw);
             if (Array.isArray(list) && list.length > 0) {
+              const cleanList = list.filter((n: any) => !isInternalRegistryNotification(n));
               setSystemBroadcasts((prev) => {
-                const fresh = list.filter((n: any) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
+                const fresh = cleanList.filter((n: any) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
                 if (fresh.length > 0) {
                   return [...fresh, ...prev];
                 }
@@ -872,7 +988,8 @@ export default function DriverDashboard() {
   };
 
   const onLeaveStudents = (students || []).filter((s) => s && s.isOnLeave);
-  const onLeaveCount = onLeaveStudents.length;
+  const onLeaveStaff = (staffPassengers || []).filter((sc) => sc && sc.isOnLeave);
+  const onLeaveCount = onLeaveStudents.length + onLeaveStaff.length;
 
   const boardedStudentsCount = (students || []).filter(
     (s) => s && !s.isOnLeave && getStudentBoardingStatus(s).status === 'boarded'
@@ -894,6 +1011,21 @@ export default function DriverDashboard() {
       return matchesSearch && !!s.isOnLeave;
     }
     const matchesStop = filterStopId === 'all' || s.boardingStopId === filterStopId;
+    return matchesSearch && matchesStop;
+  });
+
+  const displayedStaff = (staffPassengers || []).filter((sc) => {
+    if (!sc) return false;
+    const scName = (sc.name || sc.profile?.name || '').toLowerCase();
+    const scId = (sc.staffId || sc.employee_id || '').toLowerCase();
+    const scDept = (sc.department || '').toLowerCase();
+    const q = (studentSearch || '').toLowerCase();
+    const matchesSearch = !q || scName.includes(q) || scId.includes(q) || scDept.includes(q);
+    
+    if (filterStopId === 'on_leave') {
+      return matchesSearch && !!sc.isOnLeave;
+    }
+    const matchesStop = filterStopId === 'all' || sc.boardingStopId === filterStopId;
     return matchesSearch && matchesStop;
   });
 
@@ -1367,6 +1499,46 @@ export default function DriverDashboard() {
               )}
             </View>
 
+            {/* Passenger Type Filter (All / Students / Staff) */}
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  passengerFilterType === 'all' && styles.filterPillActive,
+                  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }
+                ]}
+                onPress={() => setPassengerFilterType('all')}
+              >
+                <Text style={[styles.filterPillText, passengerFilterType === 'all' && styles.filterPillTextActive, { fontSize: 11 }]}>
+                  👥 All ({students.length + staffPassengers.length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  passengerFilterType === 'students' && styles.filterPillActive,
+                  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }
+                ]}
+                onPress={() => setPassengerFilterType('students')}
+              >
+                <Text style={[styles.filterPillText, passengerFilterType === 'students' && styles.filterPillTextActive, { fontSize: 11 }]}>
+                  🎓 Students ({students.length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  passengerFilterType === 'staff' && styles.filterPillActive,
+                  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }
+                ]}
+                onPress={() => setPassengerFilterType('staff')}
+              >
+                <Text style={[styles.filterPillText, passengerFilterType === 'staff' && styles.filterPillTextActive, { fontSize: 11 }]}>
+                  👔 Staff ({staffPassengers.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Boarding Stop Quick Filters */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
               <TouchableOpacity
@@ -1374,7 +1546,7 @@ export default function DriverDashboard() {
                 onPress={() => setFilterStopId('all')}
               >
                 <Text style={[styles.filterPillText, filterStopId === 'all' && styles.filterPillTextActive]}>
-                  All Stops ({students.length})
+                  All Stops ({students.length + staffPassengers.length})
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1394,96 +1566,140 @@ export default function DriverDashboard() {
                   ⛔ On Leave ({onLeaveCount})
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filterPill, filterStopId === 'st1' && styles.filterPillActive]}
-                onPress={() => setFilterStopId('st1')}
-              >
-                <Text style={[styles.filterPillText, filterStopId === 'st1' && styles.filterPillTextActive]}>
-                  Stop 1 ({students.filter((s) => s.boardingStopId === 'st1').length})
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filterPill, filterStopId === 'st2' && styles.filterPillActive]}
-                onPress={() => setFilterStopId('st2')}
-              >
-                <Text style={[styles.filterPillText, filterStopId === 'st2' && styles.filterPillTextActive]}>
-                  Stop 2 ({students.filter((s) => s.boardingStopId === 'st2').length})
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filterPill, filterStopId === 'st3' && styles.filterPillActive]}
-                onPress={() => setFilterStopId('st3')}
-              >
-                <Text style={[styles.filterPillText, filterStopId === 'st3' && styles.filterPillTextActive]}>
-                  Stop 3 ({students.filter((s) => s.boardingStopId === 'st3').length})
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filterPill, filterStopId === 'st4' && styles.filterPillActive]}
-                onPress={() => setFilterStopId('st4')}
-              >
-                <Text style={[styles.filterPillText, filterStopId === 'st4' && styles.filterPillTextActive]}>
-                  Stop 4 ({students.filter((s) => s.boardingStopId === 'st4').length})
-                </Text>
-              </TouchableOpacity>
+              {currentStops.map((st) => {
+                const stCount = students.filter(s => s.boardingStopId === st.id).length + staffPassengers.filter(sc => sc.boardingStopId === st.id).length;
+                return (
+                  <TouchableOpacity
+                    key={st.id}
+                    style={[styles.filterPill, filterStopId === st.id && styles.filterPillActive]}
+                    onPress={() => setFilterStopId(st.id)}
+                  >
+                    <Text style={[styles.filterPillText, filterStopId === st.id && styles.filterPillTextActive]}>
+                      {st.stop_name} ({stCount})
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
 
-              {/* Students Passenger Cards List */}
-              <View style={styles.studentsListWrap}>
-                {displayedStudents.length === 0 ? (
-                  <View style={styles.emptyStudentsBox}>
-                    <Text style={{ color: '#64748b', fontSize: 13, textAlign: 'center' }}>
-                      No students matched the search criteria.
-                    </Text>
-                  </View>
-                ) : (
-                  displayedStudents.map((student) => {
-                    const boardStatus = getStudentBoardingStatus(student);
-                    const studentName = student?.name || student?.profile?.name || 'Student';
-                    const initials = studentName
-                      .split(' ')
-                      .filter(Boolean)
-                      .map((n: string) => n[0] || '')
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase() || 'ST';
+            {/* Passengers Cards List */}
+            <View style={styles.studentsListWrap}>
+              {((passengerFilterType === 'staff' ? 0 : displayedStudents.length) + (passengerFilterType === 'students' ? 0 : displayedStaff.length)) === 0 ? (
+                <View style={styles.emptyStudentsBox}>
+                  <Text style={{ color: '#64748b', fontSize: 13, textAlign: 'center' }}>
+                    No passengers matched the search criteria for this bus.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {/* Students section */}
+                  {(passengerFilterType === 'all' || passengerFilterType === 'students') &&
+                    displayedStudents.map((student) => {
+                      const boardStatus = getStudentBoardingStatus(student);
+                      const studentName = student?.name || student?.profile?.name || 'Student';
+                      const initials = studentName
+                        .split(' ')
+                        .filter(Boolean)
+                        .map((n: string) => n[0] || '')
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase() || 'ST';
 
-                    return (
-                      <View key={student.id || Math.random().toString()} style={styles.studentCard}>
-                        <View style={[styles.studentAvatarBox, { backgroundColor: student.avatarBg || '#1e3a8a' }]}>
-                          <Text style={styles.studentAvatarText}>{initials}</Text>
-                        </View>
+                      return (
+                        <View key={student.id || Math.random().toString()} style={styles.studentCard}>
+                          <View style={[styles.studentAvatarBox, { backgroundColor: student.avatarBg || '#1e3a8a' }]}>
+                            <Text style={styles.studentAvatarText}>{initials}</Text>
+                          </View>
 
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Text style={styles.studentCardName}>{studentName}</Text>
-                            <View style={[styles.boardBadge, boardStatus.badgeStyle]}>
-                              <Text style={[styles.boardBadgeText, boardStatus.textStyle]}>
-                                {boardStatus.label}
-                              </Text>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 4 }}>
+                                <Text style={styles.studentCardName} numberOfLines={1}>{studentName}</Text>
+                                <View style={{ backgroundColor: '#1e3a8a', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                                  <Text style={{ color: '#93c5fd', fontSize: 8.5, fontWeight: '900' }}>STUDENT</Text>
+                                </View>
+                              </View>
+                              <View style={[styles.boardBadge, boardStatus.badgeStyle]}>
+                                <Text style={[styles.boardBadgeText, boardStatus.textStyle]}>
+                                  {boardStatus.label}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <Text style={styles.studentCardRoll}>
+                              Roll: {student.rollNumber || student.register_number || 'N/A'} &bull; {student.department || 'Student'} (Yr {student.year || 4})
+                            </Text>
+
+                            <View style={styles.studentCardStopRow}>
+                              <Text style={styles.studentCardStop}>📍 {student.boardingStopName || 'Assigned Stop'}</Text>
                             </View>
                           </View>
 
-                          <Text style={styles.studentCardRoll}>
-                            Roll: {student.rollNumber || student.register_number || 'N/A'} &bull; {student.department || 'Student'} (Yr {student.year || 4})
-                          </Text>
-
-                          <View style={styles.studentCardStopRow}>
-                            <Text style={styles.studentCardStop}>📍 {student.boardingStopName || 'Assigned Stop'}</Text>
-                          </View>
+                          <TouchableOpacity
+                            style={styles.callStudentBtn}
+                            onPress={() => handleCallHelpline(student.phone || '+919443012345')}
+                          >
+                            <Text style={{ fontSize: 14 }}>📞</Text>
+                          </TouchableOpacity>
                         </View>
+                      );
+                    })}
 
-                        <TouchableOpacity
-                          style={styles.callStudentBtn}
-                          onPress={() => handleCallHelpline(student.phone || '+919443012345')}
-                        >
-                          <Text style={{ fontSize: 14 }}>📞</Text>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
+                  {/* Staff commuters section */}
+                  {(passengerFilterType === 'all' || passengerFilterType === 'staff') &&
+                    displayedStaff.map((staff) => {
+                      const boardStatus = getStudentBoardingStatus(staff as any);
+                      const staffName = staff?.name || staff?.profile?.name || 'Faculty Member';
+                      const initials = staffName
+                        .split(' ')
+                        .filter(Boolean)
+                        .map((n: string) => n[0] || '')
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase() || 'FC';
+
+                      return (
+                        <View key={staff.id || Math.random().toString()} style={[styles.studentCard, { borderColor: '#4338ca', borderWidth: 1 }]}>
+                          <View style={[styles.studentAvatarBox, { backgroundColor: staff.avatarBg || '#4f46e5' }]}>
+                            <Text style={styles.studentAvatarText}>{initials}</Text>
+                          </View>
+
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 4 }}>
+                                <Text style={styles.studentCardName} numberOfLines={1}>{staffName}</Text>
+                                <View style={{ backgroundColor: '#3730a3', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                                  <Text style={{ color: '#c7d2fe', fontSize: 8.5, fontWeight: '900' }}>FACULTY</Text>
+                                </View>
+                              </View>
+                              <View style={[styles.boardBadge, boardStatus.badgeStyle]}>
+                                <Text style={[styles.boardBadgeText, boardStatus.textStyle]}>
+                                  {boardStatus.label}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <Text style={styles.studentCardRoll}>
+                              Staff ID: {staff.staffId || staff.employee_id || 'N/A'} &bull; {staff.designation || 'Staff'} ({staff.department || 'Faculty'})
+                            </Text>
+
+                            <View style={styles.studentCardStopRow}>
+                              <Text style={styles.studentCardStop}>📍 {staff.boardingStopName || 'Assigned Stop'}</Text>
+                            </View>
+                          </View>
+
+                          <TouchableOpacity
+                            style={styles.callStudentBtn}
+                            onPress={() => handleCallHelpline(staff.phone || '+919443200000')}
+                          >
+                            <Text style={{ fontSize: 14 }}>📞</Text>
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+                </>
+              )}
+            </View>
           </ScrollView>
         )}
 
@@ -1824,10 +2040,10 @@ export default function DriverDashboard() {
           <View style={{ position: 'relative' }}>
             <Text style={[styles.tabBarIcon, activeTab === 'students' && styles.tabBarIconActive]}>👥</Text>
             <View style={styles.tabCountPill}>
-              <Text style={styles.tabCountPillText}>{students.length}</Text>
+              <Text style={styles.tabCountPillText}>{students.length + staffPassengers.length}</Text>
             </View>
           </View>
-          <Text style={[styles.tabBarLabel, activeTab === 'students' && styles.tabBarLabelActive]}>Students</Text>
+          <Text style={[styles.tabBarLabel, activeTab === 'students' && styles.tabBarLabelActive]}>Passengers</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

@@ -38,8 +38,9 @@ import {
   TripUpdatePayload,
   subscribeToStops,
   fetchLiveStops,
+  isInternalRegistryNotification,
 } from '../../services/supabase';
-import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop, MASTER_BUSES, MASTER_ROUTES, MASTER_STOPS } from '@college-bus/shared';
+import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop, MASTER_BUSES, MASTER_ROUTES, MASTER_STOPS, MASTER_DRIVERS } from '@college-bus/shared';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
@@ -177,7 +178,7 @@ export default function StudentDashboard() {
         const stored = localStorage.getItem('bustrack_notifications_v1');
         if (stored) {
           const list = JSON.parse(stored);
-          if (Array.isArray(list)) return list;
+          if (Array.isArray(list)) return list.filter((n) => !isInternalRegistryNotification(n));
         }
       } catch {}
     }
@@ -189,13 +190,27 @@ export default function StudentDashboard() {
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const unreadNotifCount = systemBroadcasts.filter((n) => !readNotifIds.includes(n.id)).length;
 
-  // Restore persisted read notification IDs on mount
+  // Restore persisted read notification IDs on mount & clean up any internal registry rows
   useEffect(() => {
     authStorage.getItem('bustrack_student_read_notifs').then((stored) => {
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) setReadNotifIds(parsed);
+        } catch {}
+      }
+    }).catch(() => {});
+
+    // Clean up stored notifications to remove any stale registry snapshots
+    authStorage.getItem('bustrack_notifications_v1').then((raw) => {
+      if (raw) {
+        try {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const cleaned = list.filter((n: any) => !isInternalRegistryNotification(n));
+            authStorage.setItem('bustrack_notifications_v1', JSON.stringify(cleaned)).catch(() => {});
+            setSystemBroadcasts(cleaned);
+          }
         } catch {}
       }
     }).catch(() => {});
@@ -241,6 +256,40 @@ export default function StudentDashboard() {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedLeaveDate, setSelectedLeaveDate] = useState('Today (20 Sep)');
 
+  // Dynamic Assigned Driver state for student's bus
+  const [assignedDriver, setAssignedDriver] = useState<{ name: string; phone: string }>({
+    name: 'Mr. B. Moorthi',
+    phone: '+91 9894668646',
+  });
+
+  useEffect(() => {
+    const loadDriverForBus = async () => {
+      try {
+        let driversList: any[] = [...MASTER_DRIVERS];
+        const raw = await authStorage.getItem('bustrack_drivers_v1');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            driversList = [...parsed, ...driversList];
+          }
+        }
+        const bId = (currentStudent.busId || '').toLowerCase().replace(/[- ]/g, '');
+        const bNum = (currentStudent.busNumber || '').toLowerCase().replace(/[- ]/g, '');
+        const matched = driversList.find((d: any) => {
+          const dBus = (d.assigned_bus_id || d.bus_id || d.busNumber || d.bus_number || '').toLowerCase().replace(/[- ]/g, '');
+          return (bId && dBus === bId) || (bNum && dBus === bNum);
+        });
+        if (matched) {
+          setAssignedDriver({
+            name: matched.profile?.name || matched.name || 'Assigned Driver',
+            phone: matched.phone || matched.profile?.phone || '+91 9894668646',
+          });
+        }
+      } catch {}
+    };
+    loadDriverForBus();
+  }, [currentStudent.busId, currentStudent.busNumber]);
+
   // Load saved student profile from persistent session
   useEffect(() => {
     const loadSavedStudent = async () => {
@@ -248,22 +297,44 @@ export default function StudentDashboard() {
         const session = await authStorage.getSession();
         if (session && session.role === 'student' && session.user) {
           const u = session.user as any;
+          const sName = u.profile?.name || u.name;
+          const sRoll = u.register_number || u.rollNumber || u.roll_number;
+          const sDept = u.department;
+          const sYear = u.year;
+          const sSection = u.section;
+          const sPhone = u.profile?.phone || u.phone;
+          const sEmail = u.profile?.email || u.email;
+          const sStop = u.boarding_stop?.stop_name || u.boardingStopName;
+          const sStopId = u.boarding_stop_id || u.boardingStopId;
+
           const bId = u.bus_id || u.busId || 'b1';
-          const busObj = MASTER_BUSES.find(b => b.id === bId || b.bus_number === u.busNumber);
+          const busObj = MASTER_BUSES.find(b => b.id === bId || b.bus_number === (u.bus?.bus_number || u.bus_number || u.busNumber));
           const bNum = u.bus?.bus_number || u.bus_number || u.busNumber || busObj?.bus_number || 'BUS-01';
           const rId = u.route_id || u.routeId || u.route?.id || busObj?.route_id || 'r1';
           const rObj = MASTER_ROUTES.find(r => r.id === rId);
-          const rName = u.route_name || u.routeName || u.route?.route_name || rObj?.route_name || 'Route 1';
-          const stopName = u.boardingStopName || u.boarding_stop?.stop_name || 'Old Bus Stand, RJPM';
+          const rName = u.route_name || u.routeName || u.route?.route_name || rObj?.route_name || (rId ? `Route ${rId.replace(/\D/g, '') || '1'}` : 'Route 1');
+          const stopName = sStop || 'Old Bus Stand, RJPM';
+          const regNum = u.bus?.registration_number || u.registration_number || u.registrationNumber || busObj?.registration_number;
 
           setCurrentStudent((prev) => ({
             ...prev,
             ...u,
+            id: u.id || prev.id,
+            name: sName || prev.name,
+            rollNumber: sRoll || prev.rollNumber,
+            department: sDept || prev.department,
+            year: sYear ? Number(sYear) : prev.year,
+            section: sSection || prev.section,
+            phone: sPhone || prev.phone,
+            email: sEmail || prev.email,
             busId: bId,
             busNumber: bNum,
             routeId: rId,
             routeName: rName,
             boardingStopName: stopName,
+            boardingStopId: sStopId || prev.boardingStopId,
+            registrationNumber: regNum || (prev as any).registrationNumber,
+            isOnLeave: Boolean(u.is_on_leave || u.isOnLeave),
           }));
         }
       } catch (e) {
@@ -275,23 +346,22 @@ export default function StudentDashboard() {
     loadSavedStudent();
   }, []);
 
-  // Sync with Student Roster Store
+  // Sync with Student Roster Store (only attendance and leave toggles, preserve student identity)
   useEffect(() => {
     const unsubscribe = studentRosterStore.subscribe(() => {
-      const updated = studentRosterStore.getStudentById(currentStudent.id);
+      const updated = studentRosterStore.getStudentById(currentStudent.id) || studentRosterStore.getStudentById(currentStudent.rollNumber);
       if (updated) {
         setCurrentStudent((prev) => ({
           ...prev,
-          ...updated,
-          busId: updated.busId || prev.busId,
-          busNumber: updated.busNumber || prev.busNumber,
-          routeId: updated.routeId || prev.routeId,
-          routeName: updated.routeName || prev.routeName,
+          isBoarded: updated.isBoarded ?? prev.isBoarded,
+          isOnLeave: updated.isOnLeave ?? prev.isOnLeave,
+          leaveDate: updated.leaveDate ?? prev.leaveDate,
+          leaveReason: updated.leaveReason ?? prev.leaveReason,
         }));
       }
     });
     return unsubscribe;
-  }, [currentStudent.id]);
+  }, [currentStudent.id, currentStudent.rollNumber]);
 
   // Notification / App preferences
   const [proximityAlerts, setProximityAlerts] = useState(true);
@@ -482,6 +552,8 @@ export default function StudentDashboard() {
 
     // 4. Subscribe to Live Admin Broadcast Announcements
     const unsubSystemNotif = subscribeToSystemNotifications((notif: SystemNotification) => {
+      if (isInternalRegistryNotification(notif)) return;
+
       setSystemBroadcasts((prev) => {
         if (prev.some((n) => n.id === notif.id || (n.title?.trim().toLowerCase() === notif.title?.trim().toLowerCase() && n.message?.trim().toLowerCase() === notif.message?.trim().toLowerCase()))) {
           return prev;
@@ -505,8 +577,9 @@ export default function StudentDashboard() {
       try {
         const notifs = await fetchSystemNotificationsFromDB();
         if (notifs && notifs.length > 0) {
+          const cleanNotifs = notifs.filter((n) => !isInternalRegistryNotification(n));
           setSystemBroadcasts((prev) => {
-            const fresh = notifs.filter((n) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
+            const fresh = cleanNotifs.filter((n) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
             if (fresh.length > 0) {
               return [...fresh, ...prev];
             }
@@ -521,8 +594,9 @@ export default function StudentDashboard() {
           try {
             const list = JSON.parse(raw);
             if (Array.isArray(list) && list.length > 0) {
+              const cleanList = list.filter((n: any) => !isInternalRegistryNotification(n));
               setSystemBroadcasts((prev) => {
-                const fresh = list.filter((n: any) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
+                const fresh = cleanList.filter((n: any) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
                 if (fresh.length > 0) {
                   return [...fresh, ...prev];
                 }
@@ -1390,7 +1464,7 @@ export default function StudentDashboard() {
                 <View>
                   <Text style={styles.leaveControlTitle}>One-Day Leave Notice</Text>
                   <Text style={styles.leaveControlSub}>
-                    Notify Driver Mr. B. Moorthi and Admin if you will not board today.
+                    Notify Driver {assignedDriver.name} and Admin if you will not board today.
                   </Text>
                 </View>
                 <View style={[styles.leaveStatusTag, currentStudent.isOnLeave ? styles.leaveStatusTagActive : styles.leaveStatusTagInactive]}>
@@ -1438,22 +1512,24 @@ export default function StudentDashboard() {
                 <Text style={styles.settingLabel}>Assigned Bus Number</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <View style={styles.busNumberInlineBadge}>
-                    <Text style={styles.busNumberInlineText}>{currentStudent.busNumber}</Text>
+                    <Text style={styles.busNumberInlineText}>{currentStudent.busNumber || 'BUS-01'}</Text>
                   </View>
-                  <Text style={styles.settingVal}>TN 67 AM 9785</Text>
+                  <Text style={styles.settingVal}>
+                    {(currentStudent as any).registrationNumber || (currentStudent as any).bus?.registration_number || (currentStudent.busNumber ? `${currentStudent.busNumber} • TN 67` : 'TN 67 AM 9785')}
+                  </Text>
                 </View>
               </View>
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Route Assignment</Text>
-                <Text style={styles.settingVal}>Route 1 (Old Bus Stand, RJPM ➔ RIT)</Text>
+                <Text style={styles.settingVal}>{currentStudent.routeName || 'Assigned Bus Route'}</Text>
               </View>
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Driver Name</Text>
-                <Text style={styles.settingVal}>Mr. B. Moorthi (+91 9894668646)</Text>
+                <Text style={styles.settingVal}>{assignedDriver.name} ({assignedDriver.phone})</Text>
               </View>
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Boarding Stop</Text>
-                <Text style={styles.settingVal}>{currentStudent.boardingStopName}</Text>
+                <Text style={styles.settingVal}>{currentStudent.boardingStopName || 'Assigned Stop'}</Text>
               </View>
             </View>
 

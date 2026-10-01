@@ -560,6 +560,17 @@ export default function LoginScreen() {
           matchedUser.route_name = assignedRoute.route_name;
           matchedUser.routeName = assignedRoute.route_name;
         }
+        // Normalize student profile fields
+        matchedUser.name = matchedUser.profile?.name || matchedUser.name || 'Student';
+        matchedUser.rollNumber = matchedUser.register_number || matchedUser.rollNumber || matchedUser.roll_number || 'N/A';
+        matchedUser.register_number = matchedUser.rollNumber;
+        matchedUser.department = matchedUser.department || 'B.Tech Information Tech.';
+        matchedUser.year = matchedUser.year || 3;
+        matchedUser.section = matchedUser.section || 'A';
+        matchedUser.phone = matchedUser.profile?.phone || matchedUser.phone || '';
+        matchedUser.email = matchedUser.profile?.email || matchedUser.email || '';
+        matchedUser.boardingStopName = matchedUser.boarding_stop?.stop_name || matchedUser.boardingStopName || 'Assigned Stop';
+        matchedUser.boardingStopId = matchedUser.boarding_stop_id || matchedUser.boardingStopId || 'st1';
       } else if (effectiveRole === 'staff') {
         const staffBusId = matchedUser.bus_id || matchedUser.busId || matchedUser.bus?.id;
         const staffRouteId = matchedUser.route_id || matchedUser.routeId || matchedUser.route?.id;
@@ -574,15 +585,26 @@ export default function LoginScreen() {
         if (assignedBus) {
           matchedUser.bus = assignedBus;
           matchedUser.bus_id = assignedBus.id;
+          matchedUser.bus_number = assignedBus.bus_number;
           matchedUser.busNumber = assignedBus.bus_number;
           matchedUser.bus_name = assignedBus.bus_name;
         }
         if (assignedRoute) {
           matchedUser.route = assignedRoute;
           matchedUser.route_id = assignedRoute.id;
+          matchedUser.routeId = assignedRoute.id;
           matchedUser.route_name = assignedRoute.route_name;
           matchedUser.routeName = assignedRoute.route_name;
         }
+        // Normalize staff profile fields
+        matchedUser.name = matchedUser.profile?.name || matchedUser.name || 'Faculty';
+        matchedUser.employee_id = matchedUser.employee_id || matchedUser.staffId || matchedUser.id || 'FAC-01';
+        matchedUser.staffId = matchedUser.employee_id;
+        matchedUser.department = matchedUser.department || 'Information Technology (IT)';
+        matchedUser.designation = matchedUser.designation || 'Faculty Member';
+        matchedUser.phone = matchedUser.profile?.phone || matchedUser.phone || '';
+        matchedUser.email = matchedUser.profile?.email || matchedUser.email || '';
+        matchedUser.boardingStopName = typeof matchedUser.boarding_stop === 'object' ? matchedUser.boarding_stop?.stop_name : (matchedUser.boardingStopName || matchedUser.boarding_stop || 'Assigned Stop');
       }
 
       await authStorage.saveSession(effectiveRole, matchedUser);

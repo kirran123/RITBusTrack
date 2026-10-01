@@ -101,8 +101,22 @@ const stopsListeners: Set<StopsListener> = new Set();
 // Deduplication tracking to prevent duplicate message and alert popups
 const recentNotificationDedupe = new Map<string, number>();
 
+export function isInternalRegistryNotification(notif: any): boolean {
+  if (!notif) return false;
+  if (notif.id === CLOUD_REGISTRY_SNAPSHOT_ID) return true;
+  if (notif.title === CLOUD_REGISTRY_NOTIFICATION_TITLE) return true;
+  if (typeof notif.title === 'string' && (notif.title.includes('REGISTRY_SNAPSHOT') || notif.title.includes('BUST_TRACK_REGISTRY'))) return true;
+  if (notif.type === 'system_registry' || notif.type === 'registry_snapshot' || notif.type === 'system_internal') return true;
+  if (notif.target_type === 'system') return true;
+  if (typeof notif.message === 'string' && (notif.message.trim().startsWith('{"version"') || notif.message.includes('BUST_TRACK_REGISTRY'))) return true;
+  return false;
+}
+
 export function emitSystemNotification(notif: SystemNotification) {
   if (!notif) return;
+  // Completely suppress internal registry snapshots from being dispatched as user announcements
+  if (isInternalRegistryNotification(notif)) return;
+
   const cleanTitle = (notif.title || '').trim();
   const cleanMsg = (notif.message || '').trim();
   const dedupeKey = `${cleanTitle}::${cleanMsg}`;
@@ -277,7 +291,7 @@ export function initRealtimeChannel() {
         if (!row) return;
 
         // Check if this notification row is our persistent cloud registry snapshot!
-        if (row.id === CLOUD_REGISTRY_SNAPSHOT_ID || row.title === CLOUD_REGISTRY_NOTIFICATION_TITLE) {
+        if (isInternalRegistryNotification(row)) {
           try {
             if (row.message) {
               const regPayload = JSON.parse(row.message);
@@ -792,6 +806,9 @@ export async function fetchSystemNotificationsFromDB(): Promise<SystemNotificati
 
     if (notifData && Array.isArray(notifData)) {
       notifData.forEach((row: any) => {
+        // Completely exclude internal registry snapshots from user notifications list
+        if (isInternalRegistryNotification(row)) return;
+
         items.push({
           id: row.id,
           title: row.title,

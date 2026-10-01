@@ -38,10 +38,11 @@ import {
   TripUpdatePayload,
   subscribeToStops,
   fetchLiveStops,
+  isInternalRegistryNotification,
 } from '../../services/supabase';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
-import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop } from '@college-bus/shared';
+import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop, MASTER_BUSES, MASTER_ROUTES } from '@college-bus/shared';
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {
@@ -194,7 +195,7 @@ export default function StaffMobileDashboard() {
         const stored = localStorage.getItem('bustrack_notifications_v1');
         if (stored) {
           const list = JSON.parse(stored);
-          if (Array.isArray(list)) return list;
+          if (Array.isArray(list)) return list.filter((n) => !isInternalRegistryNotification(n));
         }
       } catch {}
     }
@@ -207,13 +208,27 @@ export default function StaffMobileDashboard() {
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const unreadNotifCount = (systemBroadcasts || []).filter((n) => n && n.id && !readNotifIds.includes(n.id)).length;
 
-  // Restore persisted read notification IDs on mount
+  // Restore persisted read notification IDs on mount & clean up internal registry snapshots
   useEffect(() => {
     authStorage.getItem('bustrack_staff_read_notifs').then((stored) => {
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) setReadNotifIds(parsed);
+        } catch {}
+      }
+    }).catch(() => {});
+
+    // Clean up stored notifications to remove any stale registry snapshots
+    authStorage.getItem('bustrack_notifications_v1').then((raw) => {
+      if (raw) {
+        try {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const cleaned = list.filter((n: any) => !isInternalRegistryNotification(n));
+            authStorage.setItem('bustrack_notifications_v1', JSON.stringify(cleaned)).catch(() => {});
+            setSystemBroadcasts(cleaned);
+          }
         } catch {}
       }
     }).catch(() => {});
@@ -235,7 +250,7 @@ export default function StaffMobileDashboard() {
   };
 
   // Commuter Faculty Profile & Realtime Leave State
-  const [facultyProfile, setFacultyProfile] = useState<FacultyCommuter>({
+  const [facultyProfile, setFacultyProfile] = useState<FacultyCommuter & { routeName?: string }>({
     id: 'fac_042',
     name: 'Dr. S. Kanthimathi',
     staffId: 'FAC-042',
@@ -246,7 +261,8 @@ export default function StaffMobileDashboard() {
     phone: '+91 94432 87654',
     email: 'kanthimathi.ece@college.edu',
     busNumber: 'BUS-01',
-    routeId: 'Route 1 (Rajapalayam - RIT)',
+    routeId: 'r1',
+    routeName: 'Route 1 (Rajapalayam - RIT)',
     passNumber: 'FAC-PASS-2024-88',
     isOnLeave: false,
   });
@@ -257,18 +273,27 @@ export default function StaffMobileDashboard() {
       try {
         const session = await authStorage.getSession();
         if (session && session.role === 'staff' && session.user) {
-          const u = session.user;
+          const u = session.user as any;
+          const bNum = u.bus?.bus_number || u.bus_number || u.busNumber || 'BUS-01';
+          const busObj = MASTER_BUSES.find(b => b.bus_number === bNum || b.id === (u.bus_id || u.busId));
+          const rId = u.route?.id || u.route_id || u.routeId || busObj?.route_id || 'r1';
+          const routeObj = MASTER_ROUTES.find(r => r.id === rId);
+          const rName = u.route?.route_name || u.route_name || u.routeName || routeObj?.route_name || (rId ? `Route ${rId.replace(/\D/g, '') || '1'}` : 'Route 1');
+          const stopName = typeof u.boarding_stop === 'object' ? u.boarding_stop?.stop_name : (u.boarding_stop || u.boardingStopName || prevStaffStop(u));
+
           setFacultyProfile((prev) => ({
             ...prev,
             id: u.id || prev.id,
-            name: u.name || prev.name,
+            name: u.profile?.name || u.name || prev.name,
             staffId: u.employee_id || u.staffId || prev.staffId,
             designation: u.designation || prev.designation,
             department: u.department || prev.department,
-            boardingStopName: typeof u.boarding_stop === 'object' ? u.boarding_stop?.stop_name : (u.boarding_stop || prev.boardingStopName),
-            phone: u.phone || prev.phone,
-            email: u.email || prev.email,
-            busNumber: u.bus_number || u.busNumber || (typeof u.bus === 'object' ? u.bus?.bus_number : prev.busNumber),
+            boardingStopName: stopName || prev.boardingStopName,
+            phone: u.profile?.phone || u.phone || prev.phone,
+            email: u.profile?.email || u.email || prev.email,
+            busNumber: bNum,
+            routeId: rId,
+            routeName: rName,
             isOnLeave: Boolean(u.is_on_leave || u.isOnLeave),
           }));
         }
@@ -276,6 +301,7 @@ export default function StaffMobileDashboard() {
         console.warn('Staff session load error:', e);
       }
     };
+    const prevStaffStop = (u: any) => u.boardingStopName || 'Assigned Stop';
     loadSavedStaff();
   }, []);
 
@@ -440,6 +466,8 @@ export default function StaffMobileDashboard() {
 
     // 4. Subscribe to Live Admin Broadcast Announcements
     const unsubSystemNotif = subscribeToSystemNotifications((notif: SystemNotification) => {
+      if (isInternalRegistryNotification(notif)) return;
+
       setSystemBroadcasts((prev) => {
         if (prev.some((n) => n.id === notif.id)) return prev;
         return [notif, ...prev];
@@ -461,9 +489,10 @@ export default function StaffMobileDashboard() {
       try {
         const notifs = await fetchSystemNotificationsFromDB();
         if (notifs && notifs.length > 0) {
+          const cleanNotifs = notifs.filter((n) => !isInternalRegistryNotification(n));
           setSystemBroadcasts((prev) => {
             const ids = new Set(prev.map((n) => n.id));
-            const fresh = notifs.filter((n) => !ids.has(n.id));
+            const fresh = cleanNotifs.filter((n) => !ids.has(n.id));
             if (fresh.length > 0) {
               if (shouldPushAlerts) {
                 const unreadFresh = fresh.filter((n) => !readNotifIds.includes(n.id));
@@ -491,9 +520,10 @@ export default function StaffMobileDashboard() {
           try {
             const list = JSON.parse(raw);
             if (Array.isArray(list) && list.length > 0) {
+              const cleanList = list.filter((n: any) => !isInternalRegistryNotification(n));
               setSystemBroadcasts((prev) => {
                 const prevIds = new Set(prev.map((n) => n.id));
-                const newItems = list.filter((n: any) => !prevIds.has(n.id));
+                const newItems = cleanList.filter((n: any) => !prevIds.has(n.id));
                 if (newItems.length > 0) {
                   if (shouldPushAlerts) {
                     const newest = newItems[0];
@@ -1412,7 +1442,7 @@ export default function StaffMobileDashboard() {
                 </View>
                 <View style={styles.passGridItem}>
                   <Text style={styles.passGridLabel}>Route</Text>
-                  <Text style={styles.passGridVal}>Route 1</Text>
+                  <Text style={styles.passGridVal}>{facultyProfile.routeName || facultyProfile.routeId || 'Assigned Route'}</Text>
                 </View>
                 <View style={styles.passGridItem}>
                   <Text style={styles.passGridLabel}>Staff Boarding Stop</Text>
