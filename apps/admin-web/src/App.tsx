@@ -1409,6 +1409,7 @@ export const App: React.FC = () => {
                     drivers={drivers}
                     routes={routes}
                     currentUser={currentUser}
+                    canEdit={canEdit}
                   />
                 </ErrorBoundary>
               } />

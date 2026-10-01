@@ -27,6 +27,7 @@ interface TimeHistoryProps {
   drivers: Driver[];
   routes: Route[];
   currentUser?: any;
+  canEdit?: boolean;
 }
 
 export const TimeHistory: React.FC<TimeHistoryProps> = ({
@@ -34,7 +35,9 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
   drivers,
   routes,
   currentUser,
+  canEdit: canEditProp,
 }) => {
+  const canEdit = canEditProp !== undefined ? canEditProp : (currentUser?.role === 'admin' || (currentUser?.role === 'staff' && currentUser?.access_level === 'edit'));
   const todayDate = useMemo(() => new Date().toISOString().split('T')[0], []);
 
   // Time records state initialized ONLY from real driver actions (starts clean)
@@ -233,14 +236,16 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button
-            onClick={handleClearAllHistory}
-            className="px-4 py-2.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all shadow-lg cursor-pointer shrink-0"
-            title="Delete all previous time history logs"
-          >
-            <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>Clear All History</span>
-          </button>
+          {canEdit && (
+            <button
+              onClick={handleClearAllHistory}
+              className="px-4 py-2.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all shadow-lg cursor-pointer shrink-0"
+              title="Delete all previous time history logs"
+            >
+              <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>Clear All History</span>
+            </button>
+          )}
           <button
             onClick={handleExportCSV}
             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 transition-all shadow-lg shadow-emerald-600/20 cursor-pointer shrink-0"
