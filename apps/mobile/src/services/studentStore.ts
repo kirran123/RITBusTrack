@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { broadcastLeaveToggle, subscribeToLeave, fetchLiveStudentsFromDB } from './supabase';
+import { MASTER_BUSES, MASTER_ROUTES } from '@college-bus/shared';
 
 export interface BusStudent {
   id: string;
@@ -15,6 +16,7 @@ export interface BusStudent {
   busId: string;
   busNumber: string;
   routeId: string;
+  routeName?: string;
   isBoarded: boolean;
   isOnLeave?: boolean;
   leaveDate?: string;
@@ -27,6 +29,36 @@ export interface BusStudent {
     phone?: string;
   };
 }
+
+const resolveStudentBusNumber = (as: any): string => {
+  if (as.bus?.bus_number) return as.bus.bus_number;
+  if (as.bus_number) return as.bus_number;
+  if (as.busNumber) return as.busNumber;
+  const bId = as.bus_id || as.busId;
+  if (bId) {
+    const found = MASTER_BUSES.find(b => b.id === bId || b.bus_number === bId);
+    if (found) return found.bus_number;
+    if (typeof bId === 'string' && bId.startsWith('b') && !isNaN(Number(bId.slice(1)))) {
+      return `BUS-${String(bId.slice(1)).padStart(2, '0')}`;
+    }
+  }
+  return 'BUS-01';
+};
+
+const resolveStudentRouteId = (as: any): string => {
+  if (as.route_id) return as.route_id;
+  if (as.routeId) return as.routeId;
+  if (as.route?.id) return as.route.id;
+  const bId = as.bus_id || as.busId;
+  if (bId) {
+    const found = MASTER_BUSES.find(b => b.id === bId || b.bus_number === bId);
+    if (found?.route_id) return found.route_id;
+    if (typeof bId === 'string' && bId.startsWith('b') && !isNaN(Number(bId.slice(1)))) {
+      return `r${bId.slice(1)}`;
+    }
+  }
+  return 'r1';
+};
 
 export const INITIAL_BUS12_STUDENTS: BusStudent[] = [
   {
@@ -194,8 +226,9 @@ const loadSavedStudents = (): BusStudent[] => {
             phone: as.profile?.phone || as.phone || '+91 99887 76655',
             email: as.profile?.email || as.email || 'student@ritrjpm.ac.in',
             busId: as.bus_id || as.busId || 'b1',
-            busNumber: as.bus?.bus_number || as.busNumber || (as.bus_id === 'b1' ? 'BUS-01' : 'BUS-01'),
-            routeId: as.route_id || as.routeId || 'r1',
+            busNumber: resolveStudentBusNumber(as),
+            routeId: resolveStudentRouteId(as),
+            routeName: as.route?.route_name || as.routeName || (as.route_id ? MASTER_ROUTES.find(r => r.id === as.route_id)?.route_name : undefined) || 'Route 1',
             isBoarded: false,
             isOnLeave: Boolean(as.is_on_leave || as.isOnLeave),
             leaveDate: as.leave_date || as.leaveDate || (as.is_on_leave ? 'Today' : undefined),
@@ -257,8 +290,9 @@ class StudentRosterStore {
           phone: as.profile?.phone || as.phone || '+91 98421 00000',
           email: as.profile?.email || as.email || 'student@ritrjpm.ac.in',
           busId: as.bus_id || as.busId || 'b1',
-          busNumber: as.bus?.bus_number || as.busNumber || 'BUS-01',
-          routeId: as.route_id || as.routeId || 'r1',
+          busNumber: resolveStudentBusNumber(as),
+          routeId: resolveStudentRouteId(as),
+          routeName: as.route?.route_name || as.routeName || (as.route_id ? MASTER_ROUTES.find(r => r.id === as.route_id)?.route_name : undefined) || 'Route 1',
           isBoarded: false,
           isOnLeave: Boolean(as.is_on_leave || as.isOnLeave),
           leaveDate: as.leave_date || as.leaveDate || (as.is_on_leave ? 'Today' : undefined),

@@ -10,6 +10,7 @@ import {
   Platform,
   Linking,
   Modal,
+  AppState,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +36,8 @@ import {
   BusTelemetryPayload, 
   FleetSwapNotice,
   TripUpdatePayload,
+  subscribeToStops,
+  fetchLiveStops,
 } from '../../services/supabase';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
@@ -42,106 +45,102 @@ import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, Syste
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {
-    id: 'stop_1',
+    id: 'st1_1',
     route_id: 'r1',
-    stop_name: 'Rajapalayam New Bus Stand',
-    latitude: 9.4475,
-    longitude: 77.5450,
+    stop_name: 'Old Bus Stand, RJPM',
+    latitude: 9.4485,
+    longitude: 77.5505,
     stop_order: 1,
-    estimated_arrival: '07:45 AM',
+    estimated_arrival: '08:20 AM',
+    morning_time: '08:20 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_2',
+    id: 'st1_2',
     route_id: 'r1',
-    stop_name: 'Gandhi Statue Junction',
-    latitude: 9.4490,
-    longitude: 77.5472,
+    stop_name: 'Tenkasi Road Junction',
+    latitude: 9.4498,
+    longitude: 77.5518,
     stop_order: 2,
-    estimated_arrival: '07:52 AM',
+    estimated_arrival: '08:28 AM',
+    morning_time: '08:28 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_3',
+    id: 'st1_3',
     route_id: 'r1',
     stop_name: 'PACR Mill Circle',
     latitude: 9.4505,
-    longitude: 77.5495,
+    longitude: 77.5525,
     stop_order: 3,
-    estimated_arrival: '08:00 AM',
+    estimated_arrival: '08:35 AM',
+    morning_time: '08:35 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_4',
+    id: 'st1_4',
     route_id: 'r1',
-    stop_name: 'Samsigapuram Road Turn',
-    latitude: 9.4512,
-    longitude: 77.5510,
-    stop_order: 4,
-    estimated_arrival: '08:08 AM',
-    status: 'active',
-  },
-  {
-    id: 'stop_5',
-    route_id: 'r1',
-    stop_name: 'College Main Gate',
+    stop_name: 'RIT Campus Main Gate',
     latitude: 9.4520,
     longitude: 77.5535,
-    stop_order: 5,
-    estimated_arrival: '08:20 AM',
+    stop_order: 4,
+    estimated_arrival: '08:45 AM',
+    morning_time: '08:45 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
 ];
 
 const EVENING_ROUTE_STOPS: Stop[] = [
   {
-    id: 'stop_5',
+    id: 'st1_4',
     route_id: 'r1',
-    stop_name: 'College Main Gate (Campus Hub)',
+    stop_name: 'RIT Campus Main Gate',
     latitude: 9.4520,
     longitude: 77.5535,
     stop_order: 1,
-    estimated_arrival: '04:30 PM',
+    estimated_arrival: '04:45 PM',
+    morning_time: '08:45 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_4',
-    route_id: 'r1',
-    stop_name: 'Samsigapuram Road Turn',
-    latitude: 9.4512,
-    longitude: 77.5510,
-    stop_order: 2,
-    estimated_arrival: '04:42 PM',
-    status: 'active',
-  },
-  {
-    id: 'stop_3',
+    id: 'st1_3',
     route_id: 'r1',
     stop_name: 'PACR Mill Circle',
     latitude: 9.4505,
-    longitude: 77.5495,
-    stop_order: 3,
+    longitude: 77.5525,
+    stop_order: 2,
     estimated_arrival: '04:55 PM',
+    morning_time: '08:35 AM',
+    evening_time: '04:55 PM',
     status: 'active',
   },
   {
-    id: 'stop_2',
+    id: 'st1_2',
     route_id: 'r1',
-    stop_name: 'Gandhi Statue Junction',
-    latitude: 9.4490,
-    longitude: 77.5472,
+    stop_name: 'Tenkasi Road Junction',
+    latitude: 9.4498,
+    longitude: 77.5518,
+    stop_order: 3,
+    estimated_arrival: '05:05 PM',
+    morning_time: '08:28 AM',
+    evening_time: '05:05 PM',
+    status: 'active',
+  },
+  {
+    id: 'st1_1',
+    route_id: 'r1',
+    stop_name: 'Old Bus Stand, RJPM',
+    latitude: 9.4485,
+    longitude: 77.5505,
     stop_order: 4,
-    estimated_arrival: '05:08 PM',
-    status: 'active',
-  },
-  {
-    id: 'stop_1',
-    route_id: 'r1',
-    stop_name: 'Rajapalayam New Bus Stand',
-    latitude: 9.4475,
-    longitude: 77.5450,
-    stop_order: 5,
-    estimated_arrival: '05:25 PM',
+    estimated_arrival: '05:15 PM',
+    morning_time: '08:20 AM',
+    evening_time: '05:15 PM',
     status: 'active',
   },
 ];
@@ -207,6 +206,33 @@ export default function StaffMobileDashboard() {
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const unreadNotifCount = (systemBroadcasts || []).filter((n) => n && n.id && !readNotifIds.includes(n.id)).length;
+
+  // Restore persisted read notification IDs on mount
+  useEffect(() => {
+    authStorage.getItem('bustrack_staff_read_notifs').then((stored) => {
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) setReadNotifIds(parsed);
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
+
+  const markAllNotificationsAsRead = () => {
+    const allIds = (systemBroadcasts || []).map((n) => n.id);
+    setReadNotifIds(allIds);
+    authStorage.setItem('bustrack_staff_read_notifs', JSON.stringify(allIds)).catch(() => {});
+    setShowNotifModal(false);
+  };
+
+  const markSingleNotificationRead = (notifId: string) => {
+    setReadNotifIds((prev) => {
+      const updated = prev.includes(notifId) ? prev : [...prev, notifId];
+      authStorage.setItem('bustrack_staff_read_notifs', JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  };
 
   // Commuter Faculty Profile & Realtime Leave State
   const [facultyProfile, setFacultyProfile] = useState<FacultyCommuter>({
@@ -276,9 +302,41 @@ export default function StaffMobileDashboard() {
   const [lastUpdatedSec, setLastUpdatedSec] = useState(1);
   const [isDriverActive, setIsDriverActive] = useState(true);
 
+  const [allStops, setAllStops] = useState<Stop[]>(INITIAL_STOPS);
+
+  useEffect(() => {
+    fetchLiveStops().then((loaded) => {
+      if (loaded && loaded.length > 0) setAllStops(loaded);
+    });
+    const unsub = subscribeToStops((freshStops) => {
+      if (freshStops && freshStops.length > 0) setAllStops(freshStops);
+    });
+    return unsub;
+  }, []);
+
+  const currentRouteStops: Stop[] = React.useMemo(() => {
+    const rId = facultyProfile.routeId || 'r1';
+    const matched = allStops.filter(s => s.route_id === rId);
+    if (matched.length > 0) return matched;
+    return INITIAL_STOPS;
+  }, [allStops, facultyProfile.routeId]);
+
   // Active stops sequence based on schedule shift
-  const activeStops = scheduleType === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
-  const staffBoardingStop = activeStops.find(s => s.id === 'stop_3') || activeStops[0];
+  const activeStops = React.useMemo(() => {
+    if (scheduleType === 'evening') {
+      return [...currentRouteStops].reverse().map((st, i) => ({
+        ...st,
+        stop_order: i + 1,
+        estimated_arrival: st.evening_time || st.estimated_arrival,
+      }));
+    }
+    return [...currentRouteStops].sort((a, b) => a.stop_order - b.stop_order).map((st) => ({
+      ...st,
+      estimated_arrival: st.morning_time || st.estimated_arrival,
+    }));
+  }, [currentRouteStops, scheduleType]);
+
+  const staffBoardingStop = activeStops.find(s => s.id === 'st1_3' || s.id === 'stop_3') || activeStops[0];
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
@@ -398,19 +456,36 @@ export default function StaffMobileDashboard() {
       );
     });
 
-    // 5. Initial fetch of active admin announcements from Supabase DB
-    fetchSystemNotificationsFromDB().then((notifs) => {
-      if (notifs && notifs.length > 0) {
-        setSystemBroadcasts((prev) => {
-          const ids = new Set(prev.map((n) => n.id));
-          const fresh = notifs.filter((n) => !ids.has(n.id));
-          return [...fresh, ...prev];
-        });
-      }
-    }).catch(() => {});
+    // 5. Fetch announcements from Supabase DB and local cache
+    const syncAnnouncements = async (shouldPushAlerts: boolean = false) => {
+      try {
+        const notifs = await fetchSystemNotificationsFromDB();
+        if (notifs && notifs.length > 0) {
+          setSystemBroadcasts((prev) => {
+            const ids = new Set(prev.map((n) => n.id));
+            const fresh = notifs.filter((n) => !ids.has(n.id));
+            if (fresh.length > 0) {
+              if (shouldPushAlerts) {
+                const unreadFresh = fresh.filter((n) => !readNotifIds.includes(n.id));
+                if (unreadFresh.length > 0) {
+                  const top = unreadFresh[0];
+                  setIncomingAlertModal(top);
+                  setIncomingToast(top);
+                  notificationService.sendPushNotification(
+                    `📢 ${top.title}`,
+                    top.message,
+                    top.type || 'broadcast'
+                  );
+                }
+              }
+              return [...fresh, ...prev];
+            }
+            return prev;
+          });
+        }
+      } catch {}
 
-    // 6. Polling sync for cross-client notifications (checks every 2.5s for native mobile & web)
-    const notifPollTimer = setInterval(() => {
+      // Also check authStorage fallback
       authStorage.getItem('bustrack_notifications_v1').then((raw) => {
         if (raw) {
           try {
@@ -420,14 +495,16 @@ export default function StaffMobileDashboard() {
                 const prevIds = new Set(prev.map((n) => n.id));
                 const newItems = list.filter((n: any) => !prevIds.has(n.id));
                 if (newItems.length > 0) {
-                  const newest = newItems[0];
-                  setIncomingAlertModal(newest);
-                  setIncomingToast(newest);
-                  notificationService.sendPushNotification(
-                    `📢 ${newest.title}`,
-                    newest.message,
-                    newest.type || 'broadcast'
-                  );
+                  if (shouldPushAlerts) {
+                    const newest = newItems[0];
+                    setIncomingAlertModal(newest);
+                    setIncomingToast(newest);
+                    notificationService.sendPushNotification(
+                      `📢 ${newest.title}`,
+                      newest.message,
+                      newest.type || 'broadcast'
+                    );
+                  }
                   return [...newItems, ...prev];
                 }
                 return prev;
@@ -436,7 +513,22 @@ export default function StaffMobileDashboard() {
           } catch {}
         }
       }).catch(() => {});
-    }, 2500);
+    };
+
+    // Initial fetch on mount
+    syncAnnouncements(true);
+
+    // 6. Polling sync every 3.5 seconds
+    const notifPollTimer = setInterval(() => {
+      syncAnnouncements(true);
+    }, 3500);
+
+    // 6b. Foreground sync when app is reopened or focused
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        syncAnnouncements(true);
+      }
+    });
 
     // 7. Seconds counter for telemetry freshness and dynamic ETA recalibration
     const secTimer = setInterval(() => {
@@ -452,6 +544,7 @@ export default function StaffMobileDashboard() {
       clearInterval(secTimer);
       clearInterval(notifPollTimer);
       clearInterval(pollTimer);
+      appStateSub.remove();
     };
   }, []);
 
@@ -701,7 +794,7 @@ export default function StaffMobileDashboard() {
                     <TouchableOpacity
                       key={notif.id}
                       style={[styles.notifCardItem, isRead && { opacity: 0.65 }]}
-                      onPress={() => setReadNotifIds((prev) => (prev.includes(notif.id) ? prev : [...prev, notif.id]))}
+                      onPress={() => markSingleNotificationRead(notif.id)}
                     >
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <Text style={styles.notifCardTitle}>{notif.title}</Text>
@@ -722,10 +815,7 @@ export default function StaffMobileDashboard() {
             <View style={styles.notifModalFooter}>
               <TouchableOpacity
                 style={styles.markAllReadBtn}
-                onPress={() => {
-                  setReadNotifIds(systemBroadcasts.map((n) => n.id));
-                  setShowNotifModal(false);
-                }}
+                onPress={markAllNotificationsAsRead}
               >
                 <Text style={styles.markAllReadText}>✓ Mark All as Read</Text>
               </TouchableOpacity>
@@ -1020,7 +1110,7 @@ export default function StaffMobileDashboard() {
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View>
                   <Text style={styles.routeHeaderTitle}>Route 1: Rajapalayam to RIT Campus</Text>
-                  <Text style={styles.routeHeaderSub}>Via Gandhi Statue &bull; PACR Mill &bull; Samsigapuram Rd</Text>
+                  <Text style={styles.routeHeaderSub}>Via Tenkasi Road Junction &bull; PACR Mill Circle &bull; RIT Campus</Text>
                 </View>
                 <View style={styles.busTagPill}>
                   <Text style={styles.busTagPillText}>{facultyProfile.busNumber || 'BUS-01'}</Text>
@@ -1030,9 +1120,7 @@ export default function StaffMobileDashboard() {
 
             {/* Stops Timeline */}
             <Text style={styles.sectionHeading}>Live Stop Sequence & Dynamic Arrival Radar</Text>
-            {(() => {
-              const activeStops = scheduleType === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
-              return activeStops.map((stop, idx) => {
+            {activeStops.map((stop, idx) => {
                 const isStaffStop = stop.id === staffBoardingStop.id;
                 const stopDist = calculateDistanceKm(
                   busLocation.latitude,
@@ -1100,7 +1188,16 @@ export default function StaffMobileDashboard() {
                             )}
                           </View>
                           <Text style={styles.stopTimeText}>
-                            Sched: {stop.estimated_arrival} &bull; <Text style={{ color: isPassed ? '#64748b' : stopETA.statusColor, fontWeight: 'bold' }}>{isPassed ? 'Passed' : `Expected: ${stopETA.arrivalTimeStr}`}</Text> ({stopDistFormatted})
+                            {scheduleType === 'morning' ? (
+                              <Text style={{ color: '#f59e0b', fontWeight: '800' }}>
+                                🌅 Morning: {stop.morning_time || stop.estimated_arrival || '--:--'}
+                              </Text>
+                            ) : (
+                              <Text style={{ color: '#a78bfa', fontWeight: '800' }}>
+                                🌆 Evening: {stop.evening_time || stop.estimated_arrival || '--:--'}
+                              </Text>
+                            )}
+                            {' '}&bull; <Text style={{ color: isPassed ? '#64748b' : stopETA.statusColor, fontWeight: 'bold' }}>{isPassed ? 'Passed' : `Expected: ${stopETA.arrivalTimeStr}`}</Text> ({stopDistFormatted})
                           </Text>
                         </View>
 
@@ -1119,8 +1216,7 @@ export default function StaffMobileDashboard() {
                     </View>
                   </View>
                 );
-              });
-            })()}
+              })}
           </ScrollView>
         )}
 

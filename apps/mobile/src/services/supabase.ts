@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
-import { GPSCoordinate, EmergencyAlert, SystemNotification, timeHistoryStore } from '@college-bus/shared';
+import { GPSCoordinate, EmergencyAlert, SystemNotification, timeHistoryStore, Stop, INITIAL_STOPS } from '@college-bus/shared';
 import { authStorage } from './authStorage';
 
 // Read Supabase credentials with fallback to live production project
@@ -87,6 +87,7 @@ type FleetSwapListener = (payload: FleetSwapNotice) => void;
 type LeaveListener = (payload: LeaveTogglePayload) => void;
 type TripListener = (payload: TripUpdatePayload) => void;
 type NotificationListener = (payload: SystemNotification) => void;
+type StopsListener = (stops: Stop[]) => void;
 
 const telemetryListeners: Set<TelemetryListener> = new Set();
 const sosListeners: Set<SOSListener> = new Set();
@@ -94,6 +95,37 @@ const fleetSwapListeners: Set<FleetSwapListener> = new Set();
 const leaveListeners: Set<LeaveListener> = new Set();
 const tripListeners: Set<TripListener> = new Set();
 const notificationListeners: Set<NotificationListener> = new Set();
+const stopsListeners: Set<StopsListener> = new Set();
+
+// Deduplication tracking to prevent duplicate message and alert popups
+const recentNotificationDedupe = new Map<string, number>();
+
+export function emitSystemNotification(notif: SystemNotification) {
+  if (!notif) return;
+  const cleanTitle = (notif.title || '').trim();
+  const cleanMsg = (notif.message || '').trim();
+  const dedupeKey = `${cleanTitle}::${cleanMsg}`;
+  const now = Date.now();
+  const lastTime = recentNotificationDedupe.get(dedupeKey);
+
+  // If identical notification received within 5 seconds, suppress duplicate
+  if (lastTime && now - lastTime < 5000) {
+    return;
+  }
+  recentNotificationDedupe.set(dedupeKey, now);
+
+  if (recentNotificationDedupe.size > 50) {
+    for (const [k, timestamp] of recentNotificationDedupe.entries()) {
+      if (now - timestamp > 12000) recentNotificationDedupe.delete(k);
+    }
+  }
+
+  notificationListeners.forEach((listener) => {
+    try {
+      listener(notif);
+    } catch {}
+  });
+}
 
 // Cross-Tab / Cross-Window Broadcast Channel for instant local sync (Web Only)
 let crossClientChannel: any = null;
@@ -115,7 +147,9 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && 'BroadcastChannel'
       } else if (data.type === 'trip_update') {
         tripListeners.forEach((l) => l(data.payload));
       } else if (data.type === 'broadcast_notification') {
-        notificationListeners.forEach((l) => l(data.payload));
+        emitSystemNotification(data.payload);
+      } else if (data.type === 'stops_updated') {
+        stopsListeners.forEach((l) => l(data.payload));
       }
     };
   } catch (bcErr) {
@@ -148,6 +182,8 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.addE
             } else if (data.payload?.action === 'end') {
               timeHistoryStore.recordTripEnd(data.payload.params);
             }
+          } else if (data.type === 'stops_updated') {
+            stopsListeners.forEach((l) => l(data.payload));
           }
         } catch {}
       }
@@ -185,7 +221,7 @@ export function initRealtimeChannel() {
         tripListeners.forEach((listener) => listener(payload));
       })
       .on('broadcast', { event: 'broadcast_notification' }, ({ payload }: { payload: SystemNotification }) => {
-        notificationListeners.forEach((listener) => listener(payload));
+        emitSystemNotification(payload);
       })
       .on('broadcast', { event: 'time_history_update' }, ({ payload }: { payload: any }) => {
         if (payload && payload.params) {
@@ -194,6 +230,18 @@ export function initRealtimeChannel() {
           } else if (payload.action === 'end') {
             timeHistoryStore.recordTripEnd(payload.params);
           }
+        }
+      })
+      .on('broadcast', { event: 'stops_updated' }, async ({ payload }: any) => {
+        if (!payload || !Array.isArray(payload.stops)) return;
+        try {
+          await authStorage.setItem('bustrack_stops_v1', JSON.stringify(payload.stops));
+          stopsListeners.forEach((listener) => {
+            try { listener(payload.stops); } catch {}
+          });
+          console.log('✅ Realtime Stops Synchronized:', payload.stops.length);
+        } catch (e) {
+          console.warn('Stops sync notice:', e);
         }
       })
       .on('broadcast', { event: 'sync_user_registry' }, async ({ payload }: any) => {
@@ -211,7 +259,13 @@ export function initRealtimeChannel() {
           if (Array.isArray(payload.staffList) && payload.staffList.length > 0) {
             await authStorage.setItem('bustrack_staff_v1', JSON.stringify(payload.staffList));
           }
-          console.log('✅ Synchronized updated user accounts from Admin Control');
+          if (Array.isArray(payload.stops) && payload.stops.length > 0) {
+            await authStorage.setItem('bustrack_stops_v1', JSON.stringify(payload.stops));
+            stopsListeners.forEach((listener) => {
+              try { listener(payload.stops); } catch {}
+            });
+          }
+          console.log('✅ Synchronized updated user accounts & stops from Admin Control');
         } catch (syncErr) {
           console.warn('Sync registry notice:', syncErr);
         }
@@ -225,6 +279,39 @@ export function initRealtimeChannel() {
         }
       });
 
+    // Realtime Postgres changes on notifications table
+    supabase
+      .channel('schema_notifications_broadcasts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: any) => {
+        const row = payload.new;
+        if (!row) return;
+        const notif: SystemNotification = {
+          id: row.id,
+          title: row.title,
+          message: row.message,
+          type: row.type || 'general',
+          target_type: row.target_type || 'all',
+          target_id: row.target_id || null,
+          created_at: row.created_at || new Date().toISOString(),
+        };
+        emitSystemNotification(notif);
+
+        const key = 'bustrack_notifications_v1';
+        authStorage.getItem(key).then((raw) => {
+          let list: SystemNotification[] = [];
+          if (raw) {
+            try { list = JSON.parse(raw); } catch {}
+          }
+          if (!Array.isArray(list)) list = [];
+          if (!list.some((n) => n.id === notif.id || (n.title === notif.title && n.message === notif.message))) {
+            list.unshift(notif);
+            if (list.length > 50) list = list.slice(0, 50);
+            authStorage.setItem(key, JSON.stringify(list)).catch(() => {});
+          }
+        }).catch(() => {});
+      })
+      .subscribe();
+
     // Also listen to direct DB table inserts on emergency_alerts as a resilient fallback
     supabase
       .channel('schema_emergency_broadcasts')
@@ -232,17 +319,32 @@ export function initRealtimeChannel() {
         const row = payload.new;
         if (!row) return;
         const parts = (row.message || '').split(' | ');
-        const title = parts.length > 1 ? parts[0] : (row.type || 'Announcement');
+        const title = parts.length > 1 ? parts[0] : `🚨 EMERGENCY: ${row.type?.toUpperCase() || 'DISTRESS'}`;
         const message = parts.length > 1 ? parts.slice(1).join(' | ') : row.message;
         const notif: SystemNotification = {
           id: row.id,
           title,
           message,
-          type: row.type?.toLowerCase() === 'sos' ? 'urgent' : (row.type?.toLowerCase() || 'general'),
+          type: 'emergency',
           target_type: 'all',
           created_at: row.created_at || new Date().toISOString(),
+          priority: 'high',
         };
-        notificationListeners.forEach((listener) => listener(notif));
+        emitSystemNotification(notif);
+
+        const alert: EmergencyAlert = {
+          id: row.id,
+          bus_id: row.bus_id || 'b1',
+          driver_id: row.driver_id || 'd1',
+          trip_id: row.trip_id,
+          type: row.type || 'emergency',
+          message: row.message,
+          latitude: row.latitude || 9.4475,
+          longitude: row.longitude || 77.5450,
+          status: row.status || 'ACTIVE',
+          created_at: row.created_at || new Date().toISOString(),
+        };
+        sosListeners.forEach((listener) => listener(alert));
       })
       .subscribe();
   } catch (err) {
@@ -351,17 +453,35 @@ export async function broadcastEmergencySOS(alert: EmergencyAlert) {
 
   if (isLiveBackendConfigured) {
     try {
+      const isUUID = (str?: string | null) => Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
+      const busId = isUUID(alert.bus_id) ? alert.bus_id : null;
+      const driverId = isUUID(alert.driver_id) ? alert.driver_id : null;
+      const tripId = isUUID(alert.trip_id) ? alert.trip_id : null;
+
       await supabase.from('emergency_alerts').insert({
-        bus_id: alert.bus_id,
-        driver_id: alert.driver_id,
-        trip_id: alert.trip_id,
-        type: alert.type,
+        bus_id: busId,
+        driver_id: driverId,
+        trip_id: tripId,
+        type: (alert.type && ['breakdown', 'accident', 'medical', 'emergency', 'other', 'sos'].includes(alert.type.toLowerCase()))
+          ? alert.type.toLowerCase()
+          : 'emergency',
         message: alert.message,
-        latitude: alert.latitude,
-        longitude: alert.longitude,
+        latitude: alert.latitude || 9.4475,
+        longitude: alert.longitude || 77.5450,
         status: 'ACTIVE',
       });
-    } catch {}
+
+      // Also persist to notifications table so all clients pick it up in announcement & bell feeds
+      await supabase.from('notifications').insert({
+        title: `🚨 EMERGENCY SOS: ${alert.bus_id || 'BUS'}`,
+        message: alert.message,
+        type: 'emergency',
+        target_type: 'all',
+        created_at: new Date().toISOString(),
+      });
+    } catch (dbErr) {
+      console.warn('DB emergency insert error:', dbErr);
+    }
   }
 }
 
@@ -481,21 +601,30 @@ export async function broadcastSystemNotification(notification: SystemNotificati
     } catch {}
   }
 
-  // 5. Persist to Supabase DB for admin history and cross-session retrieval
+  // 5. Persist to Supabase DB notifications table for admin history and cross-session retrieval
   if (isLiveBackendConfigured) {
     try {
-      await supabase.from('emergency_alerts').insert({
-        bus_id: (notification as any).target_id || 'b1',
-        type: notification.type?.toUpperCase() || 'GENERAL',
-        message: `${notification.title} | ${notification.message}`,
-        status: 'ACTIVE',
+      const validTypes = ['general', 'trip', 'delay', 'emergency', 'maintenance', 'announcement', 'sos', 'urgent', 'route_change', 'broadcast'];
+      const rawType = (notification.type || 'general').toLowerCase();
+      const dbType = validTypes.includes(rawType) ? rawType : 'general';
+
+      await supabase.from('notifications').insert({
+        title: notification.title,
+        message: notification.message,
+        type: dbType,
+        target_type: notification.target_type || 'all',
+        target_id: notification.target_id || null,
+        created_at: notification.created_at || new Date().toISOString(),
       });
-    } catch {}
+    } catch (e) {
+      console.warn('DB notification insert error:', e);
+    }
   }
 }
 
 /**
  * Broadcast Real-Time Time History Record for Driver Start / End Trip
+ * and persist to Supabase Database so all admins & staff see it synchronously
  */
 export async function broadcastTimeHistoryUpdate(action: 'start' | 'end', params: any) {
   postCrossClient('time_history_update', { action, params, timestamp: Date.now() });
@@ -508,6 +637,39 @@ export async function broadcastTimeHistoryUpdate(action: 'start' | 'end', params
         payload: { action, params, timestamp: Date.now() },
       });
     } catch {}
+  }
+
+  // Persist directly to Supabase time_records database table
+  if (supabase && params) {
+    try {
+      const recordPayload = {
+        id: params.tripId || `trip_${Date.now()}_${params.busNumber || 'bus'}`,
+        bus_id: params.busId,
+        bus_number: params.busNumber || 'BUS-01',
+        bus_name: params.busName || `Bus ${params.busNumber || '01'}`,
+        registration_number: params.registrationNumber || null,
+        driver_id: params.driverId || null,
+        driver_name: params.driverName || 'Driver',
+        driver_phone: params.driverPhone || null,
+        route_name: params.routeName || (params.shift === 'evening' ? 'Route (Evening Return)' : 'Route (Morning Pickup)'),
+        start_location: params.startLocation || null,
+        destination: params.destination || null,
+        shift: params.shift || 'morning',
+        date: params.date || new Date().toISOString().split('T')[0],
+        scheduled_start_time: params.shift === 'evening' ? '04:30 PM' : '07:30 AM',
+        scheduled_end_time: params.shift === 'evening' ? '05:25 PM' : '08:20 AM',
+        start_time: params.customStartTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        end_time: action === 'end' ? (params.customEndTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) : null,
+        duration: params.duration || (action === 'end' ? 'Completed' : 'In Progress'),
+        distance_km: Number(params.distanceKm || 0),
+        avg_speed_kmh: Number(params.avgSpeedKmh || 0),
+        status: action === 'end' ? 'completed' : 'in_progress',
+        updated_at: new Date().toISOString()
+      };
+      await supabase.from('time_records').upsert(recordPayload);
+    } catch (e) {
+      console.warn('Supabase time_records upsert note:', e);
+    }
   }
 }
 
@@ -614,27 +776,91 @@ export async function fetchLiveStudentsFromDB(): Promise<any[] | null> {
 export async function fetchSystemNotificationsFromDB(): Promise<SystemNotification[]> {
   if (!isLiveBackendConfigured) return [];
   try {
-    const { data, error } = await supabase
+    const items: SystemNotification[] = [];
+
+    // 1. Fetch from notifications table
+    const { data: notifData } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    if (notifData && Array.isArray(notifData)) {
+      notifData.forEach((row: any) => {
+        items.push({
+          id: row.id,
+          title: row.title,
+          message: row.message,
+          type: row.type || 'general',
+          target_type: row.target_type || 'all',
+          target_id: row.target_id || null,
+          created_at: row.created_at || new Date().toISOString(),
+          read_at: row.read_at || null,
+        });
+      });
+    }
+
+    // 2. Fetch from emergency_alerts table
+    const { data: alertData } = await supabase
       .from('emergency_alerts')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(15);
 
-    if (error || !data) return [];
+    if (alertData && Array.isArray(alertData)) {
+      alertData.forEach((row: any) => {
+        const parts = (row.message || '').split(' | ');
+        const title = parts.length > 1 ? parts[0] : `🚨 EMERGENCY: ${row.type?.toUpperCase() || 'DISTRESS'}`;
+        const message = parts.length > 1 ? parts.slice(1).join(' | ') : row.message;
+        if (!items.some((i) => i.id === row.id)) {
+          items.push({
+            id: row.id,
+            title,
+            message,
+            type: 'emergency',
+            target_type: 'all',
+            created_at: row.created_at || new Date().toISOString(),
+            priority: 'high',
+          });
+        }
+      });
+    }
 
-    return data.map((row: any) => {
-      const parts = (row.message || '').split(' | ');
-      const title = parts.length > 1 ? parts[0] : (row.type || 'Announcement');
-      const message = parts.length > 1 ? parts.slice(1).join(' | ') : row.message;
-      return {
-        id: row.id,
-        title,
-        message,
-        type: row.type?.toLowerCase() === 'sos' ? 'urgent' : (row.type?.toLowerCase() || 'general'),
-        target_type: 'all',
-        created_at: row.created_at || new Date().toISOString(),
-      };
-    });
+    // Sort newest first
+    items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return items;
+  } catch (err) {
+    console.warn('fetchSystemNotificationsFromDB error:', err);
+    return [];
+  }
+}
+
+/**
+ * Fetch active emergency alerts from Supabase
+ */
+export async function fetchEmergencyAlertsFromDB(): Promise<EmergencyAlert[]> {
+  if (!isLiveBackendConfigured) return [];
+  try {
+    const { data, error } = await supabase
+      .from('emergency_alerts')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error || !data) return [];
+    return data.map((row: any) => ({
+      id: row.id,
+      bus_id: row.bus_id || 'b1',
+      driver_id: row.driver_id || 'd1',
+      trip_id: row.trip_id,
+      type: row.type || 'emergency',
+      message: row.message,
+      latitude: Number(row.latitude || 9.4475),
+      longitude: Number(row.longitude || 77.5450),
+      status: row.status || 'ACTIVE',
+      created_at: row.created_at || new Date().toISOString(),
+      resolved_at: row.resolved_at,
+    }));
   } catch {
     return [];
   }
@@ -666,6 +892,50 @@ export async function fetchLiveProfilesFromDB(): Promise<any[] | null> {
     return data;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Subscribe to realtime stop & timing changes pushed by admin
+ */
+export function subscribeToStops(listener: StopsListener) {
+  stopsListeners.add(listener);
+  return () => {
+    stopsListeners.delete(listener);
+  };
+}
+
+/**
+ * Fetch latest dynamic stops with fallback to persistent storage and INITIAL_STOPS
+ */
+export async function fetchLiveStops(): Promise<Stop[]> {
+  try {
+    const stored = await authStorage.getItem('bustrack_stops_v1');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return INITIAL_STOPS;
+}
+
+/**
+ * Broadcast updated stop list across clients
+ */
+export async function broadcastStopsUpdate(stops: Stop[]) {
+  stopsListeners.forEach((l) => l(stops));
+  postCrossClient('stops_updated', stops);
+  try {
+    await authStorage.setItem('bustrack_stops_v1', JSON.stringify(stops));
+  } catch {}
+  if (telemetryChannel) {
+    try {
+      await telemetryChannel.send({
+        type: 'broadcast',
+        event: 'stops_updated',
+        payload: { stops },
+      });
+    } catch {}
   }
 }
 

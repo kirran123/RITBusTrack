@@ -117,6 +117,8 @@ export const Routes: React.FC<RoutesProps> = ({
   const [latitude, setLatitude] = useState(9.4475);
   const [longitude, setLongitude] = useState(77.5450);
   const [estimatedArrival, setEstimatedArrival] = useState('07:45 AM');
+  const [morningTime, setMorningTime] = useState('07:45 AM');
+  const [eveningTime, setEveningTime] = useState('04:45 PM');
   const [stopMapsLink, setStopMapsLink] = useState('');
   const [stopLinkParsedMsg, setStopLinkParsedMsg] = useState('');
 
@@ -330,6 +332,8 @@ export const Routes: React.FC<RoutesProps> = ({
     setStopName('');
     setLatitude(9.4490 + (rawRouteStops.length * 0.003));
     setLongitude(77.5480 + (rawRouteStops.length * 0.002));
+    setMorningTime('07:45 AM');
+    setEveningTime('04:45 PM');
     setEstimatedArrival(activeShiftView === 'morning' ? '07:45 AM' : '04:45 PM');
     setStopMapsLink('');
     setStopLinkParsedMsg('');
@@ -341,7 +345,11 @@ export const Routes: React.FC<RoutesProps> = ({
     setStopName(st.stop_name);
     setLatitude(st.latitude);
     setLongitude(st.longitude);
-    setEstimatedArrival(st.estimated_arrival || '07:45 AM');
+    const mTime = st.morning_time || st.estimated_arrival || '07:45 AM';
+    const eTime = st.evening_time || '04:45 PM';
+    setMorningTime(mTime);
+    setEveningTime(eTime);
+    setEstimatedArrival(activeShiftView === 'morning' ? mTime : eTime);
     setStopMapsLink(st.google_maps_link || '');
     setStopLinkParsedMsg(st.google_maps_link ? '✅ Existing Google Maps coordinates loaded' : '');
     setIsStopModalOpen(true);
@@ -484,17 +492,21 @@ export const Routes: React.FC<RoutesProps> = ({
     e.preventDefault();
     if (!selectedRouteId) return;
 
+    const effArrival = activeShiftView === 'morning' ? morningTime : eveningTime;
+
     if (editingStop) {
       const updatedStop: Stop = {
         ...editingStop,
         stop_name: stopName,
         latitude: Number(latitude),
         longitude: Number(longitude),
-        estimated_arrival: estimatedArrival,
+        morning_time: morningTime,
+        evening_time: eveningTime,
+        estimated_arrival: effArrival || estimatedArrival,
         google_maps_link: stopMapsLink || undefined,
       };
       onSaveStop(updatedStop);
-      showToast(`💾 Saved changes to stop "${stopName}"`);
+      showToast(`💾 Saved changes to stop "${stopName}" (Morning: ${morningTime}, Evening: ${eveningTime})`);
     } else {
       const newStop: Stop = {
         id: 'st_' + Date.now(),
@@ -503,12 +515,14 @@ export const Routes: React.FC<RoutesProps> = ({
         latitude: Number(latitude),
         longitude: Number(longitude),
         stop_order: rawRouteStops.length + 1,
-        estimated_arrival: estimatedArrival,
+        morning_time: morningTime,
+        evening_time: eveningTime,
+        estimated_arrival: effArrival || estimatedArrival,
         google_maps_link: stopMapsLink || undefined,
         status: 'active',
       };
       onSaveStop(newStop);
-      showToast(`📍 Added Stop #${newStop.stop_order} "${stopName}" to route`);
+      showToast(`📍 Added Stop #${newStop.stop_order} "${stopName}" (Morning: ${morningTime}, Evening: ${eveningTime})`);
     }
     setIsStopModalOpen(false);
   };
@@ -1013,9 +1027,17 @@ export const Routes: React.FC<RoutesProps> = ({
                                 <span className="text-slate-600">&bull;</span>
                                 <span>Lng: <strong className="text-slate-200">{stop.longitude.toFixed(4)}</strong></span>
                                 <span className="text-slate-600">&bull;</span>
-                                <span className="text-amber-400 font-bold">
-                                  ETA: {stop.estimated_arrival || '07:45 AM'}
-                                </span>
+                                {activeShiftView === 'morning' ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-extrabold text-xs shadow-sm">
+                                    <span>🌅 Morning Time:</span>
+                                    <span>{stop.morning_time || stop.estimated_arrival || '08:20 AM'}</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 font-extrabold text-xs shadow-sm">
+                                    <span>🌆 Evening Time:</span>
+                                    <span>{stop.evening_time || '04:45 PM'}</span>
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1549,15 +1571,39 @@ export const Routes: React.FC<RoutesProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Scheduled Arrival Time</label>
-                <input
-                  type="text"
-                  value={estimatedArrival}
-                  onChange={(e) => setEstimatedArrival(e.target.value)}
-                  className="w-full bg-slate-950 text-white text-sm px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500 font-mono"
-                  placeholder="07:52 AM"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl">
+                <div>
+                  <label className="block text-xs font-bold text-amber-400 mb-1 flex items-center gap-1.5">
+                    <span>🌅 Morning Scheduled Time</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={morningTime}
+                    onChange={(e) => {
+                      setMorningTime(e.target.value);
+                      if (activeShiftView === 'morning') setEstimatedArrival(e.target.value);
+                    }}
+                    className="w-full bg-slate-900 text-white text-sm px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 font-mono font-bold"
+                    placeholder="07:45 AM"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Pickup corridor stop arrival</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-indigo-400 mb-1 flex items-center gap-1.5">
+                    <span>🌆 Evening Scheduled Time</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={eveningTime}
+                    onChange={(e) => {
+                      setEveningTime(e.target.value);
+                      if (activeShiftView === 'evening') setEstimatedArrival(e.target.value);
+                    }}
+                    className="w-full bg-slate-900 text-white text-sm px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 font-mono font-bold"
+                    placeholder="04:45 PM"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Campus return drop arrival</p>
+                </div>
               </div>
 
               <div className="pt-4 flex items-center justify-end space-x-3 border-t border-slate-800">

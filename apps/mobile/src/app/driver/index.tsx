@@ -10,6 +10,7 @@ import {
   Platform,
   Linking,
   TextInput,
+  AppState,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,119 +22,115 @@ import {
   calculateDistanceKm,
   calculateDynamicETA,
 } from '../../services/locationService';
-import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB } from '../../services/supabase';
+import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB, subscribeToStops, fetchLiveStops } from '../../services/supabase';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
 import { notificationService } from '../../services/notificationService';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
-import { Stop, SystemNotification, GPSCoordinate, timeHistoryStore, EmergencyType, EmergencyAlert } from '@college-bus/shared';
+import { Stop, SystemNotification, GPSCoordinate, timeHistoryStore, EmergencyType, EmergencyAlert, MASTER_BUSES, MASTER_ROUTES, MASTER_STOPS, INITIAL_STOPS } from '@college-bus/shared';
 
 type DriverTab = 'nav' | 'students' | 'cockpit' | 'sos' | 'profile';
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {
-    id: 'stop_1',
+    id: 'st1_1',
     route_id: 'r1',
-    stop_name: 'Rajapalayam New Bus Stand',
-    latitude: 9.4475,
-    longitude: 77.5450,
+    stop_name: 'Old Bus Stand, RJPM',
+    latitude: 9.4485,
+    longitude: 77.5505,
     stop_order: 1,
-    estimated_arrival: '07:45 AM',
+    estimated_arrival: '08:20 AM',
+    morning_time: '08:20 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_2',
+    id: 'st1_2',
     route_id: 'r1',
-    stop_name: 'Gandhi Statue Junction',
-    latitude: 9.4490,
-    longitude: 77.5472,
+    stop_name: 'Tenkasi Road Junction',
+    latitude: 9.4498,
+    longitude: 77.5518,
     stop_order: 2,
-    estimated_arrival: '07:52 AM',
+    estimated_arrival: '08:28 AM',
+    morning_time: '08:28 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_3',
+    id: 'st1_3',
     route_id: 'r1',
     stop_name: 'PACR Mill Circle',
     latitude: 9.4505,
-    longitude: 77.5495,
+    longitude: 77.5525,
     stop_order: 3,
-    estimated_arrival: '08:00 AM',
+    estimated_arrival: '08:35 AM',
+    morning_time: '08:35 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_4',
+    id: 'st1_4',
     route_id: 'r1',
-    stop_name: 'Samsigapuram Road Turn',
-    latitude: 9.4512,
-    longitude: 77.5510,
-    stop_order: 4,
-    estimated_arrival: '08:08 AM',
-    status: 'active',
-  },
-  {
-    id: 'stop_5',
-    route_id: 'r1',
-    stop_name: 'College Main Gate (Campus Hub)',
+    stop_name: 'RIT Campus Main Gate',
     latitude: 9.4520,
     longitude: 77.5535,
-    stop_order: 5,
-    estimated_arrival: '08:20 AM',
+    stop_order: 4,
+    estimated_arrival: '08:45 AM',
+    morning_time: '08:45 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
 ];
 
 const EVENING_ROUTE_STOPS: Stop[] = [
   {
-    id: 'stop_5',
+    id: 'st1_4',
     route_id: 'r1',
-    stop_name: 'College Main Gate (Campus Hub)',
+    stop_name: 'RIT Campus Main Gate',
     latitude: 9.4520,
     longitude: 77.5535,
     stop_order: 1,
-    estimated_arrival: '04:30 PM',
+    estimated_arrival: '04:45 PM',
+    morning_time: '08:45 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_4',
-    route_id: 'r1',
-    stop_name: 'Samsigapuram Road Turn',
-    latitude: 9.4512,
-    longitude: 77.5510,
-    stop_order: 2,
-    estimated_arrival: '04:42 PM',
-    status: 'active',
-  },
-  {
-    id: 'stop_3',
+    id: 'st1_3',
     route_id: 'r1',
     stop_name: 'PACR Mill Circle',
     latitude: 9.4505,
-    longitude: 77.5495,
-    stop_order: 3,
+    longitude: 77.5525,
+    stop_order: 2,
     estimated_arrival: '04:55 PM',
+    morning_time: '08:35 AM',
+    evening_time: '04:55 PM',
     status: 'active',
   },
   {
-    id: 'stop_2',
+    id: 'st1_2',
     route_id: 'r1',
-    stop_name: 'Gandhi Statue Junction',
-    latitude: 9.4490,
-    longitude: 77.5472,
+    stop_name: 'Tenkasi Road Junction',
+    latitude: 9.4498,
+    longitude: 77.5518,
+    stop_order: 3,
+    estimated_arrival: '05:05 PM',
+    morning_time: '08:28 AM',
+    evening_time: '05:05 PM',
+    status: 'active',
+  },
+  {
+    id: 'st1_1',
+    route_id: 'r1',
+    stop_name: 'Old Bus Stand, RJPM',
+    latitude: 9.4485,
+    longitude: 77.5505,
     stop_order: 4,
-    estimated_arrival: '05:08 PM',
-    status: 'active',
-  },
-  {
-    id: 'stop_1',
-    route_id: 'r1',
-    stop_name: 'Rajapalayam New Bus Stand',
-    latitude: 9.4475,
-    longitude: 77.5450,
-    stop_order: 5,
-    estimated_arrival: '05:25 PM',
+    estimated_arrival: '05:15 PM',
+    morning_time: '08:20 AM',
+    evening_time: '05:15 PM',
     status: 'active',
   },
 ];
@@ -180,7 +177,9 @@ export default function DriverDashboard() {
     employeeId: 'EMP-DRV-01',
     phone: '+91 9894668646',
     licenseNumber: 'TN-67-2015-001',
+    assignedBusId: 'b1',
     busNumber: 'BUS-01',
+    routeId: 'r1',
     registrationNumber: 'TN 67 AM 9785',
     routeName: 'Route 1 (Old Bus Stand, RJPM ➔ RIT)',
     role: 'Driver',
@@ -191,10 +190,18 @@ export default function DriverDashboard() {
       try {
         const session = await authStorage.getSession();
         const parsed = (session && session.role === 'driver' && session.user)
-          ? session.user
+          ? session.user as any
           : null;
 
         if (parsed) {
+          const bId = parsed.bus_id || parsed.busId || parsed.assigned_bus_id || parsed.assignedBusId || parsed.bus?.id || 'b1';
+          const busObj = MASTER_BUSES.find(b => b.id === bId || b.bus_number === parsed.bus_number || b.bus_number === parsed.busNumber);
+          const bNum = parsed.bus?.bus_number || parsed.bus_number || parsed.busNumber || busObj?.bus_number || 'BUS-01';
+          const rId = parsed.route_id || parsed.routeId || parsed.route?.id || busObj?.route_id || 'r1';
+          const rObj = MASTER_ROUTES.find(r => r.id === rId);
+          const rName = parsed.route_name || parsed.routeName || parsed.route?.route_name || rObj?.route_name || 'Route 1';
+          const regNum = parsed.bus?.registration_number || parsed.registration_number || parsed.registrationNumber || busObj?.registration_number || 'TN 67 AM 9785';
+
           setDriverProfile((prev) => ({
             ...prev,
             id: parsed.id || prev.id,
@@ -202,15 +209,13 @@ export default function DriverDashboard() {
             employeeId: parsed.employee_id || parsed.employeeId || prev.employeeId,
             phone: parsed.phone || parsed.profile?.phone || prev.phone,
             licenseNumber: parsed.license_number || parsed.licenseNumber || prev.licenseNumber,
-            busNumber: parsed.bus?.bus_number || parsed.bus_number || parsed.busNumber || prev.busNumber,
-            registrationNumber:
-              parsed.bus?.registration_number || parsed.registration_number || parsed.registrationNumber || prev.registrationNumber,
-            routeName: parsed.route_name || parsed.routeName || prev.routeName,
+            assignedBusId: bId,
+            busNumber: bNum,
+            routeId: rId,
+            registrationNumber: regNum,
+            routeName: rName,
           }));
-          const bNum = parsed.bus?.bus_number || parsed.bus_number || parsed.busNumber;
-          if (bNum) {
-            setDriverBusNumber(bNum);
-          }
+          setDriverBusNumber(bNum);
         }
       } catch (e) {
         console.warn('Driver session load error:', e);
@@ -219,21 +224,58 @@ export default function DriverDashboard() {
     loadSavedDriver();
   }, []);
 
-  // Real-time Students Roster State
-  const [students, setStudents] = useState<BusStudent[]>(studentRosterStore.getStudents('b1'));
+  // Real-time Students Roster State for Assigned Bus
+  const resolvedBusId = driverProfile.assignedBusId || 'b1';
+  const [students, setStudents] = useState<BusStudent[]>(() => studentRosterStore.getStudents(resolvedBusId));
   const [studentSearch, setStudentSearch] = useState('');
   const [filterStopId, setFilterStopId] = useState('all');
 
-  // Sync with Admin additions / removals in real-time
+  // Sync with Admin additions / removals in real-time for driver's assigned bus
   useEffect(() => {
+    const busId = driverProfile.assignedBusId || 'b1';
+    setStudents(studentRosterStore.getStudents(busId));
     const unsubscribe = studentRosterStore.subscribe(() => {
-      setStudents(studentRosterStore.getStudents('b1'));
+      setStudents(studentRosterStore.getStudents(busId));
     });
     return unsubscribe;
+  }, [driverProfile.assignedBusId]);
+
+  const [allStops, setAllStops] = useState<Stop[]>(INITIAL_STOPS);
+
+  useEffect(() => {
+    fetchLiveStops().then((loaded) => {
+      if (loaded && loaded.length > 0) setAllStops(loaded);
+    });
+    const unsub = subscribeToStops((freshStops) => {
+      if (freshStops && freshStops.length > 0) setAllStops(freshStops);
+    });
+    return unsub;
   }, []);
 
+  // Dynamic route stops based on driver's assigned route
+  const driverRouteStops: Stop[] = React.useMemo(() => {
+    const rId = driverProfile.routeId || 'r1';
+    const matched = allStops.filter(s => s.route_id === rId);
+    if (matched.length > 0) return matched;
+    const masterMatched = MASTER_STOPS.filter(s => s.route_id === rId);
+    if (masterMatched.length > 0) return masterMatched;
+    return INITIAL_STOPS;
+  }, [allStops, driverProfile.routeId]);
+
   // Active stops sequence based on shift
-  const currentStops = shift === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
+  const currentStops = React.useMemo(() => {
+    if (shift === 'evening') {
+      return [...driverRouteStops].reverse().map((st, i) => ({
+        ...st,
+        stop_order: i + 1,
+        estimated_arrival: st.evening_time || st.estimated_arrival,
+      }));
+    }
+    return [...driverRouteStops].sort((a, b) => a.stop_order - b.stop_order).map((st) => ({
+      ...st,
+      estimated_arrival: st.morning_time || st.estimated_arrival,
+    }));
+  }, [driverRouteStops, shift]);
 
   // Live Telemetry state
   const [currentLoc, setCurrentLoc] = useState<GPSCoordinate | null>(() => {
@@ -262,6 +304,33 @@ export default function DriverDashboard() {
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const unreadNotifCount = (systemBroadcasts || []).filter((n) => n && n.id && !readNotifIds.includes(n.id)).length;
+
+  // Restore persisted read notification IDs on mount
+  useEffect(() => {
+    authStorage.getItem('bustrack_driver_read_notifs').then((stored) => {
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) setReadNotifIds(parsed);
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
+
+  const markAllNotificationsAsRead = () => {
+    const allIds = (systemBroadcasts || []).map((n) => n.id);
+    setReadNotifIds(allIds);
+    authStorage.setItem('bustrack_driver_read_notifs', JSON.stringify(allIds)).catch(() => {});
+    setShowNotifModal(false);
+  };
+
+  const markSingleNotificationRead = (notifId: string) => {
+    setReadNotifIds((prev) => {
+      const updated = prev.includes(notifId) ? prev : [...prev, notifId];
+      authStorage.setItem('bustrack_driver_read_notifs', JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  };
 
   const timerRef = useRef<any>(null);
 
@@ -296,7 +365,9 @@ export default function DriverDashboard() {
 
     const unsubNotifs = subscribeToSystemNotifications((notif: SystemNotification) => {
       setSystemBroadcasts((prev) => {
-        if (prev.some((n) => n.id === notif.id)) return prev;
+        if (prev.some((n) => n.id === notif.id || (n.title?.trim().toLowerCase() === notif.title?.trim().toLowerCase() && n.message?.trim().toLowerCase() === notif.message?.trim().toLowerCase()))) {
+          return prev;
+        }
         return [notif, ...prev];
       });
       setIncomingToast(notif);
@@ -310,46 +381,58 @@ export default function DriverDashboard() {
       );
     });
 
-    // Initial fetch of active announcements from Supabase DB
-    fetchSystemNotificationsFromDB().then((notifs) => {
-      if (notifs && notifs.length > 0) {
-        setSystemBroadcasts((prev) => {
-          const ids = new Set(prev.map((n) => n.id));
-          const fresh = notifs.filter((n) => !ids.has(n.id));
-          return [...fresh, ...prev];
-        });
-      }
-    }).catch(() => {});
+    // Fetch announcements from Supabase DB and local storage
+    const syncAnnouncements = async () => {
+      try {
+        const notifs = await fetchSystemNotificationsFromDB();
+        if (notifs && notifs.length > 0) {
+          setSystemBroadcasts((prev) => {
+            const fresh = notifs.filter((n) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
+            if (fresh.length > 0) {
+              return [...fresh, ...prev];
+            }
+            return prev;
+          });
+        }
+      } catch {}
 
-    // Polling sync for cross-client notifications
-    const notifPollTimer = setInterval(() => {
-      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-        try {
-          const raw = localStorage.getItem('bustrack_notifications_v1');
-          if (raw) {
+      authStorage.getItem('bustrack_notifications_v1').then((raw) => {
+        if (raw) {
+          try {
             const list = JSON.parse(raw);
             if (Array.isArray(list) && list.length > 0) {
               setSystemBroadcasts((prev) => {
-                const prevIds = new Set(prev.map((n) => n.id));
-                const newItems = list.filter((n: any) => !prevIds.has(n.id));
-                if (newItems.length > 0) {
-                  const newest = newItems[0];
-                  setIncomingAlertModal(newest);
-                  setIncomingToast(newest);
-                  notificationService.sendPushNotification(`📢 ${newest.title}`, newest.message, newest.type || 'broadcast');
-                  return [...newItems, ...prev];
+                const fresh = list.filter((n: any) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
+                if (fresh.length > 0) {
+                  return [...fresh, ...prev];
                 }
                 return prev;
               });
             }
-          }
-        } catch {}
+          } catch {}
+        }
+      }).catch(() => {});
+    };
+
+    // Initial fetch on mount
+    syncAnnouncements();
+
+    // Polling sync every 3.5 seconds
+    const notifPollTimer = setInterval(() => {
+      syncAnnouncements();
+    }, 3500);
+
+    // Foreground sync when app is reopened or focused
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        syncAnnouncements();
       }
-    }, 2500);
+    });
 
     return () => {
       unsubNotifs();
       clearInterval(notifPollTimer);
+      appStateSub.remove();
     };
   }, []);
 
@@ -423,7 +506,7 @@ export default function DriverDashboard() {
       setHasPermission(true);
     }
 
-    const busId = driverProfile.id.startsWith('dr') ? 'b' + driverProfile.id.replace('dr', '') : 'b1';
+    const busId = driverProfile.assignedBusId || (driverProfile.id.startsWith('dr') ? 'b' + driverProfile.id.replace('dr', '') : 'b1');
     const tripId = 'trip_' + Date.now();
 
     setDistanceTravelledKm(0);
@@ -923,7 +1006,7 @@ export default function DriverDashboard() {
                     <TouchableOpacity
                       key={notif.id}
                       style={[styles.notifCardItem, isRead && { opacity: 0.65 }]}
-                      onPress={() => setReadNotifIds((prev) => (prev.includes(notif.id) ? prev : [...prev, notif.id]))}
+                      onPress={() => markSingleNotificationRead(notif.id)}
                     >
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <Text style={styles.notifCardTitle}>{notif.title}</Text>
@@ -944,10 +1027,7 @@ export default function DriverDashboard() {
             <View style={styles.notifModalFooter}>
               <TouchableOpacity
                 style={styles.markAllReadBtn}
-                onPress={() => {
-                  setReadNotifIds(systemBroadcasts.map((n) => n.id));
-                  setShowNotifModal(false);
-                }}
+                onPress={markAllNotificationsAsRead}
               >
                 <Text style={styles.markAllReadText}>✓ Mark All as Read</Text>
               </TouchableOpacity>
@@ -1190,9 +1270,9 @@ export default function DriverDashboard() {
                 <View style={styles.nextStopHeaderRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.nextStopPrefix, { color: '#10b981' }]}>
-                      🏁 FINAL TERMINAL REACHED (5/5) • BUS-01
+                      🏁 FINAL TERMINAL REACHED ({currentStops.length}/{currentStops.length}) • {driverProfile.busNumber || 'BUS-01'}
                     </Text>
-                    <Text style={styles.nextStopName}>College Main Gate (Campus Hub)</Text>
+                    <Text style={styles.nextStopName}>{currentStops[currentStops.length - 1]?.stop_name || 'Terminal Destination'}</Text>
                     <Text style={[styles.nextStopEtaText, { color: '#34d399', fontWeight: 'bold' }]}>
                       0 m • Arrived at Campus Destination
                     </Text>
@@ -1209,7 +1289,7 @@ export default function DriverDashboard() {
                 <View style={styles.nextStopHeaderRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.nextStopPrefix}>
-                      {isFinalStop ? 'FINAL STOP (5/5)' : `NEXT STOP (${Math.min(currentStopIdx + 1, 5)}/5)`} • BUS-01
+                      {isFinalStop ? `FINAL STOP (${currentStops.length}/${currentStops.length})` : `NEXT STOP (${Math.min(currentStopIdx + 1, currentStops.length)}/${currentStops.length})`} • {driverProfile.busNumber || 'BUS-01'}
                     </Text>
                     <Text style={styles.nextStopName}>{nextStop?.stop_name || 'Next Stop'}</Text>
                     <Text style={styles.nextStopEtaText}>
@@ -1443,7 +1523,7 @@ export default function DriverDashboard() {
               <View style={styles.activeCockpit}>
                 <View style={styles.cockpitHeader}>
                   <View>
-                    <Text style={styles.cockpitTitle}>TRIP IN PROGRESS &bull; BUS-01</Text>
+                    <Text style={styles.cockpitTitle}>TRIP IN PROGRESS &bull; {driverProfile.busNumber || 'BUS-01'}</Text>
                     <Text style={styles.timerText}>Duration: {formatTimer(elapsedSeconds)}</Text>
                   </View>
                   <View style={styles.transmittingBadge}>
@@ -1505,7 +1585,7 @@ export default function DriverDashboard() {
                 </View>
               </View>
 
-              {currentStops.slice(0, 5).map((stop, idx) => {
+              {currentStops.map((stop, idx) => {
                 const isCompleted = completedStopIds.includes(stop.id);
                 const isCurrent = currentStopIdx === idx;
 
@@ -1538,7 +1618,15 @@ export default function DriverDashboard() {
                         {stop.stop_name}
                       </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                        <Text style={styles.stopItemEta}>Sched: {stop.estimated_arrival}</Text>
+                        {shift === 'morning' ? (
+                          <Text style={[styles.stopItemEta, { color: '#f59e0b', fontWeight: 'bold' }]}>
+                            🌅 Morning: {stop.morning_time || stop.estimated_arrival || '--:--'}
+                          </Text>
+                        ) : (
+                          <Text style={[styles.stopItemEta, { color: '#a78bfa', fontWeight: 'bold' }]}>
+                            🌆 Evening: {stop.evening_time || stop.estimated_arrival || '--:--'}
+                          </Text>
+                        )}
                         <Text style={[styles.stopDynamicEta, isCompleted ? { color: '#64748b' } : { color: dynamicETA.statusColor }]}>
                           &bull; {isCompleted ? 'Passed' : `Live: ${dynamicETA.arrivalTimeStr}`}
                         </Text>

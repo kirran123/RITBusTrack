@@ -36,7 +36,7 @@ class NotificationService {
     }
   }
 
-  private async setupChannels() {
+  async setupChannels() {
     if (Platform.OS === 'android') {
       try {
         await Notifications.setNotificationChannelAsync('default', {
@@ -87,6 +87,7 @@ class NotificationService {
         }
         return true;
       } else {
+        await this.setupChannels();
         const { status: existingStatus } = await Notifications.getPermissionsAsync().catch(() => ({ status: 'undetermined' }));
         let finalStatus = existingStatus;
         if (existingStatus !== 'granted') {
@@ -117,12 +118,14 @@ class NotificationService {
     try {
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && 'Notification' in window) {
-          return window.Notification.permission === 'granted';
+          this.isPermissionGranted = window.Notification.permission === 'granted';
+          return this.isPermissionGranted;
         }
         return false;
       } else {
         const { status } = await Notifications.getPermissionsAsync().catch(() => ({ status: 'undetermined' }));
-        return status === 'granted';
+        this.isPermissionGranted = status === 'granted';
+        return this.isPermissionGranted;
       }
     } catch (e) {
       console.warn('Check notification permission error:', e);
@@ -131,6 +134,7 @@ class NotificationService {
   }
 
   private alertListeners: Set<(notif: { title: string; body: string; type?: string }) => void> = new Set();
+  private recentPushLogs: Map<string, number> = new Map();
 
   subscribeAlert(listener: (notif: { title: string; body: string; type?: string }) => void) {
     this.alertListeners.add(listener);
@@ -144,6 +148,27 @@ class NotificationService {
    */
   async sendPushNotification(title: string, body: string, tag: string = 'fleet_notice', type: string = 'broadcast') {
     try {
+      const cleanTitle = (title || '').trim();
+      const cleanBody = (body || '').trim();
+      const dedupeKey = `${cleanTitle}::${cleanBody}`;
+      const now = Date.now();
+      const lastSent = this.recentPushLogs.get(dedupeKey);
+
+      // Deduplicate identical notifications fired within 4.5 seconds
+      if (lastSent && now - lastSent < 4500) {
+        return;
+      }
+      this.recentPushLogs.set(dedupeKey, now);
+
+      // Clean up old entries to prevent memory growth
+      if (this.recentPushLogs.size > 50) {
+        for (const [k, timestamp] of this.recentPushLogs.entries()) {
+          if (now - timestamp > 10000) {
+            this.recentPushLogs.delete(k);
+          }
+        }
+      }
+
       // 1. Notify in-app subscribers (dialogs, toasts, banner overlays)
       this.alertListeners.forEach(listener => {
         try {
@@ -154,6 +179,7 @@ class NotificationService {
       // 2. Mobile Native Notification Delivery (Direct to Android Status Bar & Heads-up Banner)
       if (Platform.OS !== 'web') {
         try {
+          await this.setupChannels();
           const channelId = type === 'emergency' || type === 'emergency_sos'
             ? 'emergency_sos'
             : type === 'trip' || type === 'trip_start' || type === 'trip_end'
@@ -165,11 +191,12 @@ class NotificationService {
               title,
               body,
               sound: 'default',
+              channelId, // Required on Android 8+ for notifications to appear
               vibrate: [0, 250, 250, 250],
               data: { tag, type },
               color: type === 'emergency' || type === 'emergency_sos' ? '#ef4444' : '#2563eb',
-            },
-            trigger: null, // deliver immediately to status bar
+            } as any,
+            trigger: Platform.OS === 'android' ? ({ channelId } as any) : null,
           });
         } catch (nativeNotifErr) {
           console.warn('Native mobile status bar notification error:', nativeNotifErr);
@@ -191,6 +218,14 @@ class NotificationService {
               window.focus();
             };
           } catch {}
+        } else if (window.Notification.permission === 'default') {
+          window.Notification.requestPermission().then(perm => {
+            if (perm === 'granted') {
+              try {
+                new window.Notification(title, { body, icon: '/favicon.ico', tag });
+              } catch {}
+            }
+          }).catch(() => {});
         }
       }
     } catch (err) {
@@ -200,4 +235,5 @@ class NotificationService {
 }
 
 export const notificationService = new NotificationService();
+
 

@@ -10,6 +10,7 @@ import {
   Platform,
   Linking,
   Modal,
+  AppState,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,114 +36,112 @@ import {
   BusTelemetryPayload, 
   FleetSwapNotice,
   TripUpdatePayload,
+  subscribeToStops,
+  fetchLiveStops,
 } from '../../services/supabase';
-import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop } from '@college-bus/shared';
+import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop, MASTER_BUSES, MASTER_ROUTES, MASTER_STOPS } from '@college-bus/shared';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 
 const MORNING_ROUTE_STOPS: Stop[] = [
   {
-    id: 'stop_1',
+    id: 'st1_1',
     route_id: 'r1',
-    stop_name: 'Rajapalayam New Bus Stand',
-    latitude: 9.4475,
-    longitude: 77.5450,
+    stop_name: 'Old Bus Stand, RJPM',
+    latitude: 9.4485,
+    longitude: 77.5505,
     stop_order: 1,
-    estimated_arrival: '07:45 AM',
+    estimated_arrival: '08:20 AM',
+    morning_time: '08:20 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_2',
+    id: 'st1_2',
     route_id: 'r1',
-    stop_name: 'Gandhi Statue Junction',
-    latitude: 9.4490,
-    longitude: 77.5472,
+    stop_name: 'Tenkasi Road Junction',
+    latitude: 9.4498,
+    longitude: 77.5518,
     stop_order: 2,
-    estimated_arrival: '07:52 AM',
+    estimated_arrival: '08:28 AM',
+    morning_time: '08:28 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_3',
+    id: 'st1_3',
     route_id: 'r1',
     stop_name: 'PACR Mill Circle',
     latitude: 9.4505,
-    longitude: 77.5495,
+    longitude: 77.5525,
     stop_order: 3,
-    estimated_arrival: '08:00 AM',
+    estimated_arrival: '08:35 AM',
+    morning_time: '08:35 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_4',
+    id: 'st1_4',
     route_id: 'r1',
-    stop_name: 'Samsigapuram Road Turn',
-    latitude: 9.4512,
-    longitude: 77.5510,
-    stop_order: 4,
-    estimated_arrival: '08:08 AM',
-    status: 'active',
-  },
-  {
-    id: 'stop_5',
-    route_id: 'r1',
-    stop_name: 'College Main Gate',
+    stop_name: 'RIT Campus Main Gate',
     latitude: 9.4520,
     longitude: 77.5535,
-    stop_order: 5,
-    estimated_arrival: '08:20 AM',
+    stop_order: 4,
+    estimated_arrival: '08:45 AM',
+    morning_time: '08:45 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
 ];
 
 const EVENING_ROUTE_STOPS: Stop[] = [
   {
-    id: 'stop_5',
+    id: 'st1_4',
     route_id: 'r1',
-    stop_name: 'College Main Gate (Campus Hub)',
+    stop_name: 'RIT Campus Main Gate',
     latitude: 9.4520,
     longitude: 77.5535,
     stop_order: 1,
-    estimated_arrival: '04:30 PM',
+    estimated_arrival: '04:45 PM',
+    morning_time: '08:45 AM',
+    evening_time: '04:45 PM',
     status: 'active',
   },
   {
-    id: 'stop_4',
-    route_id: 'r1',
-    stop_name: 'Samsigapuram Road Turn',
-    latitude: 9.4512,
-    longitude: 77.5510,
-    stop_order: 2,
-    estimated_arrival: '04:42 PM',
-    status: 'active',
-  },
-  {
-    id: 'stop_3',
+    id: 'st1_3',
     route_id: 'r1',
     stop_name: 'PACR Mill Circle',
     latitude: 9.4505,
-    longitude: 77.5495,
-    stop_order: 3,
+    longitude: 77.5525,
+    stop_order: 2,
     estimated_arrival: '04:55 PM',
+    morning_time: '08:35 AM',
+    evening_time: '04:55 PM',
     status: 'active',
   },
   {
-    id: 'stop_2',
+    id: 'st1_2',
     route_id: 'r1',
-    stop_name: 'Gandhi Statue Junction',
-    latitude: 9.4490,
-    longitude: 77.5472,
+    stop_name: 'Tenkasi Road Junction',
+    latitude: 9.4498,
+    longitude: 77.5518,
+    stop_order: 3,
+    estimated_arrival: '05:05 PM',
+    morning_time: '08:28 AM',
+    evening_time: '05:05 PM',
+    status: 'active',
+  },
+  {
+    id: 'st1_1',
+    route_id: 'r1',
+    stop_name: 'Old Bus Stand, RJPM',
+    latitude: 9.4485,
+    longitude: 77.5505,
     stop_order: 4,
-    estimated_arrival: '05:08 PM',
-    status: 'active',
-  },
-  {
-    id: 'stop_1',
-    route_id: 'r1',
-    stop_name: 'Rajapalayam New Bus Stand',
-    latitude: 9.4475,
-    longitude: 77.5450,
-    stop_order: 5,
-    estimated_arrival: '05:25 PM',
+    estimated_arrival: '05:15 PM',
+    morning_time: '08:20 AM',
+    evening_time: '05:15 PM',
     status: 'active',
   },
 ];
@@ -190,9 +189,54 @@ export default function StudentDashboard() {
   const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
   const unreadNotifCount = systemBroadcasts.filter((n) => !readNotifIds.includes(n.id)).length;
 
+  // Restore persisted read notification IDs on mount
+  useEffect(() => {
+    authStorage.getItem('bustrack_student_read_notifs').then((stored) => {
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) setReadNotifIds(parsed);
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
+
+  const markAllNotificationsAsRead = () => {
+    const allIds = systemBroadcasts.map((n) => n.id);
+    setReadNotifIds(allIds);
+    authStorage.setItem('bustrack_student_read_notifs', JSON.stringify(allIds)).catch(() => {});
+    setShowNotifModal(false);
+  };
+
+  const markSingleNotificationRead = (notifId: string) => {
+    setReadNotifIds((prev) => {
+      const updated = prev.includes(notifId) ? prev : [...prev, notifId];
+      authStorage.setItem('bustrack_student_read_notifs', JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  };
+
   // Student Profile & Realtime Leave State
   const [currentStudent, setCurrentStudent] = useState<BusStudent>(() => {
-    return studentRosterStore.getStudentById('s3') || studentRosterStore.getAllStudents()[0];
+    return studentRosterStore.getStudentById('s3') || studentRosterStore.getAllStudents()[0] || {
+      id: 's3',
+      name: 'Kishore ST',
+      rollNumber: '21IT045',
+      department: 'B.Tech Information Tech.',
+      year: 3,
+      section: 'A',
+      boardingStopId: 'st1',
+      boardingStopName: 'Old Bus Stand, RJPM',
+      phone: '+91 98421 23456',
+      email: 'kishore.it@ritrjpm.ac.in',
+      busId: 'b1',
+      busNumber: 'BUS-01',
+      routeId: 'r1',
+      routeName: 'Route 1 (Old Bus Stand ➔ RIT Campus)',
+      isBoarded: false,
+      isOnLeave: false,
+      avatarBg: '#059669',
+    };
   });
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedLeaveDate, setSelectedLeaveDate] = useState('Today (20 Sep)');
@@ -203,7 +247,24 @@ export default function StudentDashboard() {
       try {
         const session = await authStorage.getSession();
         if (session && session.role === 'student' && session.user) {
-          setCurrentStudent((prev) => ({ ...prev, ...session.user }));
+          const u = session.user as any;
+          const bId = u.bus_id || u.busId || 'b1';
+          const busObj = MASTER_BUSES.find(b => b.id === bId || b.bus_number === u.busNumber);
+          const bNum = u.bus?.bus_number || u.bus_number || u.busNumber || busObj?.bus_number || 'BUS-01';
+          const rId = u.route_id || u.routeId || u.route?.id || busObj?.route_id || 'r1';
+          const rObj = MASTER_ROUTES.find(r => r.id === rId);
+          const rName = u.route_name || u.routeName || u.route?.route_name || rObj?.route_name || 'Route 1';
+          const stopName = u.boardingStopName || u.boarding_stop?.stop_name || 'Old Bus Stand, RJPM';
+
+          setCurrentStudent((prev) => ({
+            ...prev,
+            ...u,
+            busId: bId,
+            busNumber: bNum,
+            routeId: rId,
+            routeName: rName,
+            boardingStopName: stopName,
+          }));
         }
       } catch (e) {
         console.warn('Student session load error:', e);
@@ -218,7 +279,16 @@ export default function StudentDashboard() {
   useEffect(() => {
     const unsubscribe = studentRosterStore.subscribe(() => {
       const updated = studentRosterStore.getStudentById(currentStudent.id);
-      if (updated) setCurrentStudent(updated);
+      if (updated) {
+        setCurrentStudent((prev) => ({
+          ...prev,
+          ...updated,
+          busId: updated.busId || prev.busId,
+          busNumber: updated.busNumber || prev.busNumber,
+          routeId: updated.routeId || prev.routeId,
+          routeName: updated.routeName || prev.routeName,
+        }));
+      }
     });
     return unsubscribe;
   }, [currentStudent.id]);
@@ -242,8 +312,43 @@ export default function StudentDashboard() {
   const [lastUpdatedSec, setLastUpdatedSec] = useState(1);
   const [isDriverActive, setIsDriverActive] = useState(true);
 
+  const [allStops, setAllStops] = useState<Stop[]>(INITIAL_STOPS);
+
+  useEffect(() => {
+    fetchLiveStops().then((loaded) => {
+      if (loaded && loaded.length > 0) setAllStops(loaded);
+    });
+    const unsub = subscribeToStops((freshStops) => {
+      if (freshStops && freshStops.length > 0) setAllStops(freshStops);
+    });
+    return unsub;
+  }, []);
+
+  // Dynamic route stops for student's assigned route
+  const currentRouteStops: Stop[] = React.useMemo(() => {
+    const rId = currentStudent.routeId || 'r1';
+    const matched = allStops.filter(s => s.route_id === rId);
+    if (matched.length > 0) return matched;
+    const masterMatched = MASTER_STOPS.filter(s => s.route_id === rId);
+    if (masterMatched.length > 0) return masterMatched;
+    return INITIAL_STOPS;
+  }, [allStops, currentStudent.routeId]);
+
   // Active stops sequence based on schedule shift
-  const activeStops = scheduleType === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
+  const activeStops = React.useMemo(() => {
+    if (scheduleType === 'evening') {
+      return [...currentRouteStops].reverse().map((st, i) => ({
+        ...st,
+        stop_order: i + 1,
+        estimated_arrival: st.evening_time || st.estimated_arrival,
+      }));
+    }
+    return [...currentRouteStops].sort((a, b) => a.stop_order - b.stop_order).map((st) => ({
+      ...st,
+      estimated_arrival: st.morning_time || st.estimated_arrival,
+    }));
+  }, [currentRouteStops, scheduleType]);
+
   const boardingStop = (activeStops && (
     activeStops.find(s => s.id === (currentStudent.boardingStopId || 'st1') || s.id === 'stop_1') ||
     activeStops.find(s => s.stop_name.toLowerCase().includes((currentStudent.boardingStopName || '').toLowerCase().slice(0, 6)))
@@ -256,26 +361,35 @@ export default function StudentDashboard() {
         if (storedCurrent) {
           const parsed = JSON.parse(storedCurrent);
           if (parsed && (parsed.name || parsed.profile?.name)) {
-            setCurrentStudent({
-              id: parsed.id || 's3',
-              name: parsed.profile?.name || parsed.name || 'Kishore ST',
-              rollNumber: parsed.register_number || parsed.rollNumber || '21IT045',
-              department: parsed.department || 'B.Tech Information Tech.',
-              year: parsed.year || 3,
-              section: parsed.section || 'A',
-              boardingStopId: parsed.boarding_stop_id || parsed.boardingStopId || 'st1',
-              boardingStopName: parsed.boarding_stop?.stop_name || parsed.boardingStopName || 'Old Bus Stand, RJPM (Stop 1)',
-              phone: parsed.profile?.phone || parsed.phone || '+91 98421 23456',
-              email: parsed.profile?.email || parsed.email || 'kishore.it@ritrjpm.ac.in',
-              busId: parsed.bus_id || parsed.busId || 'b1',
-              busNumber: parsed.bus?.bus_number || parsed.busNumber || (parsed.bus_id === 'b1' ? 'BUS-01' : 'BUS-01'),
-              routeId: parsed.route_id || parsed.routeId || 'r1',
+            const bId = parsed.bus_id || parsed.busId || 'b1';
+            const busObj = MASTER_BUSES.find(b => b.id === bId || b.bus_number === (parsed.bus?.bus_number || parsed.busNumber));
+            const bNum = parsed.bus?.bus_number || parsed.bus_number || parsed.busNumber || busObj?.bus_number || 'BUS-01';
+            const rId = parsed.route_id || parsed.routeId || parsed.route?.id || busObj?.route_id || 'r1';
+            const rObj = MASTER_ROUTES.find(r => r.id === rId);
+            const rName = parsed.route_name || parsed.routeName || parsed.route?.route_name || rObj?.route_name || 'Route 1';
+
+            setCurrentStudent((prev) => ({
+              ...prev,
+              id: parsed.id || prev.id,
+              name: parsed.profile?.name || parsed.name || prev.name,
+              rollNumber: parsed.register_number || parsed.rollNumber || prev.rollNumber,
+              department: parsed.department || prev.department,
+              year: parsed.year || prev.year,
+              section: parsed.section || prev.section,
+              boardingStopId: parsed.boarding_stop_id || parsed.boardingStopId || prev.boardingStopId,
+              boardingStopName: parsed.boarding_stop?.stop_name || parsed.boardingStopName || prev.boardingStopName,
+              phone: parsed.profile?.phone || parsed.phone || prev.phone,
+              email: parsed.profile?.email || parsed.email || prev.email,
+              busId: bId,
+              busNumber: bNum,
+              routeId: rId,
+              routeName: rName,
               isBoarded: false,
               isOnLeave: Boolean(parsed.is_on_leave),
               leaveDate: parsed.leave_date,
               leaveReason: parsed.leave_reason,
               avatarBg: '#059669',
-            });
+            }));
           }
         }
       } catch (e) {}
@@ -284,8 +398,10 @@ export default function StudentDashboard() {
     checkAndFetchStudentLocation();
     checkNotificationPermissionStatus();
 
+    const targetBusId = currentStudent.busId || 'b1';
+
     // 0. Fetch latest recorded live bus location from database
-    fetchLatestBusLocation('b1').then((latest) => {
+    fetchLatestBusLocation(targetBusId).then((latest) => {
       if (latest) {
         setBusLocation(latest);
       }
@@ -294,7 +410,7 @@ export default function StudentDashboard() {
     // Periodic live database sync fallback (every 3s)
     const pollTimer = setInterval(async () => {
       try {
-        const latest = await fetchLatestBusLocation('b1');
+        const latest = await fetchLatestBusLocation(targetBusId);
         if (latest && latest.latitude && latest.longitude) {
           setBusLocation((prev) => {
             if (
@@ -313,12 +429,14 @@ export default function StudentDashboard() {
 
     // 1. Subscribe to Live Driver Broadcasts via Supabase Realtime Channel
     const unsubscribe = subscribeToTelemetry((payload: BusTelemetryPayload) => {
-      setBusLocation(payload.coordinate);
-      if (typeof payload.currentStopIndex === 'number') {
-        setCurrentStopIndex(payload.currentStopIndex);
+      if (!payload.busId || payload.busId === targetBusId || payload.busNumber === currentStudent.busNumber) {
+        setBusLocation(payload.coordinate);
+        if (typeof payload.currentStopIndex === 'number') {
+          setCurrentStopIndex(payload.currentStopIndex);
+        }
+        setIsDriverActive(payload.status === 'active');
+        setLastUpdatedSec(1);
       }
-      setIsDriverActive(payload.status === 'active');
-      setLastUpdatedSec(1);
     });
 
     // 1b. Subscribe to Trip Stop Updates
@@ -347,7 +465,12 @@ export default function StudentDashboard() {
 
     // 3. Subscribe to Emergency SOS Alerts dispatched by Driver or Transport Admin
     const unsubSOS = subscribeToSOS((alert: EmergencyAlert) => {
-      setEmergencyAlerts((prev) => [alert, ...prev]);
+      setEmergencyAlerts((prev) => {
+        if (prev.some((a) => a.id === alert.id || (a.type === alert.type && a.message?.trim().toLowerCase() === alert.message?.trim().toLowerCase() && a.bus_id === alert.bus_id))) {
+          return prev;
+        }
+        return [alert, ...prev];
+      });
       
       // Deliver High-Priority Push Notification to Mobile Notification Bar
       notificationService.sendPushNotification(
@@ -360,7 +483,9 @@ export default function StudentDashboard() {
     // 4. Subscribe to Live Admin Broadcast Announcements
     const unsubSystemNotif = subscribeToSystemNotifications((notif: SystemNotification) => {
       setSystemBroadcasts((prev) => {
-        if (prev.some((n) => n.id === notif.id)) return prev;
+        if (prev.some((n) => n.id === notif.id || (n.title?.trim().toLowerCase() === notif.title?.trim().toLowerCase() && n.message?.trim().toLowerCase() === notif.message?.trim().toLowerCase()))) {
+          return prev;
+        }
         return [notif, ...prev];
       });
       setIncomingToast(notif);
@@ -375,37 +500,31 @@ export default function StudentDashboard() {
       );
     });
 
-    // 5. Initial fetch of active admin announcements from Supabase DB
-    fetchSystemNotificationsFromDB().then((notifs) => {
-      if (notifs && notifs.length > 0) {
-        setSystemBroadcasts((prev) => {
-          const ids = new Set(prev.map((n) => n.id));
-          const fresh = notifs.filter((n) => !ids.has(n.id));
-          return [...fresh, ...prev];
-        });
-      }
-    }).catch(() => {});
+    // 5. Fetch announcements from Supabase DB and local cache
+    const syncAnnouncements = async () => {
+      try {
+        const notifs = await fetchSystemNotificationsFromDB();
+        if (notifs && notifs.length > 0) {
+          setSystemBroadcasts((prev) => {
+            const fresh = notifs.filter((n) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
+            if (fresh.length > 0) {
+              return [...fresh, ...prev];
+            }
+            return prev;
+          });
+        }
+      } catch {}
 
-    // 6. Polling sync for cross-client notifications (checks every 2.5s for native mobile & web)
-    const notifPollTimer = setInterval(() => {
+      // Also check authStorage fallback
       authStorage.getItem('bustrack_notifications_v1').then((raw) => {
         if (raw) {
           try {
             const list = JSON.parse(raw);
             if (Array.isArray(list) && list.length > 0) {
               setSystemBroadcasts((prev) => {
-                const prevIds = new Set(prev.map((n) => n.id));
-                const newItems = list.filter((n: any) => !prevIds.has(n.id));
-                if (newItems.length > 0) {
-                  const newest = newItems[0];
-                  setIncomingAlertModal(newest);
-                  setIncomingToast(newest);
-                  notificationService.sendPushNotification(
-                    `📢 ${newest.title}`,
-                    newest.message,
-                    newest.type || 'broadcast'
-                  );
-                  return [...newItems, ...prev];
+                const fresh = list.filter((n: any) => !prev.some((p) => p.id === n.id || (p.title?.trim().toLowerCase() === n.title?.trim().toLowerCase() && p.message?.trim().toLowerCase() === n.message?.trim().toLowerCase())));
+                if (fresh.length > 0) {
+                  return [...fresh, ...prev];
                 }
                 return prev;
               });
@@ -413,7 +532,23 @@ export default function StudentDashboard() {
           } catch {}
         }
       }).catch(() => {});
-    }, 2500);
+    };
+    syncAnnouncements();
+
+    // Initial fetch on mount
+    syncAnnouncements();
+
+    // 6. Polling sync every 3.5 seconds
+    const notifPollTimer = setInterval(() => {
+      syncAnnouncements();
+    }, 3500);
+
+    // 6b. Foreground sync when app is reopened or focused
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        syncAnnouncements();
+      }
+    });
 
     // 7. Seconds counter for telemetry freshness and dynamic ETA recalibration
     const secTimer = setInterval(() => {
@@ -429,6 +564,7 @@ export default function StudentDashboard() {
       clearInterval(secTimer);
       clearInterval(notifPollTimer);
       clearInterval(pollTimer);
+      appStateSub.remove();
     };
   }, []);
 
@@ -537,7 +673,7 @@ export default function StudentDashboard() {
               </View>
             </View>
             <Text style={styles.topRouteSubtitle} numberOfLines={1} ellipsizeMode="tail">
-              Route 1 &bull; Old Bus Stand ➔ Campus &bull; TN 67 AM 9785
+              {currentStudent.routeName || 'Route 1'} &bull; {currentStudent.boardingStopName || 'Campus'} &bull; {currentStudent.busNumber || 'BUS-01'}
             </Text>
           </View>
         </View>
@@ -604,7 +740,7 @@ export default function StudentDashboard() {
                     <TouchableOpacity
                       key={notif.id}
                       style={[styles.notifCardItem, isRead && { opacity: 0.65 }]}
-                      onPress={() => setReadNotifIds((prev) => (prev.includes(notif.id) ? prev : [...prev, notif.id]))}
+                      onPress={() => markSingleNotificationRead(notif.id)}
                     >
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <Text style={styles.notifCardTitle}>{notif.title}</Text>
@@ -625,10 +761,7 @@ export default function StudentDashboard() {
             <View style={styles.notifModalFooter}>
               <TouchableOpacity
                 style={styles.markAllReadBtn}
-                onPress={() => {
-                  setReadNotifIds(systemBroadcasts.map((n) => n.id));
-                  setShowNotifModal(false);
-                }}
+                onPress={markAllNotificationsAsRead}
               >
                 <Text style={styles.markAllReadText}>✓ Mark All as Read</Text>
               </TouchableOpacity>
@@ -996,9 +1129,7 @@ export default function StudentDashboard() {
 
             <Text style={styles.sectionTitle}>{currentStudent.busNumber || 'BUS-01'} &bull; Stop Sequence & Dynamic Timings</Text>
 
-            {(() => {
-              const activeStops = scheduleType === 'evening' ? EVENING_ROUTE_STOPS : MORNING_ROUTE_STOPS;
-              return activeStops.map((stop, idx) => {
+            {activeStops.map((stop, idx) => {
                 const isBoarding = stop.id === boardingStop.id;
                 const stopDist = calculateDistanceKm(
                   busLocation.latitude,
@@ -1046,9 +1177,19 @@ export default function StudentDashboard() {
                       </View>
 
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                        <Text style={styles.timelineEta}>Sched: {stop.estimated_arrival}</Text>
+                        {scheduleType === 'morning' ? (
+                          <Text style={[styles.timelineEta, { color: '#f59e0b', fontWeight: '800' }]}>
+                            🌅 Morning: {stop.morning_time || stop.estimated_arrival || '--:--'}
+                          </Text>
+                        ) : (
+                          <Text style={[styles.timelineEta, { color: '#a78bfa', fontWeight: '800' }]}>
+                            🌆 Evening: {stop.evening_time || stop.estimated_arrival || '--:--'}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                         <Text style={[styles.timelineLiveEta, isPassed ? styles.timelineLiveEtaPassed : { color: stopETA.statusColor }]}>
-                          &bull; {isPassed ? 'Passed' : `Expected: ${stopETA.arrivalTimeStr}`}
+                          &bull; {isPassed ? 'Passed' : `Live Expected: ${stopETA.arrivalTimeStr}`}
                         </Text>
                         <Text style={{ fontSize: 11, color: '#94a3b8', fontWeight: '700' }}>
                           ({stopDistFormatted})
@@ -1063,8 +1204,7 @@ export default function StudentDashboard() {
                     </View>
                   </View>
                 );
-              });
-            })()}
+              })}
           </ScrollView>
         )}
 
@@ -1073,49 +1213,75 @@ export default function StudentDashboard() {
           <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 16 }}>
             {/* Bus Alert Header */}
             <View style={styles.busAlertInfoBox}>
-              <Text style={styles.busAlertInfoText}>Showing notifications for <Text style={{ color: '#f59e0b', fontWeight: '900' }}>{currentStudent.busNumber || 'BUS-01'}</Text> (Route 1)</Text>
+              <Text style={styles.busAlertInfoText}>
+                Showing notifications for <Text style={{ color: '#f59e0b', fontWeight: '900' }}>{currentStudent.busNumber || 'BUS-01'}</Text> ({currentStudent.routeName || 'Assigned Route'})
+              </Text>
             </View>
 
             <Text style={styles.sectionTitle}>Transport Broadcasts & Delay Notices</Text>
 
             {/* REAL-TIME ADMIN BROADCASTS */}
-            {systemBroadcasts.map((notif) => {
-              const badge = notif.type === 'emergency'
-                ? { bg: '#ef4444', text: '#ffffff', label: 'EMERGENCY', icon: '🚨' }
-                : notif.type === 'delay'
-                ? { bg: '#f59e0b', text: '#000000', label: 'DELAY NOTICE', icon: '⏳' }
-                : notif.type === 'trip'
-                ? { bg: '#10b981', text: '#ffffff', label: 'TRIP UPDATE', icon: '🚌' }
-                : notif.type === 'maintenance'
-                ? { bg: '#8b5cf6', text: '#ffffff', label: 'MAINTENANCE', icon: '🔧' }
-                : { bg: '#3b82f6', text: '#ffffff', label: 'ANNOUNCEMENT', icon: '📢' };
-
-              return (
-                <View key={notif.id} style={[styles.notifCard, { borderColor: badge.bg, borderWidth: 1.5 }]}>
-                  <View style={styles.notifHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                      <Text style={{ fontSize: 15 }}>{badge.icon}</Text>
-                      <Text style={[styles.notifTitle, { flex: 1 }]} numberOfLines={1}>{notif.title}</Text>
-                    </View>
-                    <View style={{ backgroundColor: badge.bg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                      <Text style={{ color: badge.text, fontSize: 9, fontWeight: '900' }}>{badge.label}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.notifBody}>{notif.message}</Text>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#1e293b' }}>
-                    <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '600' }}>
-                      Audience: {(notif.target_type || 'all').toUpperCase()}
-                    </Text>
-                    <Text style={{ color: '#94a3b8', fontSize: 10 }}>
-                      {notif.created_at ? new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
-                    </Text>
-                  </View>
-                </View>
+            {(() => {
+              const uniqueBroadcasts = systemBroadcasts.filter(
+                (notif, idx, arr) =>
+                  idx ===
+                  arr.findIndex(
+                    (n) =>
+                      n.id === notif.id ||
+                      (n.title?.trim().toLowerCase() === notif.title?.trim().toLowerCase() &&
+                        n.message?.trim().toLowerCase() === notif.message?.trim().toLowerCase())
+                  )
               );
-            })}
+              return uniqueBroadcasts.map((notif) => {
+                const badge = notif.type === 'emergency'
+                  ? { bg: '#ef4444', text: '#ffffff', label: 'EMERGENCY', icon: '🚨' }
+                  : notif.type === 'delay'
+                  ? { bg: '#f59e0b', text: '#000000', label: 'DELAY NOTICE', icon: '⏳' }
+                  : notif.type === 'trip'
+                  ? { bg: '#10b981', text: '#ffffff', label: 'TRIP UPDATE', icon: '🚌' }
+                  : notif.type === 'maintenance'
+                  ? { bg: '#8b5cf6', text: '#ffffff', label: 'MAINTENANCE', icon: '🔧' }
+                  : { bg: '#3b82f6', text: '#ffffff', label: 'ANNOUNCEMENT', icon: '📢' };
+
+                return (
+                  <View key={notif.id} style={[styles.notifCard, { borderColor: badge.bg, borderWidth: 1.5 }]}>
+                    <View style={styles.notifHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <Text style={{ fontSize: 15 }}>{badge.icon}</Text>
+                        <Text style={[styles.notifTitle, { flex: 1 }]} numberOfLines={1}>{notif.title}</Text>
+                      </View>
+                      <View style={{ backgroundColor: badge.bg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                        <Text style={{ color: badge.text, fontSize: 9, fontWeight: '900' }}>{badge.label}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.notifBody}>{notif.message}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#1e293b' }}>
+                      <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '600' }}>
+                        Audience: {(notif.target_type || 'all').toUpperCase()}
+                      </Text>
+                      <Text style={{ color: '#94a3b8', fontSize: 10 }}>
+                        {notif.created_at ? new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              });
+            })()}
 
             {/* REAL-TIME EMERGENCY SOS BROADCASTS */}
-            {emergencyAlerts.map((alert) => (
+            {(() => {
+              const uniqueEmergencies = emergencyAlerts.filter(
+                (alert, idx, arr) =>
+                  idx ===
+                  arr.findIndex(
+                    (a) =>
+                      a.id === alert.id ||
+                      (a.type === alert.type &&
+                        a.message?.trim().toLowerCase() === alert.message?.trim().toLowerCase() &&
+                        a.bus_id === alert.bus_id)
+                  )
+              );
+              return uniqueEmergencies.map((alert) => (
               <View key={alert.id} style={styles.emergencyNotifCard}>
                 <View style={styles.notifHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1138,7 +1304,8 @@ export default function StudentDashboard() {
                   <Text style={styles.notifCallEmergencyBtnText}>📞 Contact Transport Incharge: N.Govindaraju (+91 96292 84690)</Text>
                 </TouchableOpacity>
               </View>
-            ))}
+            ));
+          })()}
 
             {/* REAL-TIME SWAP & VEHICLE CHANGE NOTIFICATIONS */}
             {swapNoticesList.map((notice) => (

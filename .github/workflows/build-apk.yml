@@ -9,6 +9,8 @@ jobs:
   build-android-apk:
     name: Build Android APK (Bus Track)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       EXPO_PUBLIC_SUPABASE_URL: https://ztsmxehwjyriyihypppu.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0c214ZWh3anlyaXlpaHlwcHB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MTA4NTMsImV4cCI6MjEwNTQ4Njg1M30.16sn2O8c1HGA6lJTD0TbWYG9lvnHFrhU6-fZXlbmwi4
@@ -72,6 +74,25 @@ jobs:
           name: Bus-Track-Android-APK
           path: output-apk/Bus-Track.apk
           retention-days: 30
+
+      - name: Create or Update GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest
+          name: "Bus Track Updated APK (v1.0.1)"
+          body: |
+            ### 🚌 Bus Track Standalone Mobile APK (v1.0.1)
+            **Included Fixes & Features:**
+            - **Dynamic Driver & Student Assignment**: Correctly connects driver and students to their assigned buses (e.g. Bus 2, Bus 3) and routes without defaulting to BUS-01 / Route 1.
+            - **Morning & Evening Stop Schedule**: Dual scheduled times displayed for all route stops.
+            - **Duplicate Alert & Push Notification Fix**: Prevents stacked duplicate alerts and double notification tray popups.
+            - **Realtime GPS & Status**: Live route telemetry synchronization with Admin Web.
+
+            **Installation:** Download `Bus-Track.apk` below and install directly on your Android device.
+          files: output-apk/Bus-Track.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
   build-ios-package:

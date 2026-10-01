@@ -21,7 +21,7 @@ import { Settings } from './pages/Settings';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { 
-  UserProfile, Bus, Driver, Student, Route as RouteType, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, StaffUser, StaffCommuter, SIMULATION_ROUTE_A
+  UserProfile, Bus, Driver, Student, Route as RouteType, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, StaffUser, StaffCommuter, SIMULATION_ROUTE_A, timeHistoryStore
 } from '@college-bus/shared';
 
 import {
@@ -44,6 +44,22 @@ const saveStorage = <T,>(key: string, data: T): void => {
   } catch (err) {
     console.warn('Storage save failed for', key, err);
   }
+};
+
+const getResolvedEmergencyIds = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem('bustrack_resolved_emergencies_v1');
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set();
+};
+
+const markEmergencyResolvedLocally = (id: string) => {
+  try {
+    const ids = getResolvedEmergencyIds();
+    ids.add(id);
+    localStorage.setItem('bustrack_resolved_emergencies_v1', JSON.stringify(Array.from(ids)));
+  } catch {}
 };
 
 export const App: React.FC = () => {
@@ -89,7 +105,13 @@ export const App: React.FC = () => {
 
   // Helper to trigger Super Admin & Admin Staff emergency notifications + audible alarm + desktop push
   const triggerEmergencySOSAlert = (payload: any) => {
-    if (!payload) return;
+    if (!payload || !payload.id) return;
+
+    // Check if this alert was already marked resolved locally or in DB
+    const resolvedIds = getResolvedEmergencyIds();
+    if (resolvedIds.has(payload.id) || (payload.status || '').toUpperCase() === 'RESOLVED') {
+      return;
+    }
 
     // 1. Update Emergencies list (avoid duplicate IDs)
     setEmergencies(prev => {
@@ -146,6 +168,20 @@ export const App: React.FC = () => {
         osc.stop(audioCtx.currentTime + 0.6);
       }
     } catch {}
+
+    // 5. Flash Document Title so Admin notices immediately even in other tabs or minimized
+    if (typeof document !== 'undefined') {
+      const origTitle = document.title;
+      let flashes = 0;
+      const flashTimer = setInterval(() => {
+        document.title = (flashes % 2 === 0) ? '🚨 (1) CRITICAL EMERGENCY!' : origTitle;
+        flashes++;
+        if (flashes > 12) {
+          clearInterval(flashTimer);
+          document.title = origTitle;
+        }
+      }, 700);
+    }
   };
 
   // Request browser desktop notification permission on mount for Super Admin & Staff
@@ -203,6 +239,12 @@ export const App: React.FC = () => {
             });
           } else if (data.type === 'emergency_sos') {
             triggerEmergencySOSAlert(data.payload);
+          } else if (data.type === 'emergency_resolved') {
+            const resolvedId = data.payload?.id;
+            if (resolvedId) {
+              markEmergencyResolvedLocally(resolvedId);
+              setEmergencies(prev => prev.map(e => e.id === resolvedId ? { ...e, status: 'RESOLVED', resolved_at: new Date().toISOString() } : e));
+            }
           } else if (data.type === 'broadcast_notification') {
             const notif = data.payload;
             if (notif && notif.id) {
@@ -279,6 +321,12 @@ export const App: React.FC = () => {
             });
           } else if (data.type === 'emergency_sos') {
             triggerEmergencySOSAlert(data.payload);
+          } else if (data.type === 'emergency_resolved') {
+            const resolvedId = data.payload?.id;
+            if (resolvedId) {
+              markEmergencyResolvedLocally(resolvedId);
+              setEmergencies(prev => prev.map(e => e.id === resolvedId ? { ...e, status: 'RESOLVED', resolved_at: new Date().toISOString() } : e));
+            }
           } else if (data.type === 'broadcast_notification') {
             const notif = data.payload;
             if (notif && notif.id) {
@@ -318,9 +366,194 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Supabase Realtime Live GPS Synchronization with Mobile Driver App
-  useEffect(() => {
+  // Comprehensive synchronization from Supabase PostgreSQL Database
+  // Ensures admin receives all past/offline events, emergencies, locations, and announcements even when page was closed
+  const syncAllFromSupabase = async () => {
     if (!supabase) return;
+    try {
+      // 1. Fetch latest Emergency Alerts (catches all driver SOS events triggered while admin page was closed)
+      const { data: alertRows } = await supabase
+        .from('emergency_alerts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(25);
+
+      if (alertRows && Array.isArray(alertRows) && alertRows.length > 0) {
+        const resolvedIds = getResolvedEmergencyIds();
+        setEmergencies(prev => {
+          const prevMap = new Map(prev.map(e => [e.id, e]));
+          let hasNewSOS = false;
+          let newestSOS: any = null;
+
+          alertRows.forEach((row: any) => {
+            const isRowResolved = (row.status || '').toUpperCase() === 'RESOLVED' || resolvedIds.has(row.id);
+            const effectiveStatus = isRowResolved ? 'RESOLVED' : (row.status || 'ACTIVE');
+
+            // Only trigger audible/push notification if the alert is genuinely new to this session,
+            // ACTIVE (not resolved), and created within the last 2 minutes
+            const alertAgeMs = Date.now() - new Date(row.created_at || 0).getTime();
+            const isFresh = alertAgeMs < 120000;
+
+            if (!prevMap.has(row.id)) {
+              if (effectiveStatus === 'ACTIVE' && isFresh && !isRowResolved) {
+                hasNewSOS = true;
+                newestSOS = row;
+              }
+            } else {
+              const existing = prevMap.get(row.id)!;
+              if (existing.status === 'RESOLVED' && !isRowResolved) {
+                // If already marked resolved, do not resurrect
+                return;
+              }
+            }
+
+            prevMap.set(row.id, {
+              id: row.id,
+              bus_id: row.bus_id || 'b1',
+              driver_id: row.driver_id || 'd1',
+              trip_id: row.trip_id,
+              type: row.type || 'emergency',
+              message: row.message,
+              latitude: Number(row.latitude || 9.4475),
+              longitude: Number(row.longitude || 77.5450),
+              status: effectiveStatus,
+              created_at: row.created_at || new Date().toISOString(),
+              resolved_at: row.resolved_at || (isRowResolved ? (row.resolved_at || new Date().toISOString()) : undefined),
+            });
+          });
+
+          if (hasNewSOS && newestSOS && !resolvedIds.has(newestSOS.id)) {
+            triggerEmergencySOSAlert(newestSOS);
+          }
+
+          const updated = Array.from(prevMap.values()).sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          saveStorage('bustrack_emergencies_v1', updated);
+          return updated;
+        });
+      }
+
+      // 2. Fetch latest System Notifications & Announcements (updates side bell badge)
+      const { data: notifRows } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(40);
+
+      if (notifRows && Array.isArray(notifRows) && notifRows.length > 0) {
+        setNotifications(prev => {
+          const prevMap = new Map(prev.map(n => [n.id, n]));
+          notifRows.forEach((row: any) => {
+            if (!prevMap.has(row.id)) {
+              prevMap.set(row.id, {
+                id: row.id,
+                title: row.title,
+                message: row.message,
+                type: row.type || 'general',
+                target_type: row.target_type || 'all',
+                target_id: row.target_id || null,
+                created_at: row.created_at || new Date().toISOString(),
+                read_at: row.read_at || null,
+              });
+            }
+          });
+          const updated = Array.from(prevMap.values()).sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          saveStorage('bustrack_notifications_v1', updated);
+          return updated;
+        });
+      }
+
+      // 3. Fetch latest Bus GPS Coordinates
+      const { data: locRows } = await supabase
+        .from('current_bus_locations')
+        .select('*');
+
+      if (locRows && Array.isArray(locRows) && locRows.length > 0) {
+        setLocations(prev => {
+          const locMap = new Map(prev.map(l => [l.bus_id, l]));
+          locRows.forEach((row: any) => {
+            locMap.set(row.bus_id, {
+              id: row.id,
+              bus_id: row.bus_id,
+              trip_id: row.trip_id || '',
+              latitude: Number(row.latitude),
+              longitude: Number(row.longitude),
+              speed: Number(row.speed || 0),
+              heading: Number(row.heading || 0),
+              accuracy: Number(row.accuracy || 5),
+              updated_at: row.updated_at || new Date().toISOString(),
+            });
+          });
+          const updated = Array.from(locMap.values());
+          saveStorage('bustrack_locations_v1', updated);
+          return updated;
+        });
+      }
+
+      // 4. Fetch Student Leave Statuses
+      const { data: studentRows } = await supabase
+        .from('students')
+        .select('id, is_on_leave, leave_date, leave_reason');
+
+      if (studentRows && Array.isArray(studentRows) && studentRows.length > 0) {
+        setStudents(prev => {
+          const leaveMap = new Map(studentRows.map(s => [s.id, s]));
+          const updated = prev.map(s => {
+            const match = leaveMap.get(s.id);
+            if (match) {
+              return {
+                ...s,
+                is_on_leave: match.is_on_leave,
+                leave_date: match.leave_date || s.leave_date,
+                leave_reason: match.leave_reason || s.leave_reason,
+              };
+            }
+            return s;
+          });
+          saveStorage('bustrack_students_v1', updated);
+          return updated;
+        });
+      }
+
+      // 5. Fetch latest Fleet Time History Records so all admins and staff see all recorded shifts
+      const { data: timeRows } = await supabase
+        .from('time_records')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (timeRows && Array.isArray(timeRows) && timeRows.length > 0) {
+        timeHistoryStore.mergeRecords(timeRows);
+      }
+    } catch (e) {
+      console.warn('Sync from Supabase notice:', e);
+    }
+  };
+
+  // Supabase Realtime Live GPS & Postgres Change Synchronization with Mobile Driver & Student Apps
+  useEffect(() => {
+    // 1. Initial Sync on load so admin immediately receives updates from when the page was closed
+    syncAllFromSupabase();
+
+    // 2. Continuous background polling sync (every 4s) so inactive/minimized tabs stay 100% up to date
+    const syncInterval = setInterval(syncAllFromSupabase, 4000);
+
+    // 3. Tab visibility and focus handlers
+    const handleFocusOrVisible = () => {
+      syncAllFromSupabase();
+    };
+    window.addEventListener('focus', handleFocusOrVisible);
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
+
+    if (!supabase) {
+      return () => {
+        clearInterval(syncInterval);
+        window.removeEventListener('focus', handleFocusOrVisible);
+        document.removeEventListener('visibilitychange', handleFocusOrVisible);
+      };
+    }
 
     try {
       const channel = supabase.channel('bus_tracking_live', {
@@ -367,15 +600,153 @@ export const App: React.FC = () => {
             return [payload, ...prev];
           });
         })
+        // Postgres change subscriptions for resilient cross-device delivery
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'emergency_alerts' }, ({ new: row }: any) => {
+          if (!row) return;
+          triggerEmergencySOSAlert({
+            id: row.id,
+            bus_id: row.bus_id || 'b1',
+            driver_id: row.driver_id || 'd1',
+            trip_id: row.trip_id,
+            type: row.type || 'emergency',
+            message: row.message,
+            latitude: Number(row.latitude || 9.4475),
+            longitude: Number(row.longitude || 77.5450),
+            status: row.status || 'ACTIVE',
+            created_at: row.created_at || new Date().toISOString(),
+          });
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'emergency_alerts' }, ({ new: row }: any) => {
+          if (!row || !row.id) return;
+          if ((row.status || '').toUpperCase() === 'RESOLVED') {
+            markEmergencyResolvedLocally(row.id);
+            setEmergencies(prev => prev.map(e => e.id === row.id ? { ...e, status: 'RESOLVED', resolved_at: row.resolved_at || new Date().toISOString() } : e));
+          } else {
+            setEmergencies(prev => prev.map(e => e.id === row.id ? { ...e, ...row } : e));
+          }
+        })
+        .on('broadcast', { event: 'emergency_resolved' }, ({ payload }: any) => {
+          if (payload?.id) {
+            markEmergencyResolvedLocally(payload.id);
+            setEmergencies(prev => prev.map(e => e.id === payload.id ? { ...e, status: 'RESOLVED', resolved_at: new Date().toISOString() } : e));
+          }
+        })
+        .on('broadcast', { event: 'time_history_update' }, ({ payload }: any) => {
+          if (payload && payload.params) {
+            if (payload.action === 'start') {
+              timeHistoryStore.recordTripStart(payload.params);
+            } else if (payload.action === 'end') {
+              timeHistoryStore.recordTripEnd(payload.params);
+            }
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'time_records' }, ({ new: row }: any) => {
+          if (row) {
+            timeHistoryStore.mergeRecords([row]);
+          }
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, ({ new: row }: any) => {
+          if (!row) return;
+          const notifItem: SystemNotification = {
+            id: row.id,
+            title: row.title,
+            message: row.message,
+            type: row.type || 'general',
+            target_type: row.target_type || 'all',
+            target_id: row.target_id || null,
+            created_at: row.created_at || new Date().toISOString(),
+          };
+          setNotifications(prev => {
+            if (prev.some(n => n.id === notifItem.id)) return prev;
+            return [notifItem, ...prev];
+          });
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(notifItem.title, {
+                body: notifItem.message,
+                icon: '/favicon.ico',
+                tag: notifItem.id,
+              });
+            } catch {}
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'current_bus_locations' }, ({ new: row }: any) => {
+          if (!row || !row.bus_id) return;
+          setLastLiveBroadcastTime(Date.now());
+          setLocations(prev => {
+            const existingIdx = prev.findIndex(l => l.bus_id === row.bus_id);
+            const updatedLoc: CurrentBusLocation = {
+              id: row.id || ('loc_' + row.bus_id),
+              bus_id: row.bus_id,
+              trip_id: row.trip_id || '',
+              latitude: Number(row.latitude),
+              longitude: Number(row.longitude),
+              speed: Number(row.speed || 0),
+              heading: Number(row.heading || 0),
+              updated_at: row.updated_at || new Date().toISOString()
+            };
+            if (existingIdx >= 0) {
+              const copy = [...prev];
+              copy[existingIdx] = updatedLoc;
+              return copy;
+            }
+            return [...prev, updatedLoc];
+          });
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'students' }, ({ new: row }: any) => {
+          if (!row || !row.id) return;
+          setStudents(prev => prev.map(s => s.id === row.id ? { ...s, is_on_leave: row.is_on_leave, leave_date: row.leave_date } : s));
+        })
         .on('broadcast', { event: 'request_user_registry' }, () => {
+          const enrichedDrivers = drivers.map(d => {
+            const b = buses.find(bus => bus.id === d.assigned_bus_id || bus.bus_number === d.assigned_bus_id);
+            const r = b?.route_id ? routes.find(route => route.id === b.route_id) : undefined;
+            return {
+              ...d,
+              assigned_bus_id: b?.id || d.assigned_bus_id,
+              bus: b,
+              bus_number: b?.bus_number || d.bus_number,
+              busNumber: b?.bus_number || d.bus_number,
+              bus_name: b?.bus_name || d.bus_name,
+              registration_number: b?.registration_number,
+              route_id: b?.route_id || d.route_id,
+              route_name: r?.route_name || d.route_name,
+              routeName: r?.route_name || d.route_name,
+            };
+          });
+          const enrichedStudents = students.map(s => {
+            const b = buses.find(bus => bus.id === s.bus_id || bus.bus_number === s.bus_id);
+            const r = routes.find(route => route.id === (s.route_id || b?.route_id));
+            const stop = stops.find(st => st.id === s.boarding_stop_id);
+            return {
+              ...s,
+              bus: b,
+              bus_id: b?.id || s.bus_id,
+              busId: b?.id || s.bus_id,
+              bus_number: b?.bus_number || s.bus?.bus_number,
+              busNumber: b?.bus_number || s.bus?.bus_number,
+              registration_number: b?.registration_number,
+              route: r,
+              route_id: r?.id || s.route_id,
+              routeId: r?.id || s.route_id,
+              route_name: r?.route_name,
+              routeName: r?.route_name,
+              boarding_stop: stop || s.boarding_stop,
+              boardingStopName: stop?.stop_name || s.boarding_stop?.stop_name,
+            };
+          });
+
           channel.send({
             type: 'broadcast',
             event: 'sync_user_registry',
             payload: {
-              drivers,
-              students,
+              drivers: enrichedDrivers,
+              students: enrichedStudents,
               staffCommuters,
               staffList,
+              buses,
+              routes,
+              stops,
               timestamp: Date.now()
             }
           }).catch(() => {});
@@ -383,14 +754,55 @@ export const App: React.FC = () => {
         .subscribe((status) => {
           console.log('📡 Supabase Live GPS Channel Status:', status);
           if (status === 'SUBSCRIBED') {
+            const enrichedDrivers = drivers.map(d => {
+              const b = buses.find(bus => bus.id === d.assigned_bus_id || bus.bus_number === d.assigned_bus_id);
+              const r = b?.route_id ? routes.find(route => route.id === b.route_id) : undefined;
+              return {
+                ...d,
+                assigned_bus_id: b?.id || d.assigned_bus_id,
+                bus: b,
+                bus_number: b?.bus_number || d.bus_number,
+                busNumber: b?.bus_number || d.bus_number,
+                bus_name: b?.bus_name || d.bus_name,
+                registration_number: b?.registration_number,
+                route_id: b?.route_id || d.route_id,
+                route_name: r?.route_name || d.route_name,
+                routeName: r?.route_name || d.route_name,
+              };
+            });
+            const enrichedStudents = students.map(s => {
+              const b = buses.find(bus => bus.id === s.bus_id || bus.bus_number === s.bus_id);
+              const r = routes.find(route => route.id === (s.route_id || b?.route_id));
+              const stop = stops.find(st => st.id === s.boarding_stop_id);
+              return {
+                ...s,
+                bus: b,
+                bus_id: b?.id || s.bus_id,
+                busId: b?.id || s.bus_id,
+                bus_number: b?.bus_number || s.bus?.bus_number,
+                busNumber: b?.bus_number || s.bus?.bus_number,
+                registration_number: b?.registration_number,
+                route: r,
+                route_id: r?.id || s.route_id,
+                routeId: r?.id || s.route_id,
+                route_name: r?.route_name,
+                routeName: r?.route_name,
+                boarding_stop: stop || s.boarding_stop,
+                boardingStopName: stop?.stop_name || s.boarding_stop?.stop_name,
+              };
+            });
+
             channel.send({
               type: 'broadcast',
               event: 'sync_user_registry',
               payload: {
-                drivers,
-                students,
+                drivers: enrichedDrivers,
+                students: enrichedStudents,
                 staffCommuters,
                 staffList,
+                buses,
+                routes,
+                stops,
                 timestamp: Date.now()
               }
             }).catch(() => {});
@@ -398,6 +810,9 @@ export const App: React.FC = () => {
         });
 
       return () => {
+        clearInterval(syncInterval);
+        window.removeEventListener('focus', handleFocusOrVisible);
+        document.removeEventListener('visibilitychange', handleFocusOrVisible);
         if (supabase) {
           supabase.removeChannel(channel);
         }
@@ -405,26 +820,67 @@ export const App: React.FC = () => {
     } catch (err) {
       console.warn('Realtime subscription error:', err);
     }
-  }, []);
+  }, [buses, routes, stops, drivers, students, staffCommuters, staffList]);
 
   // Broadcast user changes across Realtime channel so Mobile App automatically gets updated
   useEffect(() => {
     if (!supabase) return;
     try {
       const channel = supabase.channel('bus_tracking_live');
+      const enrichedDrivers = drivers.map(d => {
+        const b = buses.find(bus => bus.id === d.assigned_bus_id || bus.bus_number === d.assigned_bus_id);
+        const r = b?.route_id ? routes.find(route => route.id === b.route_id) : undefined;
+        return {
+          ...d,
+          assigned_bus_id: b?.id || d.assigned_bus_id,
+          bus: b,
+          bus_number: b?.bus_number || d.bus_number,
+          busNumber: b?.bus_number || d.bus_number,
+          bus_name: b?.bus_name || d.bus_name,
+          registration_number: b?.registration_number,
+          route_id: b?.route_id || d.route_id,
+          route_name: r?.route_name || d.route_name,
+          routeName: r?.route_name || d.route_name,
+        };
+      });
+      const enrichedStudents = students.map(s => {
+        const b = buses.find(bus => bus.id === s.bus_id || bus.bus_number === s.bus_id);
+        const r = routes.find(route => route.id === (s.route_id || b?.route_id));
+        const stop = stops.find(st => st.id === s.boarding_stop_id);
+        return {
+          ...s,
+          bus: b,
+          bus_id: b?.id || s.bus_id,
+          busId: b?.id || s.bus_id,
+          bus_number: b?.bus_number || s.bus?.bus_number,
+          busNumber: b?.bus_number || s.bus?.bus_number,
+          registration_number: b?.registration_number,
+          route: r,
+          route_id: r?.id || s.route_id,
+          routeId: r?.id || s.route_id,
+          route_name: r?.route_name,
+          routeName: r?.route_name,
+          boarding_stop: stop || s.boarding_stop,
+          boardingStopName: stop?.stop_name || s.boarding_stop?.stop_name,
+        };
+      });
+
       channel.send({
         type: 'broadcast',
         event: 'sync_user_registry',
         payload: {
-          drivers,
-          students,
+          drivers: enrichedDrivers,
+          students: enrichedStudents,
           staffCommuters,
           staffList,
+          buses,
+          routes,
+          stops,
           timestamp: Date.now()
         }
       }).catch(() => {});
     } catch {}
-  }, [drivers, students, staffCommuters, staffList]);
+  }, [drivers, students, staffCommuters, staffList, buses, routes, stops]);
 
   // Live Simulation Timer for Demo Mode (Pauses when live mobile app driver is actively transmitting!)
   useEffect(() => {
@@ -556,27 +1012,39 @@ export const App: React.FC = () => {
   };
 
   const handleSaveDriver = (driver: Driver) => {
+    const assignedBus = buses.find(b => b.id === driver.assigned_bus_id || b.bus_number === driver.assigned_bus_id);
+    const assignedRoute = assignedBus?.route_id ? routes.find(r => r.id === assignedBus.route_id) : undefined;
+    const enrichedDriver: Driver = {
+      ...driver,
+      assigned_bus_id: assignedBus?.id || driver.assigned_bus_id,
+      bus: assignedBus,
+      bus_number: assignedBus?.bus_number || driver.bus_number,
+      bus_name: assignedBus?.bus_name || driver.bus_name,
+      route_id: assignedBus?.route_id || driver.route_id,
+      route_name: assignedRoute?.route_name || driver.route_name,
+    };
+
     setDrivers(prev => {
-      const idx = prev.findIndex(d => d.id === driver.id);
+      const idx = prev.findIndex(d => d.id === enrichedDriver.id);
       if (idx >= 0) {
         const copy = [...prev];
-        copy[idx] = driver;
+        copy[idx] = enrichedDriver;
         return copy;
       }
-      return [...prev, driver];
+      return [...prev, enrichedDriver];
     });
 
     // Bidirectionally synchronize with buses state so assigning from Driver Management reflects in Bus Management!
-    if (driver.assigned_bus_id) {
+    if (enrichedDriver.assigned_bus_id) {
       setBuses(prev => prev.map(b => {
-        if (b.id === driver.assigned_bus_id) {
+        if (b.id === enrichedDriver.assigned_bus_id) {
           return {
             ...b,
-            assigned_driver_id: driver.id,
-            driver: driver
+            assigned_driver_id: enrichedDriver.id,
+            driver: enrichedDriver
           };
         }
-        if (b.assigned_driver_id === driver.id && b.id !== driver.assigned_bus_id) {
+        if (b.assigned_driver_id === enrichedDriver.id && b.id !== enrichedDriver.assigned_bus_id) {
           return {
             ...b,
             assigned_driver_id: null,
@@ -587,7 +1055,7 @@ export const App: React.FC = () => {
       }));
     } else {
       setBuses(prev => prev.map(b => {
-        if (b.assigned_driver_id === driver.id) {
+        if (b.assigned_driver_id === enrichedDriver.id) {
           return {
             ...b,
             assigned_driver_id: null,
@@ -601,12 +1069,12 @@ export const App: React.FC = () => {
     if (supabase) {
       try {
         supabase.from('drivers').upsert({
-          id: driver.id,
-          employee_id: driver.employee_id,
-          license_number: driver.license_number,
-          phone: driver.phone,
-          assigned_bus_id: driver.assigned_bus_id || null,
-          status: driver.status
+          id: enrichedDriver.id,
+          employee_id: enrichedDriver.employee_id,
+          license_number: enrichedDriver.license_number,
+          phone: enrichedDriver.phone,
+          assigned_bus_id: enrichedDriver.assigned_bus_id || null,
+          status: enrichedDriver.status
         } as any).then(null, () => {});
       } catch (e) {
         // Fallback
@@ -633,15 +1101,46 @@ export const App: React.FC = () => {
   };
 
   const handleSaveStudent = (student: Student) => {
+    const assignedBus = buses.find(b => b.id === student.bus_id || b.bus_number === student.bus_id);
+    const assignedRoute = routes.find(r => r.id === (student.route_id || assignedBus?.route_id));
+    const assignedStop = stops.find(s => s.id === student.boarding_stop_id);
+    const enrichedStudent: Student = {
+      ...student,
+      bus: assignedBus,
+      bus_id: assignedBus?.id || student.bus_id,
+      route: assignedRoute,
+      route_id: assignedRoute?.id || student.route_id,
+      boarding_stop: assignedStop || student.boarding_stop,
+    };
+
     setStudents(prev => {
-      const idx = prev.findIndex(s => s.id === student.id);
+      const idx = prev.findIndex(s => s.id === enrichedStudent.id);
       if (idx >= 0) {
         const copy = [...prev];
-        copy[idx] = student;
+        copy[idx] = enrichedStudent;
         return copy;
       }
-      return [...prev, student];
+      return [...prev, enrichedStudent];
     });
+
+    if (supabase) {
+      try {
+        supabase.from('students').upsert({
+          id: enrichedStudent.id,
+          user_id: enrichedStudent.user_id,
+          register_number: enrichedStudent.register_number,
+          department: enrichedStudent.department,
+          year: enrichedStudent.year,
+          section: enrichedStudent.section,
+          route_id: enrichedStudent.route_id || null,
+          bus_id: enrichedStudent.bus_id || null,
+          boarding_stop_id: enrichedStudent.boarding_stop_id || null,
+          status: enrichedStudent.status || 'active'
+        } as any).then(null, () => {});
+      } catch (e) {
+        // Fallback
+      }
+    }
   };
 
   const handleToggleStudentLeave = (studentId: string) => {
@@ -1022,18 +1521,30 @@ export const App: React.FC = () => {
   };
 
   const handleSaveStop = async (stop: Stop) => {
+    let nextStops: Stop[] = [];
     setStops(prev => {
       const idx = prev.findIndex(s => s.id === stop.id);
       if (idx >= 0) {
         const copy = [...prev];
         copy[idx] = stop;
+        nextStops = copy;
         return copy;
       }
-      return [...prev, stop];
+      nextStops = [...prev, stop];
+      return nextStops;
     });
+
+    saveStorage('bustrack_stops_v1', nextStops);
 
     if (supabase) {
       try {
+        const channel = supabase.channel('bus_tracking_live');
+        channel.send({
+          type: 'broadcast',
+          event: 'stops_updated',
+          payload: { stops: nextStops }
+        }).catch(() => {});
+
         await supabase.from('stops').upsert({
           id: stop.id,
           route_id: stop.route_id,
@@ -1051,10 +1562,23 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteStop = async (stopId: string) => {
-    setStops(prev => prev.filter(s => s.id !== stopId));
+    let nextStops: Stop[] = [];
+    setStops(prev => {
+      nextStops = prev.filter(s => s.id !== stopId);
+      return nextStops;
+    });
+
+    saveStorage('bustrack_stops_v1', nextStops);
 
     if (supabase) {
       try {
+        const channel = supabase.channel('bus_tracking_live');
+        channel.send({
+          type: 'broadcast',
+          event: 'stops_updated',
+          payload: { stops: nextStops }
+        }).catch(() => {});
+
         await supabase.from('stops').delete().eq('id', stopId);
       } catch (e) {
         console.warn('Supabase stop delete note:', e);
@@ -1064,13 +1588,24 @@ export const App: React.FC = () => {
 
   const handleReorderStops = async (routeId: string, newRouteStops: Stop[]) => {
     const reindexed = newRouteStops.map((s, idx) => ({ ...s, stop_order: idx + 1 }));
+    let nextStops: Stop[] = [];
     setStops(prev => {
       const otherStops = prev.filter(s => s.route_id !== routeId);
-      return [...otherStops, ...reindexed];
+      nextStops = [...otherStops, ...reindexed];
+      return nextStops;
     });
+
+    saveStorage('bustrack_stops_v1', nextStops);
 
     if (supabase) {
       try {
+        const channel = supabase.channel('bus_tracking_live');
+        channel.send({
+          type: 'broadcast',
+          event: 'stops_updated',
+          payload: { stops: nextStops }
+        }).catch(() => {});
+
         for (const st of reindexed) {
           await supabase.from('stops').upsert({
             id: st.id,
@@ -1133,12 +1668,52 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleAcknowledgeEmergency = (id: string) => {
+  const handleAcknowledgeEmergency = async (id: string) => {
     setEmergencies(prev => prev.map(e => e.id === id ? { ...e, status: 'ACKNOWLEDGED' } : e));
+    if (supabase) {
+      try {
+        await supabase.from('emergency_alerts').update({ status: 'ACKNOWLEDGED' }).eq('id', id);
+      } catch (err) {
+        console.warn('Error acknowledging emergency in DB:', err);
+      }
+    }
   };
 
-  const handleResolveEmergency = (id: string) => {
-    setEmergencies(prev => prev.map(e => e.id === id ? { ...e, status: 'RESOLVED', resolved_at: new Date().toISOString() } : e));
+  const handleResolveEmergency = async (id: string) => {
+    markEmergencyResolvedLocally(id);
+    const resolvedAt = new Date().toISOString();
+    setEmergencies(prev => prev.map(e => e.id === id ? { ...e, status: 'RESOLVED', resolved_at: resolvedAt } : e));
+
+    // 1. Cross-client tab/window sync
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('bustrack_cross_client_sync');
+        bc.postMessage({ type: 'emergency_resolved', payload: { id }, timestamp: Date.now() });
+      }
+      localStorage.setItem('bustrack_cross_sync_event', JSON.stringify({ type: 'emergency_resolved', payload: { id }, timestamp: Date.now() }));
+    } catch {}
+
+    // 2. Supabase DB update & Realtime broadcast so all admins/staff see it resolved permanently
+    if (supabase) {
+      try {
+        await supabase
+          .from('emergency_alerts')
+          .update({
+            status: 'RESOLVED',
+            resolved_at: resolvedAt,
+          })
+          .eq('id', id);
+
+        const channel = supabase.channel('bus_tracking_live');
+        channel.send({
+          type: 'broadcast',
+          event: 'emergency_resolved',
+          payload: { id },
+        }).catch(() => {});
+      } catch (err) {
+        console.warn('Error resolving emergency in DB:', err);
+      }
+    }
   };
 
   const handleSendNotification = async (notification: SystemNotification) => {
@@ -1176,32 +1751,66 @@ export const App: React.FC = () => {
         console.warn('Realtime broadcast error:', err);
       }
 
-      // 3. Persist to DB emergency_alerts table so mobile apps fetching alerts will immediately see it!
+      // 3. Persist to DB notifications table so mobile apps fetching alerts will immediately see it!
       try {
-        await supabase.from('emergency_alerts').insert({
-          type: notification.type || 'BROADCAST',
-          message: `${notification.title} | ${notification.message}`,
-          status: 'ACTIVE',
+        const validTypes = ['general', 'trip', 'delay', 'emergency', 'maintenance', 'announcement', 'sos', 'urgent', 'route_change', 'broadcast'];
+        const rawType = (notification.type || 'general').toLowerCase();
+        const dbType = validTypes.includes(rawType) ? rawType : 'general';
+
+        await supabase.from('notifications').insert({
+          title: notification.title,
+          message: notification.message,
+          type: dbType,
+          target_type: notification.target_type || 'all',
+          target_id: notification.target_id || null,
+          created_at: notification.created_at || new Date().toISOString(),
         });
+
+        // If emergency type, also persist to emergency_alerts table
+        if (notification.type === 'emergency') {
+          await supabase.from('emergency_alerts').insert({
+            type: 'emergency',
+            message: `${notification.title} | ${notification.message}`,
+            latitude: 9.4475,
+            longitude: 77.5450,
+            status: 'ACTIVE',
+          });
+        }
       } catch (dbErr) {
         console.warn('DB alert insert error:', dbErr);
       }
     }
   };
 
-  const handleDeleteNotification = (id: string) => {
+  const handleDeleteNotification = async (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
+    if (supabase) {
+      try {
+        await supabase.from('notifications').delete().eq('id', id);
+        await supabase.from('emergency_alerts').delete().eq('id', id);
+      } catch {}
+    }
   };
 
-  const handleClearAllNotifications = () => {
+  const handleClearAllNotifications = async () => {
     setNotifications([]);
+    if (supabase) {
+      try {
+        await supabase.from('notifications').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      } catch {}
+    }
   };
 
-  const handleMarkAllNotificationsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
+  const handleMarkAllNotificationsRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString(), is_read: true })));
+    if (supabase) {
+      try {
+        await supabase.from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null);
+      } catch {}
+    }
   };
 
-  const activeEmergenciesCount = emergencies.filter(e => e.status === 'ACTIVE').length;
+  const activeEmergenciesCount = emergencies.filter(e => (e.status || '').toUpperCase() === 'ACTIVE').length;
 
   if (!currentUser) {
     return <Login onLogin={setCurrentUser} staffList={staffList} />;
@@ -1391,16 +2000,7 @@ export const App: React.FC = () => {
                 </ErrorBoundary>
               } />
 
-              <Route path="/trips" element={
-                <ErrorBoundary fallbackTitle="Trip Logs">
-                  <Trips
-                    trips={trips}
-                    buses={buses}
-                    drivers={drivers}
-                    routes={routes}
-                  />
-                </ErrorBoundary>
-              } />
+              <Route path="/trips" element={<Navigate to="/time-history" replace />} />
 
               <Route path="/time-history" element={
                 <ErrorBoundary fallbackTitle="Time History & Shift Logs">

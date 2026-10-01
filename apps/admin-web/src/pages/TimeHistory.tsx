@@ -60,8 +60,21 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
 
     let channel: any = null;
     if (supabase) {
+      // 1. Initial fetch from Supabase time_records table so any admin / staff sees all existing logs
+      supabase
+        .from('time_records')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data && Array.isArray(data) && data.length > 0) {
+            timeHistoryStore.mergeRecords(data);
+            setTimeRecords(timeHistoryStore.getRecords());
+          }
+        })
+        .catch(err => console.warn('Supabase time_records fetch note:', err));
+
       channel = supabase
-        .channel('bus_tracking_live')
+        .channel('time_records_sync')
         .on('broadcast', { event: 'time_history_update' }, ({ payload }: { payload: any }) => {
           if (payload && payload.params) {
             if (payload.action === 'start') {
@@ -72,14 +85,20 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
             setTimeRecords(timeHistoryStore.getRecords());
           }
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'time_records' }, ({ new: row }: any) => {
+          if (row) {
+            timeHistoryStore.mergeRecords([row]);
+            setTimeRecords(timeHistoryStore.getRecords());
+          }
+        })
         .subscribe();
     }
 
-    // Also poll every 1s to guarantee instant sync across tabs
+    // Also poll every 2s to guarantee instant sync across tabs and memory
     const interval = setInterval(() => {
       const records = timeHistoryStore.getRecords();
       setTimeRecords(records);
-    }, 1000);
+    }, 2000);
 
     return () => {
       unsubscribe();
@@ -108,9 +127,9 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
     });
   }, [timeRecords, activeShiftTab, selectedDate, busFilter, statusFilter, searchQuery]);
 
-  // Morning and Evening Counts
-  const morningList = useMemo(() => timeRecords.filter(r => r.shift === 'morning' && r.date === selectedDate), [timeRecords, selectedDate]);
-  const eveningList = useMemo(() => timeRecords.filter(r => r.shift === 'evening' && r.date === selectedDate), [timeRecords, selectedDate]);
+  // Morning and Evening Counts (matches selectedDate if specified, otherwise shows all records)
+  const morningList = useMemo(() => timeRecords.filter(r => r.shift === 'morning' && (!selectedDate || r.date === selectedDate)), [timeRecords, selectedDate]);
+  const eveningList = useMemo(() => timeRecords.filter(r => r.shift === 'evening' && (!selectedDate || r.date === selectedDate)), [timeRecords, selectedDate]);
   
   const morningCompleted = morningList.filter(r => r.status === 'completed').length;
   const morningInProgress = morningList.filter(r => r.status === 'in_progress').length;
@@ -125,7 +144,8 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleAdminRecordStart = (record: BusTimeRecord) => {
+  const handleAdminRecordStart = async (record: BusTimeRecord) => {
+    if (!canEdit) return;
     const updatedRecord = timeHistoryStore.recordTripStart({
       busId: record.bus_id,
       busNumber: record.bus_number,
@@ -141,9 +161,24 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
     });
     setTimeRecords(timeHistoryStore.getRecords());
     showToast(`🟢 Noted START time for ${record.bus_number} (${record.shift.toUpperCase()}) at ${updatedRecord.start_time}`);
+
+    if (supabase) {
+      try {
+        await supabase.from('time_records').upsert(updatedRecord);
+        const channel = supabase.channel('time_records_sync');
+        channel.send({
+          type: 'broadcast',
+          event: 'time_history_update',
+          payload: { action: 'start', params: updatedRecord }
+        }).catch(() => {});
+      } catch (err) {
+        console.warn('Supabase upsert error:', err);
+      }
+    }
   };
 
-  const handleAdminRecordEnd = (record: BusTimeRecord) => {
+  const handleAdminRecordEnd = async (record: BusTimeRecord) => {
+    if (!canEdit) return;
     const updatedRecord = timeHistoryStore.recordTripEnd({
       busId: record.bus_id,
       busNumber: record.bus_number,
@@ -159,6 +194,20 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
     });
     setTimeRecords(timeHistoryStore.getRecords());
     showToast(`🏁 Noted END time for ${record.bus_number} (${record.shift.toUpperCase()}) at ${updatedRecord.end_time}`);
+
+    if (supabase) {
+      try {
+        await supabase.from('time_records').upsert(updatedRecord);
+        const channel = supabase.channel('time_records_sync');
+        channel.send({
+          type: 'broadcast',
+          event: 'time_history_update',
+          payload: { action: 'end', params: updatedRecord }
+        }).catch(() => {});
+      } catch (err) {
+        console.warn('Supabase upsert error:', err);
+      }
+    }
   };
 
   const handleExportCSV = () => {
@@ -210,11 +259,17 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
     document.body.removeChild(link);
   };
 
-  const handleClearAllHistory = () => {
-    if (window.confirm('Are you sure you want to clear all stored Time History logs? All previous driver start/end records will be permanently removed, and new logs will record starting from future driver actions.')) {
+  const handleClearAllHistory = async () => {
+    if (!canEdit) return;
+    if (window.confirm('Are you sure you want to clear all stored Time History logs? All previous driver start/end records will be permanently removed across all admin and staff logins.')) {
       timeHistoryStore.clearAllRecords();
       setTimeRecords([]);
-      showToast('🗑️ All Time History records have been cleared. New logs will appear when drivers click Start/End trip.');
+      if (supabase) {
+        try {
+          await supabase.from('time_records').delete().neq('id', 'placeholder');
+        } catch {}
+      }
+      showToast('🗑️ All Time History records have been cleared across all sessions.');
     }
   };
 
@@ -627,7 +682,11 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
 
                       {/* Admin Action Cell */}
                       <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                        {isInProgress ? (
+                        {!canEdit ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-slate-800 text-slate-400 border border-slate-700 text-xs font-semibold">
+                            View Only
+                          </span>
+                        ) : isInProgress ? (
                           <button
                             onClick={() => handleAdminRecordEnd(record)}
                             className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-all shadow-md shadow-rose-950/40 cursor-pointer active:scale-95"

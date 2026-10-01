@@ -121,6 +121,10 @@ export interface Driver {
   phone: string;
   password?: string;
   assigned_bus_id?: string | null;
+  bus_number?: string;
+  bus_name?: string;
+  route_id?: string | null;
+  route_name?: string;
   status: 'active' | 'inactive';
   created_at?: string;
   updated_at?: string;
@@ -184,6 +188,8 @@ export interface Stop {
   longitude: number;
   stop_order: number;
   estimated_arrival?: string | null;
+  morning_time?: string | null;
+  evening_time?: string | null;
   google_maps_link?: string;
   status: 'active' | 'inactive';
   created_at?: string;
