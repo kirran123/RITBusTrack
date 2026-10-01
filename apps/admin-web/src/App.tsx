@@ -21,13 +21,15 @@ import { Settings } from './pages/Settings';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { 
-  UserProfile, Bus, Driver, Student, Route as RouteType, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, StaffUser, StaffCommuter, SIMULATION_ROUTE_A, timeHistoryStore
+  UserProfile, Bus, Driver, Student, Route as RouteType, Stop, Trip, CurrentBusLocation, EmergencyAlert, SystemNotification, StaffUser, StaffCommuter, SIMULATION_ROUTE_A, timeHistoryStore,
+  CLOUD_REGISTRY_SNAPSHOT_ID, CLOUD_REGISTRY_NOTIFICATION_TITLE
 } from '@college-bus/shared';
 
 import {
   INITIAL_BUSES, INITIAL_DRIVERS, INITIAL_STUDENTS, INITIAL_ROUTES, INITIAL_STOPS, INITIAL_TRIPS, INITIAL_LOCATIONS, INITIAL_EMERGENCIES, INITIAL_NOTIFICATIONS, INITIAL_STAFF, INITIAL_STAFF_COMMUTERS
 } from './services/mockDataStore';
 import { supabase } from './services/supabaseClient';
+import { pushRegistryToCloud, pullRegistryFromCloud } from './services/cloudSync';
 
 const loadStorage = <T,>(key: string, fallback: T): T => {
   try {
@@ -99,6 +101,118 @@ export const App: React.FC = () => {
   useEffect(() => saveStorage('bustrack_staff_v1', staffList), [staffList]);
   useEffect(() => saveStorage('bustrack_emergencies_v1', emergencies), [emergencies]);
   useEffect(() => saveStorage('bustrack_notifications_v1', notifications), [notifications]);
+
+  // Cloud Sync state and manual trigger
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  const handleSyncCloud = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await pushRegistryToCloud({
+        students,
+        drivers,
+        staffCommuters,
+        staffList,
+        buses,
+        routes,
+        stops,
+      });
+      if (res.success) {
+        setNotifications((prev) => [
+          {
+            id: 'sync_' + Date.now(),
+            title: '☁️ Cloud Sync Complete',
+            message: `Successfully synchronized ${res.studentCount} students, ${res.staffCount} staff, and ${res.driverCount} drivers with mobile apps.`,
+            type: 'broadcast',
+            target_type: 'all',
+            created_at: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      }
+    } catch (e) {
+      console.warn('Manual cloud sync failed:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Pull latest cloud registry from Supabase on mount to merge any records added across devices
+  useEffect(() => {
+    let isMounted = true;
+    pullRegistryFromCloud()
+      .then((cloudData) => {
+        if (!isMounted || !cloudData) return;
+        if (Array.isArray(cloudData.students) && cloudData.students.length > 0) {
+          setStudents((prev) => {
+            const merged = [...prev];
+            cloudData.students.forEach((cs) => {
+              const idx = merged.findIndex(
+                (s) =>
+                  s.id === cs.id ||
+                  s.register_number === cs.register_number ||
+                  (cs.profile?.email && (s.profile?.email === cs.profile.email || s.email === cs.profile.email))
+              );
+              if (idx >= 0) merged[idx] = { ...merged[idx], ...cs };
+              else merged.push(cs);
+            });
+            return merged;
+          });
+        }
+        if (Array.isArray(cloudData.drivers) && cloudData.drivers.length > 0) {
+          setDrivers((prev) => {
+            const merged = [...prev];
+            cloudData.drivers.forEach((cd) => {
+              const idx = merged.findIndex(
+                (d) =>
+                  d.id === cd.id ||
+                  d.employee_id === cd.employee_id ||
+                  (cd.phone && d.phone === cd.phone)
+              );
+              if (idx >= 0) merged[idx] = { ...merged[idx], ...cd };
+              else merged.push(cd);
+            });
+            return merged;
+          });
+        }
+        if (Array.isArray(cloudData.staffCommuters) && cloudData.staffCommuters.length > 0) {
+          setStaffCommuters((prev) => {
+            const merged = [...prev];
+            cloudData.staffCommuters.forEach((csc) => {
+              const idx = merged.findIndex(
+                (sc) =>
+                  sc.id === csc.id ||
+                  sc.employee_id === csc.employee_id ||
+                  (csc.email && sc.email === csc.email)
+              );
+              if (idx >= 0) merged[idx] = { ...merged[idx], ...csc };
+              else merged.push(csc);
+            });
+            return merged;
+          });
+        }
+        if (Array.isArray(cloudData.staffList) && cloudData.staffList.length > 0) {
+          setStaffList((prev) => {
+            const merged = [...prev];
+            cloudData.staffList.forEach((csl) => {
+              const idx = merged.findIndex(
+                (sl) =>
+                  sl.id === csl.id ||
+                  sl.employee_id === csl.employee_id ||
+                  (csl.email && sl.email === csl.email)
+              );
+              if (idx >= 0) merged[idx] = { ...merged[idx], ...csl };
+              else merged.push(csl);
+            });
+            return merged;
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Cross-Tab / Cross-Window Broadcast Channel for instant local sync
   const [lastLiveBroadcastTime, setLastLiveBroadcastTime] = useState<number>(0);
@@ -822,64 +936,20 @@ export const App: React.FC = () => {
     }
   }, [buses, routes, stops, drivers, students, staffCommuters, staffList]);
 
-  // Broadcast user changes across Realtime channel so Mobile App automatically gets updated
+  // Broadcast and persist user changes across Realtime channel and Supabase cloud store so Mobile App stays 100% synced
   useEffect(() => {
-    if (!supabase) return;
-    try {
-      const channel = supabase.channel('bus_tracking_live');
-      const enrichedDrivers = drivers.map(d => {
-        const b = buses.find(bus => bus.id === d.assigned_bus_id || bus.bus_number === d.assigned_bus_id);
-        const r = b?.route_id ? routes.find(route => route.id === b.route_id) : undefined;
-        return {
-          ...d,
-          assigned_bus_id: b?.id || d.assigned_bus_id,
-          bus: b,
-          bus_number: b?.bus_number || d.bus_number,
-          busNumber: b?.bus_number || d.bus_number,
-          bus_name: b?.bus_name || d.bus_name,
-          registration_number: b?.registration_number,
-          route_id: b?.route_id || d.route_id,
-          route_name: r?.route_name || d.route_name,
-          routeName: r?.route_name || d.route_name,
-        };
-      });
-      const enrichedStudents = students.map(s => {
-        const b = buses.find(bus => bus.id === s.bus_id || bus.bus_number === s.bus_id);
-        const r = routes.find(route => route.id === (s.route_id || b?.route_id));
-        const stop = stops.find(st => st.id === s.boarding_stop_id);
-        return {
-          ...s,
-          bus: b,
-          bus_id: b?.id || s.bus_id,
-          busId: b?.id || s.bus_id,
-          bus_number: b?.bus_number || s.bus?.bus_number,
-          busNumber: b?.bus_number || s.bus?.bus_number,
-          registration_number: b?.registration_number,
-          route: r,
-          route_id: r?.id || s.route_id,
-          routeId: r?.id || s.route_id,
-          route_name: r?.route_name,
-          routeName: r?.route_name,
-          boarding_stop: stop || s.boarding_stop,
-          boardingStopName: stop?.stop_name || s.boarding_stop?.stop_name,
-        };
-      });
-
-      channel.send({
-        type: 'broadcast',
-        event: 'sync_user_registry',
-        payload: {
-          drivers: enrichedDrivers,
-          students: enrichedStudents,
-          staffCommuters,
-          staffList,
-          buses,
-          routes,
-          stops,
-          timestamp: Date.now()
-        }
-      }).catch(() => {});
-    } catch {}
+    const timer = setTimeout(() => {
+      pushRegistryToCloud({
+        students,
+        drivers,
+        staffCommuters,
+        staffList,
+        buses,
+        routes,
+        stops,
+      }).catch((e) => console.warn('Cloud sync error:', e));
+    }, 400);
+    return () => clearTimeout(timer);
   }, [drivers, students, staffCommuters, staffList, buses, routes, stops]);
 
   // Live Simulation Timer for Demo Mode (Pauses when live mobile app driver is actively transmitting!)
@@ -1796,7 +1866,11 @@ export const App: React.FC = () => {
     setNotifications([]);
     if (supabase) {
       try {
-        await supabase.from('notifications').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase
+          .from('notifications')
+          .delete()
+          .neq('id', CLOUD_REGISTRY_SNAPSHOT_ID)
+          .neq('title', CLOUD_REGISTRY_NOTIFICATION_TITLE);
       } catch {}
     }
   };
@@ -1847,6 +1921,8 @@ export const App: React.FC = () => {
             onClearNotifications={handleClearAllNotifications}
             onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
             onDismissNotification={handleDeleteNotification}
+            onSyncCloud={handleSyncCloud}
+            isSyncing={isSyncing}
           />
 
           {/* Scrollable Viewport Container */}

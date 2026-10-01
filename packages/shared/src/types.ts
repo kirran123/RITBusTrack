@@ -327,3 +327,18 @@ export interface BusTimeRecord {
   notes?: string;
   updated_at?: string;
 }
+
+export interface SyncedUserRegistryPayload {
+  version: number;
+  updatedAt: number;
+  students: Student[];
+  drivers: Driver[];
+  staffCommuters: StaffCommuter[];
+  staffList: StaffUser[];
+  buses?: Bus[];
+  routes?: Route[];
+  stops?: Stop[];
+}
+
+export const CLOUD_REGISTRY_SNAPSHOT_ID = '90000000-0000-0000-0000-000000000001';
+export const CLOUD_REGISTRY_NOTIFICATION_TITLE = 'BUST_TRACK_REGISTRY_SNAPSHOT_V1';

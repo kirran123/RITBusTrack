@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
-import { GPSCoordinate, EmergencyAlert, SystemNotification, timeHistoryStore, Stop, INITIAL_STOPS } from '@college-bus/shared';
+import { GPSCoordinate, EmergencyAlert, SystemNotification, timeHistoryStore, Stop, INITIAL_STOPS, CLOUD_REGISTRY_SNAPSHOT_ID, CLOUD_REGISTRY_NOTIFICATION_TITLE } from '@college-bus/shared';
 import { authStorage } from './authStorage';
+import { applyRegistryToStorage, fetchCloudUserRegistry, findStudentInDatabaseDirectly } from './cloudSync';
 
 // Read Supabase credentials with fallback to live production project
 const supabaseUrl = 
@@ -247,20 +248,8 @@ export function initRealtimeChannel() {
       .on('broadcast', { event: 'sync_user_registry' }, async ({ payload }: any) => {
         if (!payload) return;
         try {
-          if (Array.isArray(payload.drivers) && payload.drivers.length > 0) {
-            await authStorage.setItem('bustrack_drivers_v1', JSON.stringify(payload.drivers));
-          }
-          if (Array.isArray(payload.students) && payload.students.length > 0) {
-            await authStorage.setItem('bustrack_students_v1', JSON.stringify(payload.students));
-          }
-          if (Array.isArray(payload.staffCommuters) && payload.staffCommuters.length > 0) {
-            await authStorage.setItem('bustrack_staff_commuters_v1', JSON.stringify(payload.staffCommuters));
-          }
-          if (Array.isArray(payload.staffList) && payload.staffList.length > 0) {
-            await authStorage.setItem('bustrack_staff_v1', JSON.stringify(payload.staffList));
-          }
+          await applyRegistryToStorage(payload);
           if (Array.isArray(payload.stops) && payload.stops.length > 0) {
-            await authStorage.setItem('bustrack_stops_v1', JSON.stringify(payload.stops));
             stopsListeners.forEach((listener) => {
               try { listener(payload.stops); } catch {}
             });
@@ -274,7 +263,8 @@ export function initRealtimeChannel() {
         isSubscribing = false;
         if (status === 'SUBSCRIBED') {
           console.log('✅ Realtime Telemetry Channel: CONNECTED (Live GPS & Broadcasts active)');
-          // Request fresh registry from online admin web
+          // Fetch fresh registry from persistent Supabase cloud store and request online admin sync
+          fetchCloudUserRegistry(true).catch(() => {});
           requestUserRegistrySync().catch(() => {});
         }
       });
@@ -282,9 +272,24 @@ export function initRealtimeChannel() {
     // Realtime Postgres changes on notifications table
     supabase
       .channel('schema_notifications_broadcasts')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: any) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, async (payload: any) => {
         const row = payload.new;
         if (!row) return;
+
+        // Check if this notification row is our persistent cloud registry snapshot!
+        if (row.id === CLOUD_REGISTRY_SNAPSHOT_ID || row.title === CLOUD_REGISTRY_NOTIFICATION_TITLE) {
+          try {
+            if (row.message) {
+              const regPayload = JSON.parse(row.message);
+              await applyRegistryToStorage(regPayload);
+              console.log('☁️ Realtime DB User Registry Sync Received & Applied');
+            }
+          } catch (e) {
+            console.warn('Error parsing cloud registry update:', e);
+          }
+          return; // Do not show user notification alert for cloud registry sync snapshot!
+        }
+
         const notif: SystemNotification = {
           id: row.id,
           title: row.title,
@@ -941,5 +946,7 @@ export async function broadcastStopsUpdate(stops: Stop[]) {
 
 // Auto-initialize realtime channel on load
 initRealtimeChannel();
+
+export { fetchCloudUserRegistry, applyRegistryToStorage, findStudentInDatabaseDirectly };
 
 

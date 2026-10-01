@@ -32,6 +32,8 @@ interface NavbarProps {
   onClearNotifications?: () => void;
   onMarkAllNotificationsRead?: () => void;
   onDismissNotification?: (id: string) => void;
+  onSyncCloud?: () => void;
+  isSyncing?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -46,6 +48,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onClearNotifications,
   onMarkAllNotificationsRead,
   onDismissNotification,
+  onSyncCloud,
+  isSyncing = false,
 }) => {
   const navigate = useNavigate();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -145,6 +149,23 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       <div className="flex items-center space-x-3 lg:space-x-4">
+        {/* Sync with Mobile App Cloud Button */}
+        {onSyncCloud && (
+          <button
+            onClick={onSyncCloud}
+            disabled={isSyncing}
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl border transition-all text-xs font-bold ${
+              isSyncing
+                ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 cursor-not-allowed'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
+            }`}
+            title="Sync all registered Students, Staff, and Drivers to Supabase & Mobile App in real-time"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-400' : 'text-emerald-400'}`} />
+            <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Mobile App'}</span>
+          </button>
+        )}
+
         {/* Emergency Alert Indicator Banner */}
         {activeEmergenciesCount > 0 && (
           <button

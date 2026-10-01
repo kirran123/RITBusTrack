@@ -966,7 +966,7 @@ export const INITIAL_STUDENTS: Student[] = [
   {
     id: 's3',
     user_id: 'u_stu3',
-    register_number: '21IT045',
+    register_number: '953624205052',
     department: 'B.Tech Information Tech.',
     year: 3,
     section: 'A',
@@ -976,7 +976,7 @@ export const INITIAL_STUDENTS: Student[] = [
     boarding_stop_id: 'st1_1',
     status: 'active',
     is_on_leave: false,
-    profile: { id: 'u_stu3', auth_user_id: 'auth_stu3', name: 'Kishore ST', email: 'kishore.it@ritrjpm.ac.in', phone: '+91 98421 23456', role: 'student', status: 'active' },
+    profile: { id: 'u_stu3', auth_user_id: 'auth_stu3', name: 'Kishore ST', email: '953624205052@ritrjpm.ac.in', phone: '+91 98421 23456', role: 'student', status: 'active' },
     route: INITIAL_ROUTES[0],
     bus: INITIAL_BUSES[0],
     boarding_stop: INITIAL_STOPS[0]
