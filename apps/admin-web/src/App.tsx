@@ -1821,7 +1821,7 @@ export const App: React.FC = () => {
 
   return (
     <BrowserRouter>
-      <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans antialiased selection:bg-blue-600 selection:text-white">
+      <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans antialiased selection:bg-blue-600 selection:text-white">
         
         {/* Modern Sidebar (Desktop + Mobile overlay) */}
         <Sidebar
@@ -1851,7 +1851,7 @@ export const App: React.FC = () => {
 
           {/* Scrollable Viewport Container */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col">
-            <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto">
+            <main className="flex-1 p-4 pb-24 lg:p-8 lg:pb-8 max-w-7xl w-full mx-auto">
               <Routes>
               <Route path="/" element={
                 <ErrorBoundary fallbackTitle="Dashboard Operations">
@@ -2009,6 +2009,7 @@ export const App: React.FC = () => {
                     drivers={drivers}
                     routes={routes}
                     currentUser={currentUser}
+                    canEdit={canEdit}
                   />
                 </ErrorBoundary>
               } />

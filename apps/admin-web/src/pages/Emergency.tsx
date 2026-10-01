@@ -25,17 +25,17 @@ export const Emergency: React.FC<EmergencyProps> = ({
     <div className="space-y-6">
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-rose-950/60 to-slate-900 p-6 rounded-3xl border border-rose-500/30 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-white flex items-center space-x-3">
-            <AlertTriangle className="w-7 h-7 text-rose-500 animate-pulse" />
-            <span>Emergency Command & Alert Response</span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white flex items-center space-x-3 break-words">
+            <AlertTriangle className="w-7 h-7 text-rose-500 animate-pulse shrink-0" />
+            <span className="min-w-0">Emergency Command & Alert Response</span>
           </h1>
-          <p className="text-sm text-slate-300 mt-1">
+          <p className="text-sm text-slate-300 mt-1 leading-relaxed">
             Real-time SOS notifications, driver breakdown alerts & location telemetry dispatch.
           </p>
         </div>
 
-        <div className="px-4 py-2 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-300 font-bold text-xs">
+        <div className="px-4 py-2 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-300 font-bold text-xs shrink-0">
           {activeEmergencies.length} Active Incident{activeEmergencies.length !== 1 ? 's' : ''}
         </div>
       </div>
@@ -59,22 +59,22 @@ export const Emergency: React.FC<EmergencyProps> = ({
               className="bg-slate-900 border-2 border-rose-500/50 rounded-3xl p-6 shadow-2xl space-y-4 relative overflow-hidden"
             >
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center font-bold">
+                <div className="flex items-center space-x-3 min-w-0 flex-1">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center font-bold shrink-0">
                     🚨
                   </div>
-                  <div>
-                    <h3 className="font-extrabold text-white text-lg">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-extrabold text-white text-base sm:text-lg break-words">
                       {alert.bus?.bus_number || 'BUS-01'} &bull; {alert.type.toUpperCase()}
                     </h3>
                     <p className="text-xs text-slate-400 flex items-center mt-0.5">
-                      <Clock className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                      Reported: {new Date(alert.created_at).toLocaleTimeString()}
+                      <Clock className="w-3.5 h-3.5 mr-1 text-slate-500 shrink-0" />
+                      <span>Reported: {new Date(alert.created_at).toLocaleTimeString()}</span>
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 shrink-0">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
                     alert.status === 'ACTIVE' 
                       ? 'bg-rose-500 text-white animate-pulse' 

@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { UserProfile, SystemNotification } from '@college-bus/shared';
+import { ThemeToggle } from './ThemeToggle';
 
 interface NavbarProps {
   onOpenSidebar: () => void;
@@ -107,18 +108,18 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="h-16 bg-slate-900 border-b border-slate-800 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30 shadow-md">
-      <div className="flex items-center space-x-4">
+    <header className="min-h-16 h-16 bg-slate-900 border-b border-slate-800 px-3 sm:px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30 shadow-md gap-2">
+      <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
         <button
           onClick={onOpenSidebar}
-          className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
           aria-label="Toggle Navigation Sidebar"
         >
           <Menu className="w-6 h-6" />
         </button>
 
         {/* Global Search Bar */}
-        <div className="relative hidden md:block w-72">
+        <div className="relative hidden md:block w-48 lg:w-72 shrink-0">
           <div className="relative flex items-center">
             <Search className="w-4 h-4 absolute left-3.5 text-slate-500 pointer-events-none" />
             <input
@@ -131,15 +132,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Role & Access Tier Indicator in Top Bar */}
         {isViewOnly && (
-          <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-bold shadow-sm">
+          <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-bold shadow-sm shrink-0">
             <Eye className="w-3.5 h-3.5" />
-            <span>Admin Staff (View-Only)</span>
+            <span className="truncate">Admin Staff (View-Only)</span>
           </div>
         )}
         {isStaff && !isViewOnly && (
-          <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-sm">
+          <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-sm shrink-0">
             <Edit2 className="w-3.5 h-3.5" />
-            <span>Admin Staff (Edit Access)</span>
+            <span className="truncate">Admin Staff (Edit Access)</span>
           </div>
         )}
       </div>
@@ -317,14 +318,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
+        {/* Modern Dark/Light Theme Toggle */}
+        <div className="flex items-center shrink-0">
+          <ThemeToggle variant="pill" />
+        </div>
+
         {/* User Info & Profile */}
         <div
           onClick={onOpenProfile}
-          className="flex items-center space-x-3 pl-2 border-l border-slate-800 cursor-pointer hover:opacity-90 transition-opacity"
+          className="flex items-center space-x-2.5 sm:space-x-3 pl-2 border-l border-slate-800 cursor-pointer hover:opacity-90 transition-opacity min-w-0 shrink-0"
           title="Open User Profile"
         >
           <div
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-sm shadow ${
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-sm shadow shrink-0 ${
               isAdmin
                 ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
                 : isViewOnly
@@ -334,12 +340,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             {activeUser?.name ? activeUser.name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
           </div>
-          <div className="hidden sm:block text-left">
-            <div className="text-xs font-semibold text-white leading-tight">
+          <div className="hidden sm:block text-left min-w-0 max-w-[110px] md:max-w-[150px]">
+            <div className="text-xs font-semibold text-white leading-tight truncate">
               {activeUser?.name || 'Super Admin'}
             </div>
-            <div className="text-[10px] text-blue-400 uppercase font-black tracking-wider">
-              {isAdmin ? '👑 Super Admin' : isViewOnly ? '👁️ Admin Staff (View)' : '✏️ Admin Staff (Edit)'}
+            <div className="text-[10px] text-blue-400 uppercase font-black tracking-wider truncate">
+              {isAdmin ? '👑 Super Admin' : isViewOnly ? '👁️ Admin Staff' : '✏️ Admin Staff'}
             </div>
           </div>
 
@@ -349,7 +355,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onLogout();
             }}
             title="Logout"
-            className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors shrink-0"
           >
             <LogOut className="w-5 h-5" />
           </button>

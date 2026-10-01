@@ -144,12 +144,12 @@ export const Buses: React.FC<BusesProps> = ({
     <div className="space-y-6">
       {/* Top Action Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 p-6 rounded-3xl border border-slate-800">
-        <div>
-          <h1 className="text-2xl font-extrabold text-white flex items-center space-x-3">
-            <BusIcon className="w-7 h-7 text-blue-500" />
-            <span>Bus Management</span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-extrabold text-white flex items-center space-x-3 leading-tight">
+            <BusIcon className="w-7 h-7 text-blue-500 shrink-0" />
+            <span className="break-words">Bus Management</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1 leading-relaxed break-words">
             Allocate primary & substitute drivers, manage vehicle swaps for maintenance/emergencies, and configure capacity.
           </p>
         </div>
@@ -159,12 +159,12 @@ export const Buses: React.FC<BusesProps> = ({
             onClick={openCreateModal}
             className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center space-x-2 transition-all shrink-0"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-5 h-5 shrink-0" />
             <span>Add New Bus</span>
           </button>
         ) : (
-          <div className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-sky-400 text-xs font-bold flex items-center space-x-1.5 shadow-sm">
-            <Lock className="w-3.5 h-3.5" />
+          <div className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-sky-400 text-xs font-bold flex items-center space-x-1.5 shadow-sm shrink-0">
+            <Lock className="w-3.5 h-3.5 shrink-0" />
             <span>View-Only Mode</span>
           </div>
         )}
@@ -172,32 +172,32 @@ export const Buses: React.FC<BusesProps> = ({
 
       {/* Quick Ops Control Banner */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-gradient-to-r from-blue-950/40 to-slate-900 p-4 rounded-2xl border border-blue-500/20 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+        <div className="bg-gradient-to-r from-blue-950/40 to-slate-900 p-4 rounded-2xl border border-blue-500/20 flex items-center justify-between gap-3">
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
               <RefreshCw className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Driver Reassignment System</h3>
-              <p className="text-xs text-slate-400">Instantly substitute another driver if regular driver is unavailable.</p>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-bold text-white leading-tight break-words">Driver Reassignment System</h3>
+              <p className="text-xs text-slate-400 leading-snug break-words">Instantly substitute another driver if regular driver is unavailable.</p>
             </div>
           </div>
-          <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 text-[11px] font-bold rounded-lg border border-blue-500/30">
+          <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 text-[11px] font-bold rounded-lg border border-blue-500/30 shrink-0">
             Active
           </span>
         </div>
 
-        <div className="bg-gradient-to-r from-amber-950/40 to-slate-900 p-4 rounded-2xl border border-amber-500/20 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+        <div className="bg-gradient-to-r from-amber-950/40 to-slate-900 p-4 rounded-2xl border border-amber-500/20 flex items-center justify-between gap-3">
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
               <AlertTriangle className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Bus Breakdown & Standby Swap</h3>
-              <p className="text-xs text-slate-400">Replace broken bus with a standby vehicle on the same route.</p>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-bold text-white leading-tight break-words">Bus Breakdown & Standby Swap</h3>
+              <p className="text-xs text-slate-400 leading-snug break-words">Replace broken bus with a standby vehicle on the same route.</p>
             </div>
           </div>
-          <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 text-[11px] font-bold rounded-lg border border-amber-500/30">
+          <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 text-[11px] font-bold rounded-lg border border-amber-500/30 shrink-0">
             Emergency Ready
           </span>
         </div>
@@ -494,19 +494,19 @@ export const Buses: React.FC<BusesProps> = ({
       {isSubstituteModalOpen && substituteBus && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
                   <UserCheck className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Substitute Driver Allocation</h2>
-                  <p className="text-xs text-slate-400">{substituteBus.bus_number} &bull; {substituteBus.registration_number}</p>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-bold text-white truncate">Substitute Driver Allocation</h2>
+                  <p className="text-xs text-slate-400 truncate">{substituteBus.bus_number} &bull; {substituteBus.registration_number}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsSubstituteModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -572,19 +572,19 @@ export const Buses: React.FC<BusesProps> = ({
       {isSwapModalOpen && swapCurrentBus && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
                   <RefreshCw className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Route Bus Swap & Standby Dispatch</h2>
-                  <p className="text-xs text-slate-400">Route: {routes.find(r => r.id === swapCurrentBus.route_id)?.route_name}</p>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-bold text-white truncate">Route Bus Swap & Standby Dispatch</h2>
+                  <p className="text-xs text-slate-400 truncate">Route: {routes.find(r => r.id === swapCurrentBus.route_id)?.route_name}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsSwapModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -650,20 +650,20 @@ export const Buses: React.FC<BusesProps> = ({
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <h2 className="text-lg font-bold text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <h2 className="text-lg font-bold text-white min-w-0 flex-1 truncate pr-2">
                 {editingBus ? 'Edit Bus Configuration' : 'Register New College Bus'}
               </h2>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Bus Number</label>
                   <input

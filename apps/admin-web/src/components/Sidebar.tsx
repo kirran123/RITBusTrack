@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { UserProfile } from '@college-bus/shared';
+import { ThemeToggle } from './ThemeToggle';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -85,12 +86,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'}
             `}
           >
-            <div className="flex items-center space-x-3">
-              <Icon className="w-4 h-4" />
-              <span>{item.label}</span>
+            <div className="flex items-center space-x-3 min-w-0 flex-1 mr-2">
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="truncate">{item.label}</span>
             </div>
             {item.badge && (
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${item.badgeColor || 'bg-blue-500/20 text-blue-300'}`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${item.badgeColor || 'bg-blue-500/20 text-blue-300'}`}>
                 {item.badge}
               </span>
             )}
@@ -116,19 +117,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Header */}
-        <div className="h-16 px-6 flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+        <div className="h-16 px-4 sm:px-6 flex items-center justify-between border-b border-slate-800 gap-2">
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30 shrink-0">
               <BusIcon className="w-5 h-5" />
             </div>
-            <div>
-              <h1 className="font-black text-white text-base leading-tight tracking-tight">BusTrack</h1>
-              <p className="text-[11px] text-blue-400 font-semibold">Ramco Institute Tech</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="font-black text-white text-base leading-tight tracking-tight truncate">BusTrack</h1>
+              <p className="text-[11px] text-blue-400 font-semibold truncate">Ramco Institute Tech</p>
             </div>
           </div>
           <button 
             onClick={onClose} 
-            className="lg:hidden p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+            className="lg:hidden p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -148,6 +149,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="text-[11px] text-emerald-400 font-bold">
               Realtime GPS Connected
             </div>
+          </div>
+          <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
+            <span className="text-[11px] font-bold text-slate-400">Theme</span>
+            <ThemeToggle variant="pill" />
           </div>
           <div className="pt-2 border-t border-slate-800/80">
             <p className="text-[10.5px] font-bold text-slate-300">

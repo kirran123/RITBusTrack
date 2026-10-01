@@ -6,6 +6,7 @@ import {
   Bus as BusIcon, Navigation, MapPin, Layers, Filter, Eye, EyeOff, Maximize2, Compass, CheckCircle2,
   ChevronLeft, ChevronRight, Clock, Gauge
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 // Fallback curated vibrant transit colors
 const DEFAULT_ROUTE_COLORS = [
@@ -265,11 +266,25 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
 }) => {
   const defaultCenter: [number, number] = [9.449, 77.548];
 
+  const { theme } = useTheme();
+
   // Active filter states
   const [internalSelectedRouteId, setInternalSelectedRouteId] = useState<string | 'all'>('all');
   const [stopFilterMode, setStopFilterMode] = useState<'all' | 'terminals' | 'none'>('all');
-  const [mapStyle, setMapStyle] = useState<'google' | 'satellite' | 'dark' | 'osm'>('google');
+  const [mapStyle, setMapStyle] = useState<'google' | 'satellite' | 'dark' | 'osm'>(() => (theme === 'dark' ? 'dark' : 'google'));
   const [fitBoundsTrigger, setFitBoundsTrigger] = useState<number>(0);
+  const userManuallyChangedMapRef = useRef(false);
+
+  // Sync map style with application theme
+  useEffect(() => {
+    if (!userManuallyChangedMapRef.current) {
+      setMapStyle(theme === 'dark' ? 'dark' : 'google');
+    } else if (mapStyle === 'dark' && theme === 'light') {
+      setMapStyle('google');
+    } else if (mapStyle === 'google' && theme === 'dark') {
+      setMapStyle('dark');
+    }
+  }, [theme]);
 
   // Sync external selected route if provided
   useEffect(() => {
@@ -543,7 +558,10 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
           <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-slate-800">
             <button
               type="button"
-              onClick={() => setMapStyle('google')}
+              onClick={() => {
+                userManuallyChangedMapRef.current = true;
+                setMapStyle('google');
+              }}
               className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
                 mapStyle === 'google' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
               }`}
@@ -553,7 +571,10 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setMapStyle('satellite')}
+              onClick={() => {
+                userManuallyChangedMapRef.current = true;
+                setMapStyle('satellite');
+              }}
               className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
                 mapStyle === 'satellite' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
               }`}
@@ -563,7 +584,10 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setMapStyle('dark')}
+              onClick={() => {
+                userManuallyChangedMapRef.current = true;
+                setMapStyle('dark');
+              }}
               className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
                 mapStyle === 'dark' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
               }`}
@@ -573,7 +597,10 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setMapStyle('osm')}
+              onClick={() => {
+                userManuallyChangedMapRef.current = true;
+                setMapStyle('osm');
+              }}
               className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
                 mapStyle === 'osm' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
               }`}

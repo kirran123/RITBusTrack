@@ -27,6 +27,7 @@ interface TimeHistoryProps {
   drivers: Driver[];
   routes: Route[];
   currentUser?: any;
+  canEdit?: boolean;
 }
 
 export const TimeHistory: React.FC<TimeHistoryProps> = ({
@@ -34,7 +35,9 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
   drivers,
   routes,
   currentUser,
+  canEdit: canEditProp,
 }) => {
+  const canEdit = canEditProp !== undefined ? canEditProp : (currentUser?.role === 'admin' || (currentUser?.role === 'staff' && currentUser?.access_level === 'edit'));
   const todayDate = useMemo(() => new Date().toISOString().split('T')[0], []);
 
   // Time records state initialized ONLY from real driver actions (starts clean)
@@ -134,7 +137,6 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
   const eveningCompleted = eveningList.filter(r => r.status === 'completed').length;
   const eveningInProgress = eveningList.filter(r => r.status === 'in_progress').length;
 
-  const canEdit = currentUser?.role === 'admin' || (currentUser?.role === 'staff' && currentUser?.access_level === 'edit');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -275,49 +277,49 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
     <div className="space-y-6">
       {/* Top Header Banner */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-xl">
-        <div className="space-y-1">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold">
-            <Clock className="w-3.5 h-3.5" />
+        <div className="space-y-1 min-w-0 flex-1">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold shrink-0">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
             <span>Driver Dispatch Telemetry Logs</span>
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight flex items-center space-x-3">
-            <span>Fleet Time History & Shift Dispatch Records</span>
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center space-x-3 break-words">
+            <span className="min-w-0">Fleet Time History & Shift Dispatch Records</span>
           </h1>
           <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
             Real-time automated logging of bus start & end timestamps triggered when drivers click <strong>Start Trip</strong> and <strong>End Trip</strong> on their cockpit devices for Morning and Evening shifts.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           {canEdit && (
             <button
               onClick={handleClearAllHistory}
-              className="px-4 py-2.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all shadow-lg cursor-pointer"
+              className="px-4 py-2.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all shadow-lg cursor-pointer shrink-0"
               title="Delete all previous time history logs"
             >
-              <Trash2 className="w-4 h-4 text-rose-400" />
+              <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
               <span>Clear All History</span>
             </button>
           )}
           <button
             onClick={handleExportCSV}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 transition-all shadow-lg shadow-emerald-600/20 cursor-pointer"
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 transition-all shadow-lg shadow-emerald-600/20 cursor-pointer shrink-0"
           >
-            <FileSpreadsheet className="w-4 h-4" />
+            <FileSpreadsheet className="w-4 h-4 shrink-0" />
             <span>Export CSV Sheet</span>
           </button>
         </div>
       </div>
 
       {/* KPI Overview Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Morning Shift Card */}
         <div className="bg-slate-900/90 border border-slate-800/90 p-4 rounded-2xl space-y-1 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs font-bold text-amber-400">
-            <span className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between text-xs font-bold text-amber-400 gap-2">
+            <span className="flex items-center gap-1.5 truncate">
               <span>🌅 Morning Shift</span>
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 font-mono">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 font-mono shrink-0">
               Pickup Corridor
             </span>
           </div>
@@ -332,11 +334,11 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
 
         {/* Evening Shift Card */}
         <div className="bg-slate-900/90 border border-slate-800/90 p-4 rounded-2xl space-y-1 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs font-bold text-indigo-400">
-            <span className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between text-xs font-bold text-indigo-400 gap-2">
+            <span className="flex items-center gap-1.5 truncate">
               <span>🌆 Evening Shift</span>
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 font-mono">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 font-mono shrink-0">
               Campus Return
             </span>
           </div>
@@ -351,11 +353,11 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
 
         {/* Total Monitored Fleet */}
         <div className="bg-slate-900/90 border border-slate-800/90 p-4 rounded-2xl space-y-1 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs font-bold text-blue-400">
-            <span className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between text-xs font-bold text-blue-400 gap-2">
+            <span className="flex items-center gap-1.5 truncate">
               <span>🚌 Monitored Fleet</span>
             </span>
-            <BusIcon className="w-3.5 h-3.5 text-blue-400" />
+            <BusIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
           </div>
           <div className="text-2xl font-black text-white mt-1">
             {buses.length} <span className="text-xs text-slate-400 font-normal">College Buses</span>
@@ -368,12 +370,12 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
 
         {/* Real-time Dispatch Sensor */}
         <div className="bg-slate-900/90 border border-slate-800/90 p-4 rounded-2xl space-y-1 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="flex items-center justify-between text-xs font-bold text-emerald-400 gap-2">
+            <span className="flex items-center gap-1.5 truncate">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               <span>Live Telemetry Engine</span>
             </span>
-            <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+            <RefreshCw className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
           </div>
           <div className="text-lg font-black text-white mt-1">
             10s Dynamic GPS
@@ -387,10 +389,10 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
 
       {/* Primary Shift Segmented Tab Switcher (Split as All Buses Morning & Evening Trip) */}
       <div className="bg-slate-900 border border-slate-800 p-2 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="grid grid-cols-3 p-1 bg-slate-950 rounded-xl gap-1 w-full sm:w-auto">
+        <div className="flex flex-wrap sm:flex-nowrap p-1 bg-slate-950 rounded-xl gap-1 w-full sm:w-auto">
           <button
             onClick={() => setActiveShiftTab('morning')}
-            className={`py-2.5 px-5 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer ${
+            className={`flex-1 sm:flex-initial py-2.5 px-3 sm:px-5 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer ${
               activeShiftTab === 'morning'
                 ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
@@ -401,7 +403,7 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
 
           <button
             onClick={() => setActiveShiftTab('evening')}
-            className={`py-2.5 px-5 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer ${
+            className={`flex-1 sm:flex-initial py-2.5 px-3 sm:px-5 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer ${
               activeShiftTab === 'evening'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
@@ -412,7 +414,7 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
 
           <button
             onClick={() => setActiveShiftTab('all')}
-            className={`py-2.5 px-5 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer ${
+            className={`flex-1 sm:flex-initial py-2.5 px-3 sm:px-5 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer ${
               activeShiftTab === 'all'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'

@@ -557,14 +557,14 @@ export const Routes: React.FC<RoutesProps> = ({
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-xl">
-        <div>
-          <h1 className="text-2xl font-black text-white flex items-center space-x-3 tracking-tight">
-            <div className="p-2.5 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20 shadow-inner">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-black text-white flex items-center space-x-3 tracking-tight break-words">
+            <div className="p-2.5 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20 shadow-inner shrink-0">
               <RouteIcon className="w-6 h-6" />
             </div>
-            <span>Routes & Stop Sequence Alignment</span>
+            <span className="min-w-0">Routes & Stop Sequence Alignment</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1.5 font-medium">
+          <p className="text-sm text-slate-400 mt-1.5 font-medium leading-relaxed">
             Manage route corridors, configure stop sequences (1..N), toggle Morning/Evening shifts, and manage vehicle & driver reassignments.
           </p>
         </div>
@@ -586,32 +586,32 @@ export const Routes: React.FC<RoutesProps> = ({
 
       {/* Shift Mode Toggle Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/90 backdrop-blur p-3.5 rounded-2xl border border-slate-800 shadow-md">
-        <div className="flex items-center space-x-3 w-full sm:w-auto">
-          <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider pl-1 whitespace-nowrap">
+        <div className="flex flex-col xs:flex-row sm:flex-row items-start xs:items-center sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider pl-1 shrink-0">
             Active Shift:
           </span>
-          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800/80 w-full sm:w-auto">
+          <div className="flex flex-wrap sm:flex-nowrap items-center bg-slate-950 p-1 rounded-xl border border-slate-800/80 w-full sm:w-auto gap-1">
             <button
               onClick={() => setActiveShiftView('morning')}
-              className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 whitespace-nowrap ${
+              className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 ${
                 activeShiftView === 'morning'
                   ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Sunrise className="w-4 h-4 text-amber-300" />
+              <Sunrise className="w-4 h-4 text-amber-300 shrink-0" />
               <span>Morning Shift (Pickup → Campus)</span>
             </button>
             <button
               onClick={() => setActiveShiftView('evening')}
-              className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 whitespace-nowrap ${
+              className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 ${
                 activeShiftView === 'evening'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Sunset className="w-4 h-4 text-indigo-300" />
-              <span>Evening Shift (Campus → Return Stops)</span>
+              <Sunset className="w-4 h-4 text-indigo-300 shrink-0" />
+              <span>Evening Shift (Campus → Return)</span>
             </button>
           </div>
         </div>
@@ -1161,19 +1161,19 @@ export const Routes: React.FC<RoutesProps> = ({
       {isSubstituteModalOpen && substituteBus && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
                   <UserCheck className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Substitute Driver Allocation</h2>
-                  <p className="text-xs text-slate-400">{substituteBus.bus_number} &bull; {selectedRoute?.route_name}</p>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-bold text-white truncate">Substitute Driver Allocation</h2>
+                  <p className="text-xs text-slate-400 truncate">{substituteBus.bus_number} &bull; {selectedRoute?.route_name}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsSubstituteModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1239,19 +1239,19 @@ export const Routes: React.FC<RoutesProps> = ({
       {isSwapModalOpen && swapCurrentBus && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
                   <RefreshCw className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Route Bus Swap & Standby Dispatch</h2>
-                  <p className="text-xs text-slate-400">Route: {selectedRoute?.route_name}</p>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-bold text-white truncate">Route Bus Swap & Standby Dispatch</h2>
+                  <p className="text-xs text-slate-400 truncate">Route: {selectedRoute?.route_name}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsSwapModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1317,13 +1317,13 @@ export const Routes: React.FC<RoutesProps> = ({
       {isRouteModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <h2 className="text-lg font-bold text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <h2 className="text-lg font-bold text-white min-w-0 flex-1 truncate pr-2">
                 {editingRoute ? `Edit Route: ${editingRoute.route_name}` : 'Create New Bus Route'}
               </h2>
               <button
                 onClick={() => setIsRouteModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1342,7 +1342,7 @@ export const Routes: React.FC<RoutesProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">🟢 Start Terminal (Morning)</label>
                   <input
@@ -1367,7 +1367,7 @@ export const Routes: React.FC<RoutesProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Morning Dep &bull; Arr</label>
                   <div className="flex gap-2">
@@ -1409,7 +1409,7 @@ export const Routes: React.FC<RoutesProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Distance (km)</label>
                   <input
@@ -1482,16 +1482,16 @@ export const Routes: React.FC<RoutesProps> = ({
       {isStopModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-bold text-white truncate">
                   {editingStop ? `Edit Stop: ${editingStop.stop_name}` : 'Add Route Stop Waypoint'}
                 </h2>
-                <p className="text-xs text-slate-400">Specify landmark and auto-extract coordinates from Google Maps</p>
+                <p className="text-xs text-slate-400 truncate">Specify landmark and auto-extract coordinates from Google Maps</p>
               </div>
               <button
                 onClick={() => setIsStopModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1546,7 +1546,7 @@ export const Routes: React.FC<RoutesProps> = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Latitude</label>
                   <input

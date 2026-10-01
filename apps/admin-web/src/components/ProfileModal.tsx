@@ -14,6 +14,7 @@ import {
   ExternalLink,
   CheckCircle2
 } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -84,28 +85,28 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
           {/* Contact Details Card */}
           <div className="mt-4 bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-2.5 text-xs">
-            <div className="flex items-center justify-between text-slate-300">
-              <div className="flex items-center space-x-2 text-slate-400">
-                <Mail className="w-4 h-4 text-blue-400" />
+            <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1 text-slate-300">
+              <div className="flex items-center space-x-2 text-slate-400 shrink-0">
+                <Mail className="w-4 h-4 text-blue-400 shrink-0" />
                 <span>Official Email:</span>
               </div>
-              <span className="font-mono text-white font-medium">{user.email || 'admin@college.edu'}</span>
+              <span className="font-mono text-white font-medium truncate max-w-full">{user.email || 'admin@college.edu'}</span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-300 border-t border-slate-800/80 pt-2">
-              <div className="flex items-center space-x-2 text-slate-400">
-                <Phone className="w-4 h-4 text-emerald-400" />
+            <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1 text-slate-300 border-t border-slate-800/80 pt-2">
+              <div className="flex items-center space-x-2 text-slate-400 shrink-0">
+                <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>Emergency Contact:</span>
               </div>
-              <span className="font-mono text-white font-medium">{user.phone || '+91 9876543210'}</span>
+              <span className="font-mono text-white font-medium truncate max-w-full">{user.phone || '+91 9876543210'}</span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-300 border-t border-slate-800/80 pt-2">
-              <div className="flex items-center space-x-2 text-slate-400">
-                <Shield className="w-4 h-4 text-purple-400" />
+            <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1 text-slate-300 border-t border-slate-800/80 pt-2">
+              <div className="flex items-center space-x-2 text-slate-400 shrink-0">
+                <Shield className="w-4 h-4 text-purple-400 shrink-0" />
                 <span>Access Authorization:</span>
               </div>
-              <span className="font-extrabold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20 text-[11px]">
+              <span className="font-extrabold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20 text-[11px] shrink-0">
                 LEVEL 4 - FULL ACCESS
               </span>
             </div>
@@ -113,18 +114,27 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
           {/* System Bus Scope Metrics */}
           <div className="grid grid-cols-3 gap-2 mt-4">
-            <div className="p-3 bg-slate-950 border border-slate-800 rounded-2xl text-center">
-              <div className="text-[10px] text-slate-500 font-black uppercase">Total Buses</div>
-              <div className="text-lg font-black text-white mt-0.5">{busesCount} Buses</div>
+            <div className="p-2.5 sm:p-3 bg-slate-950 border border-slate-800 rounded-2xl text-center">
+              <div className="text-[10px] text-slate-500 font-black uppercase truncate">Total Buses</div>
+              <div className="text-base sm:text-lg font-black text-white mt-0.5 truncate">{busesCount} Buses</div>
             </div>
-            <div className="p-3 bg-slate-950 border border-slate-800 rounded-2xl text-center">
-              <div className="text-[10px] text-slate-500 font-black uppercase">Active Routes</div>
-              <div className="text-lg font-black text-sky-400 mt-0.5">{routesCount} Routes</div>
+            <div className="p-2.5 sm:p-3 bg-slate-950 border border-slate-800 rounded-2xl text-center">
+              <div className="text-[10px] text-slate-500 font-black uppercase truncate">Active Routes</div>
+              <div className="text-base sm:text-lg font-black text-sky-400 mt-0.5 truncate">{routesCount} Routes</div>
             </div>
-            <div className="p-3 bg-slate-950 border border-slate-800 rounded-2xl text-center">
-              <div className="text-[10px] text-slate-500 font-black uppercase">Students</div>
-              <div className="text-lg font-black text-emerald-400 mt-0.5">{studentsCount} Pass</div>
+            <div className="p-2.5 sm:p-3 bg-slate-950 border border-slate-800 rounded-2xl text-center">
+              <div className="text-[10px] text-slate-500 font-black uppercase truncate">Students</div>
+              <div className="text-base sm:text-lg font-black text-emerald-400 mt-0.5 truncate">{studentsCount} Pass</div>
             </div>
+          </div>
+
+          {/* Theme Preference Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 bg-slate-950/80 border border-slate-800 rounded-2xl mt-4">
+            <div>
+              <span className="text-xs font-bold text-slate-200 block">Theme Preference</span>
+              <span className="text-[10px] text-slate-400">Choose light, dark, or system mode</span>
+            </div>
+            <ThemeToggle variant="segmented" />
           </div>
 
           {/* Action Buttons */}
