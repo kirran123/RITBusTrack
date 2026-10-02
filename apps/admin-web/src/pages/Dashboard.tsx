@@ -27,6 +27,10 @@ import {
   Building2,
   MapPin,
   ChevronDown,
+  GraduationCap,
+  UserX,
+  CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -55,11 +59,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   stops = [],
   emergencies = [],
   locations = [],
+  onToggleStudentLeave,
   currentUser,
+  canEdit,
 }) => {
   const navigate = useNavigate();
+  const isEditable = canEdit ?? (currentUser?.role === 'admin' || (currentUser?.role === 'staff' && currentUser?.access_level === 'edit'));
   const [range, setRange] = useState('Last 7 days');
   const [selectedBusId, setSelectedBusId] = useState<string | null>(null);
+
+  const safeStudents = Array.isArray(students) ? students : [];
+  const absentStudents = safeStudents.filter((s) => !!s.is_on_leave);
+  const presentStudentsCount = Math.max(0, safeStudents.length - absentStudents.length);
 
   const activeEmergencies = emergencies.filter((e) => (e.status || 'ACTIVE').toUpperCase() === 'ACTIVE').length;
   const movingBuses = buses.filter((b) => b.status === 'active' || b.status === 'delayed').length;
@@ -86,13 +97,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
       link: '/time-history',
     },
     {
-      label: 'On-time performance',
-      value: `${onTimePct}%`,
-      helper: 'Across configured routes',
-      trend: '+4.2% this week',
-      icon: TrendingUp,
-      tone: 'violet',
-      link: '/reports',
+      label: 'Student commuters',
+      value: `${safeStudents.length}`,
+      helper: `${presentStudentsCount} Boarding · ${absentStudents.length} on leave`,
+      trend: absentStudents.length > 0 ? `${absentStudents.length} Absent` : '100% Present',
+      icon: GraduationCap,
+      tone: absentStudents.length > 0 ? 'amber' : 'violet',
+      link: '/students',
     },
     {
       label: 'Open incidents',
@@ -100,7 +111,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       helper: activeEmergencies > 0 ? 'Requires attention' : 'All systems clear',
       trend: activeEmergencies > 0 ? 'Action needed' : 'All clear',
       icon: AlertTriangle,
-      tone: activeEmergencies > 0 ? 'red' : 'amber',
+      tone: activeEmergencies > 0 ? 'red' : 'green',
       link: '/emergency',
     },
   ];
@@ -264,7 +275,167 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </section>
 
-      {/* 5. Lower Grid: Service Activity Chart + Recent Activity */}
+      {/* 5. Today's Student Leave Notices (Not Boarding) */}
+      <section className="panel" style={{ marginBottom: '13px', overflow: 'hidden' }}>
+        <div className="panel-header" style={{ alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              background: absentStudents.length > 0 ? 'var(--amber-soft)' : 'var(--green-soft)',
+              color: absentStudents.length > 0 ? 'var(--amber)' : 'var(--green)',
+              display: 'grid',
+              placeItems: 'center',
+              fontWeight: 700,
+            }}>
+              <UserX size={17} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 650 }}>
+                  Today's Student Leave Notices (Not Boarding)
+                </h2>
+                <span
+                  className={`status-badge ${absentStudents.length > 0 ? 'status-danger' : 'status-positive'}`}
+                  style={{ fontSize: '10px', padding: '2px 8px' }}
+                >
+                  {absentStudents.length} {absentStudents.length === 1 ? 'Absentee' : 'Absentees'} Reported
+                </span>
+              </div>
+              <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>
+                Real-time 1-day absence notices synced directly with Driver Rosters to optimize waypoint stops.
+              </p>
+            </div>
+          </div>
+
+          <button className="text-action" onClick={() => navigate('/students')} style={{ fontSize: '12px' }}>
+            <span>Passenger directory</span>
+            <ArrowRight size={13} />
+          </button>
+        </div>
+
+        {absentStudents.length === 0 ? (
+          <div style={{
+            padding: '32px 20px',
+            textAlign: 'center',
+            background: 'var(--panel-soft)',
+            borderTop: '1px solid var(--border)'
+          }}>
+            <CheckCircle2 size={28} style={{ color: 'var(--green)', margin: '0 auto 8px', display: 'block' }} />
+            <strong style={{ display: 'block', fontSize: '13px', color: 'var(--ink)' }}>
+              All Registered Students Scheduled to Board
+            </strong>
+            <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '4px 0 0' }}>
+              No absence or leave notices have been filed for today's morning or evening shifts.
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            padding: '16px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '12px',
+            borderTop: '1px solid var(--border)',
+            background: 'var(--panel-soft)'
+          }}>
+            {absentStudents.map((student) => {
+              const busId = student.assigned_bus_id || student.bus_id;
+              const bus = buses.find((b) => b.id === busId);
+              const busNum = bus ? bus.bus_number || bus.id : (student.leave_info?.bus_number || 'BUS-01');
+              const stop = stops.find((s) => s.id === (student.assigned_stop_id || student.boarding_stop_id)) || student.boarding_stop;
+              const stopName = stop?.stop_name || (stop as any)?.name || student.leave_info?.stop_name || 'Assigned Stop';
+              const studentName = student.name || student.profile?.name || (student as any).full_name || 'Student';
+              const rollNum = student.roll_number || student.register_number || (student as any).regNo || '—';
+              const initial = studentName.charAt(0).toUpperCase();
+
+              return (
+                <div
+                  key={student.id}
+                  style={{
+                    background: 'var(--panel)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '10px',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    transition: 'border-color 0.15s, box-shadow 0.15s',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: 'var(--amber-soft)',
+                        color: 'var(--amber)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontWeight: 700,
+                        fontSize: '12px',
+                        flexShrink: 0
+                      }}>
+                        {initial}
+                      </div>
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '13px', color: 'var(--ink)' }}>{studentName}</strong>
+                        <span style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: 'monospace' }}>Reg: {rollNum}</span>
+                      </div>
+                    </div>
+                    <span className="status-badge status-danger" style={{ fontSize: '9px', padding: '1px 6px' }}>
+                      ABSENT TODAY
+                    </span>
+                  </div>
+
+                  <div style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '8px 10px',
+                    fontSize: '11.5px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '5px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: 'var(--muted)' }}>Assigned Bus:</span>
+                      <strong style={{ color: 'var(--ink)' }}>{busNum}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '4px' }}>
+                      <span style={{ color: 'var(--muted)' }}>Boarding Stop:</span>
+                      <span style={{ color: '#2563eb', fontWeight: 600 }}>📍 {stopName}</span>
+                    </div>
+                    {(student.leave_reason || student.leave_info?.reason) && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '4px' }}>
+                        <span style={{ color: 'var(--muted)' }}>Reason:</span>
+                        <span style={{ color: 'var(--muted-2)', fontStyle: 'italic' }}>
+                          {student.leave_reason || student.leave_info?.reason}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {isEditable && onToggleStudentLeave && (
+                    <button
+                      type="button"
+                      className="button button-quiet small-button"
+                      style={{ width: '100%', fontSize: '11px', gap: '5px' }}
+                      onClick={() => onToggleStudentLeave(student.id)}
+                    >
+                      <RefreshCw size={12} />
+                      <span>Restore Attendance (Boarding)</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* 6. Lower Grid: Service Activity Chart + Recent Activity */}
       <section className="dashboard-lower-grid">
         <div className="panel">
           <div className="panel-header">

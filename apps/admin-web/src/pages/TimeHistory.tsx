@@ -1,19 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { Bus, Driver, Route, Trip } from '@college-bus/shared';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Bus, Driver, Route, Trip, BusTimeRecord, timeHistoryStore } from '@college-bus/shared';
 import {
+  Clock,
+  Calendar,
+  Bus as BusIcon,
   Search,
-  Filter,
   Download,
-  Eye,
+  Filter,
+  CheckCircle2,
+  PlayCircle,
+  StopCircle,
+  Timer,
+  ArrowRight,
+  RefreshCw,
+  Sunrise,
+  Sunset,
+  Trash2,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  BusFront,
-  Sun,
-  Moon,
   X,
-  MapPin,
+  FileSpreadsheet,
+  Plus,
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface TimeHistoryProps {
   buses: Bus[];
@@ -27,445 +35,953 @@ export const TimeHistory: React.FC<TimeHistoryProps> = ({
   buses = [],
   drivers = [],
   routes = [],
-  trips = [],
+  currentUser,
 }) => {
-  const [activeTab, setActiveTab] = useState<'trips' | 'history'>('trips');
-  const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All status');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [inspectTrip, setInspectTrip] = useState<any | null>(null);
+  const canEdit = currentUser?.role === 'admin' || (currentUser?.role === 'staff' && currentUser?.access_level === 'edit');
 
-  // Generate populated trip records from real buses and routes
-  const mockTrips = buses.map((bus, i) => {
-    const route = routes.find((r) => r.id === bus.route_id);
-    const driver = drivers.find((d) => d.id === bus.assigned_driver_id || d.assigned_bus_id === bus.id);
-    return {
-      id: `TRP-0930-0${i + 1}`,
-      bus: bus.bus_number || bus.id,
-      route: route ? route.name : 'North Loop Express',
-      driver: driver?.profile?.name || driver?.name || 'Arun Kumar',
-      shift: i % 2 === 0 ? 'Morning' : 'Evening',
-      start: `07:${String(10 + i * 4).padStart(2, '0')} AM`,
-      end: bus.status === 'active' ? 'In progress' : `08:${String(15 + i * 5).padStart(2, '0')} AM`,
-      distance: `${(14.2 + i * 2.1).toFixed(1)} km`,
-      status: bus.status === 'delayed' ? 'Delayed' : bus.status === 'active' ? 'Active' : 'Completed',
-    };
+  // Time records state initialized from real driver actions & store
+  const [timeRecords, setTimeRecords] = useState<BusTimeRecord[]>(() => {
+    return timeHistoryStore.getRecords();
   });
 
-  const historyLogs = [
-    { id: 'LOG-2931', date: 'Sep 30, 2026', bus: 'BUS-01', driver: 'Arun Kumar', shift: 'Morning', scheduled: '07:00 AM', actual: '07:12 AM', duration: '42 min', status: 'On time' },
-    { id: 'LOG-2930', date: 'Sep 30, 2026', bus: 'BUS-03', driver: 'Sanjay Rao', shift: 'Morning', scheduled: '07:00 AM', actual: '07:16 AM', duration: '—', status: 'Delayed' },
-    { id: 'LOG-2929', date: 'Sep 30, 2026', bus: 'BUS-02', driver: 'Priya Nair', shift: 'Morning', scheduled: '07:05 AM', actual: '07:08 AM', duration: '—', status: 'On time' },
-    { id: 'LOG-2928', date: 'Sep 29, 2026', bus: 'BUS-05', driver: 'Vikram Singh', shift: 'Evening', scheduled: '04:30 PM', actual: '04:31 PM', duration: '48 min', status: 'Completed' },
-    { id: 'LOG-2927', date: 'Sep 29, 2026', bus: 'BUS-04', driver: 'Meera Das', shift: 'Evening', scheduled: '04:20 PM', actual: '04:24 PM', duration: '47 min', status: 'Completed' },
-  ];
+  // Filter States
+  const [activeShiftTab, setActiveShiftTab] = useState<'morning' | 'evening' | 'all'>('all');
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [busFilter, setBusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'in_progress' | 'scheduled'>('all');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const currentDataset = activeTab === 'trips' ? mockTrips : historyLogs;
+  // Manual Dispatch Modal
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [manualBusId, setManualBusId] = useState(buses[0]?.id || '');
+  const [manualShift, setManualShift] = useState<'morning' | 'evening'>('morning');
+  const [manualAction, setManualAction] = useState<'start' | 'end'>('start');
 
-  const filtered = currentDataset.filter((item: any) => {
-    const text = Object.values(item).join(' ').toLowerCase();
-    const matchesQuery = !query || text.includes(query.toLowerCase());
-    const matchesStatus = statusFilter === 'All status' || (item.status || '').toLowerCase() === statusFilter.toLowerCase();
-    return matchesQuery && matchesStatus;
-  });
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const visibleRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const visibleStart = filtered.length ? (currentPage - 1) * pageSize + 1 : 0;
-  const visibleEnd = Math.min(currentPage * pageSize, filtered.length);
-
+  // Real-time reactive subscription to driver start/end trip actions via store + Supabase Realtime
   useEffect(() => {
-    setCurrentPage(1);
-  }, [query, statusFilter, pageSize, activeTab]);
+    const unsubscribe = timeHistoryStore.subscribe((updatedRecords) => {
+      setTimeRecords(updatedRecords);
+    });
 
-  const exportCSV = () => {
-    const headers = activeTab === 'trips'
-      ? ['Trip ID', 'Bus', 'Route', 'Driver', 'Shift', 'Start', 'End', 'Distance', 'Status']
-      : ['Log ID', 'Date', 'Bus', 'Driver', 'Shift', 'Scheduled', 'Actual', 'Duration', 'Status'];
+    let channel: any = null;
+    if (supabase) {
+      // 1. Initial fetch from Supabase time_records table so any admin / staff sees all existing logs
+      supabase
+        .from('time_records')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data && Array.isArray(data) && data.length > 0) {
+            timeHistoryStore.mergeRecords(data);
+            setTimeRecords(timeHistoryStore.getRecords());
+          }
+        })
+        .catch((err) => console.warn('Supabase time_records fetch note:', err));
 
-    const rows = filtered.map((row: any) =>
-      Object.values(row)
-        .map((v) => `"${v}"`)
-        .join(',')
+      channel = supabase
+        .channel('time_records_sync')
+        .on('broadcast', { event: 'time_history_update' }, ({ payload }: { payload: any }) => {
+          if (payload && payload.params) {
+            if (payload.action === 'start') {
+              timeHistoryStore.recordTripStart(payload.params);
+            } else if (payload.action === 'end') {
+              timeHistoryStore.recordTripEnd(payload.params);
+            }
+            setTimeRecords(timeHistoryStore.getRecords());
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'time_records' }, ({ new: row }: any) => {
+          if (row) {
+            timeHistoryStore.mergeRecords([row]);
+            setTimeRecords(timeHistoryStore.getRecords());
+          }
+        })
+        .subscribe();
+    }
+
+    // Polling every 2s to guarantee instant sync across tabs and memory
+    const interval = setInterval(() => {
+      const records = timeHistoryStore.getRecords();
+      setTimeRecords(records);
+    }, 2000);
+
+    return () => {
+      unsubscribe();
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Compute filtered records
+  const filteredRecords = useMemo(() => {
+    return timeRecords.filter((record) => {
+      const matchesShift = activeShiftTab === 'all' || record.shift === activeShiftTab;
+      const matchesDate = !selectedDate || record.date === selectedDate;
+      const matchesBus = busFilter === 'all' || record.bus_id === busFilter || record.bus_number === busFilter;
+      const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
+      const matchesSearch =
+        searchQuery.trim() === '' ||
+        (record.bus_number && record.bus_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (record.driver_name && record.driver_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (record.route_name && record.route_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (record.start_location && record.start_location.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (record.destination && record.destination.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      return matchesShift && matchesDate && matchesBus && matchesStatus && matchesSearch;
+    });
+  }, [timeRecords, activeShiftTab, selectedDate, busFilter, statusFilter, searchQuery]);
+
+  // Morning and Evening Counts
+  const morningList = useMemo(
+    () => timeRecords.filter((r) => r.shift === 'morning' && (!selectedDate || r.date === selectedDate)),
+    [timeRecords, selectedDate]
+  );
+  const eveningList = useMemo(
+    () => timeRecords.filter((r) => r.shift === 'evening' && (!selectedDate || r.date === selectedDate)),
+    [timeRecords, selectedDate]
+  );
+
+  const morningCompleted = morningList.filter((r) => r.status === 'completed').length;
+  const morningInProgress = morningList.filter((r) => r.status === 'in_progress').length;
+
+  const eveningCompleted = eveningList.filter((r) => r.status === 'completed').length;
+  const eveningInProgress = eveningList.filter((r) => r.status === 'in_progress').length;
+
+  // Admin Start Trip Action
+  const handleAdminRecordStart = async (record: BusTimeRecord) => {
+    if (!canEdit) return;
+    const updatedRecord = timeHistoryStore.recordTripStart({
+      busId: record.bus_id,
+      busNumber: record.bus_number,
+      registrationNumber: record.registration_number,
+      driverId: record.driver_id,
+      driverName: record.driver_name,
+      driverPhone: record.driver_phone,
+      routeName: record.route_name,
+      startLocation: record.start_location,
+      destination: record.destination,
+      shift: record.shift,
+      date: record.date || selectedDate,
+    });
+    setTimeRecords(timeHistoryStore.getRecords());
+    showToast(`Noted START time for ${record.bus_number} (${record.shift.toUpperCase()}) at ${updatedRecord.start_time}`);
+
+    if (supabase) {
+      try {
+        await supabase.from('time_records').upsert(updatedRecord);
+        const channel = supabase.channel('time_records_sync');
+        channel.send({
+          type: 'broadcast',
+          event: 'time_history_update',
+          payload: { action: 'start', params: updatedRecord },
+        }).catch(() => {});
+      } catch (err) {
+        console.warn('Supabase upsert error:', err);
+      }
+    }
+  };
+
+  // Admin End Trip Action
+  const handleAdminRecordEnd = async (record: BusTimeRecord) => {
+    if (!canEdit) return;
+    const updatedRecord = timeHistoryStore.recordTripEnd({
+      busId: record.bus_id,
+      busNumber: record.bus_number,
+      registrationNumber: record.registration_number,
+      driverId: record.driver_id,
+      driverName: record.driver_name,
+      driverPhone: record.driver_phone,
+      routeName: record.route_name,
+      startLocation: record.start_location,
+      destination: record.destination,
+      shift: record.shift,
+      date: record.date || selectedDate,
+    });
+    setTimeRecords(timeHistoryStore.getRecords());
+    showToast(`Noted END time for ${record.bus_number} (${record.shift.toUpperCase()}) at ${updatedRecord.end_time}`);
+
+    if (supabase) {
+      try {
+        await supabase.from('time_records').upsert(updatedRecord);
+        const channel = supabase.channel('time_records_sync');
+        channel.send({
+          type: 'broadcast',
+          event: 'time_history_update',
+          payload: { action: 'end', params: updatedRecord },
+        }).catch(() => {});
+      } catch (err) {
+        console.warn('Supabase upsert error:', err);
+      }
+    }
+  };
+
+  // Manual Dispatch Submit (New entry for any bus)
+  const handleManualDispatchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetBus = buses.find((b) => b.id === manualBusId) || buses[0];
+    if (!targetBus) return;
+
+    const targetRoute = routes.find((r) => r.id === targetBus.route_id);
+    const targetDriver = drivers.find(
+      (d) => d.id === (targetBus.substitute_driver_id || targetBus.assigned_driver_id)
     );
 
-    const csv = [headers.join(','), ...rows].join('\n');
+    const rName = targetRoute?.route_name || (targetRoute as any)?.name || 'Corridor Express';
+    const startLoc = manualShift === 'morning'
+      ? (targetRoute?.start_location || (targetRoute as any)?.start_point || 'Old Bus Stand')
+      : (targetRoute?.destination || (targetRoute as any)?.end_point || 'RIT Campus');
+    const destLoc = manualShift === 'morning'
+      ? (targetRoute?.destination || (targetRoute as any)?.end_point || 'RIT Campus')
+      : (targetRoute?.start_location || (targetRoute as any)?.start_point || 'Old Bus Stand');
+
+    if (manualAction === 'start') {
+      const rec = timeHistoryStore.recordTripStart({
+        busId: targetBus.id,
+        busNumber: targetBus.bus_number,
+        registrationNumber: targetBus.registration_number,
+        driverId: targetDriver?.id,
+        driverName: targetDriver?.profile?.name || targetDriver?.name || 'Driver',
+        driverPhone: targetDriver?.phone || targetDriver?.profile?.phone || '+91 9894668646',
+        routeName: rName,
+        startLocation: startLoc,
+        destination: destLoc,
+        shift: manualShift,
+        date: selectedDate || new Date().toISOString().split('T')[0],
+      });
+      setTimeRecords(timeHistoryStore.getRecords());
+      showToast(`Started trip entry for ${targetBus.bus_number} (${manualShift.toUpperCase()})`);
+
+      if (supabase) {
+        try {
+          await supabase.from('time_records').upsert(rec);
+          const channel = supabase.channel('time_records_sync');
+          channel.send({
+            type: 'broadcast',
+            event: 'time_history_update',
+            payload: { action: 'start', params: rec },
+          }).catch(() => {});
+        } catch {}
+      }
+    } else {
+      const rec = timeHistoryStore.recordTripEnd({
+        busId: targetBus.id,
+        busNumber: targetBus.bus_number,
+        registrationNumber: targetBus.registration_number,
+        driverId: targetDriver?.id,
+        driverName: targetDriver?.profile?.name || targetDriver?.name || 'Driver',
+        driverPhone: targetDriver?.phone || targetDriver?.profile?.phone || '+91 9894668646',
+        routeName: rName,
+        startLocation: startLoc,
+        destination: destLoc,
+        shift: manualShift,
+        date: selectedDate || new Date().toISOString().split('T')[0],
+      });
+      setTimeRecords(timeHistoryStore.getRecords());
+      showToast(`Finished trip entry for ${targetBus.bus_number} (${manualShift.toUpperCase()})`);
+
+      if (supabase) {
+        try {
+          await supabase.from('time_records').upsert(rec);
+          const channel = supabase.channel('time_records_sync');
+          channel.send({
+            type: 'broadcast',
+            event: 'time_history_update',
+            payload: { action: 'end', params: rec },
+          }).catch(() => {});
+        } catch {}
+      }
+    }
+
+    setIsManualModalOpen(false);
+  };
+
+  const handleClearAllHistory = async () => {
+    if (!canEdit) return;
+    if (
+      window.confirm(
+        'Are you sure you want to clear all stored Time History logs? All driver start/end records will be permanently removed across all admin and staff logins.'
+      )
+    ) {
+      timeHistoryStore.clearAllRecords();
+      setTimeRecords([]);
+      if (supabase) {
+        try {
+          await supabase.from('time_records').delete().neq('id', 'placeholder');
+        } catch {}
+      }
+      showToast('All Time History records have been cleared.');
+    }
+  };
+
+  const handleExportCSV = () => {
+    const headers = [
+      'Shift',
+      'Date',
+      'Bus Number',
+      'Registration',
+      'Route Name',
+      'Driver Name',
+      'Driver Phone',
+      'Start Location',
+      'Destination',
+      'Scheduled Start',
+      'Scheduled End',
+      'Driver Clicked START Time',
+      'Driver Clicked END Time',
+      'Total Duration',
+      'Distance (km)',
+      'Status',
+    ];
+
+    const rows = filteredRecords.map((r) => [
+      r.shift.toUpperCase(),
+      r.date,
+      r.bus_number,
+      r.registration_number || '',
+      `"${r.route_name}"`,
+      `"${r.driver_name}"`,
+      r.driver_phone || '',
+      `"${r.start_location || ''}"`,
+      `"${r.destination || ''}"`,
+      r.scheduled_start_time || '',
+      r.scheduled_end_time || '',
+      r.start_time || 'Not Started',
+      r.end_time || 'In Progress',
+      r.duration || '--',
+      r.distance_km || 0,
+      r.status.toUpperCase(),
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    link.download = `ritbus-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `RIT_Bus_Time_History_${selectedDate || 'All'}_${activeShiftTab}.csv`);
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(link.href);
+    document.body.removeChild(link);
   };
 
   return (
     <>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999,
+            background: 'var(--green-soft)',
+            border: '1px solid var(--green)',
+            color: 'var(--green)',
+            padding: '10px 16px',
+            borderRadius: '12px',
+            boxShadow: 'var(--shadow-pop)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontWeight: 600,
+            fontSize: '13px',
+          }}
+        >
+          <CheckCircle2 size={16} />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* 1. Header Section */}
       <div className="section-intro">
         <div>
           <span className="eyebrow section-eyebrow">
-            <span className="eyebrow-dot" /> OPERATIONS LOGS
+            <span className="eyebrow-dot" /> DRIVER DISPATCH TELEMETRY LOGS
           </span>
           <h1>
-            {activeTab === 'trips' ? 'Trips' : 'Time history'}
-            <span className="headline-period">.</span>
+            Time History<span className="headline-period">.</span>
           </h1>
           <p>
-            {activeTab === 'trips'
-              ? 'Review active and completed campus journeys and driver shift logs.'
-              : 'Dispatch and vehicle timing records across morning and evening corridors.'}
+            Real-time automated logging of bus start & end timestamps triggered when drivers click{' '}
+            <strong>Start Trip</strong> and <strong>End Trip</strong> on their cockpit devices for Morning and Evening shifts.
           </p>
         </div>
         <div className="section-summary">
-          <strong>{currentDataset.length}</strong>
-          <span>{activeTab === 'trips' ? 'trip records' : 'timing logs'}</span>
+          <strong>{timeRecords.length}</strong>
+          <span>dispatch records logged</span>
         </div>
       </div>
 
-      {/* Tab Switcher */}
-      <div className="change-type-tabs" style={{ marginBottom: '14px' }}>
-        <button
-          className={activeTab === 'trips' ? 'active' : ''}
-          onClick={() => {
-            setActiveTab('trips');
-            setQuery('');
-            setStatusFilter('All status');
-          }}
-        >
-          Active journeys ({mockTrips.length})
-        </button>
-        <button
-          className={activeTab === 'history' ? 'active' : ''}
-          onClick={() => {
-            setActiveTab('history');
-            setQuery('');
-            setStatusFilter('All status');
-          }}
-        >
-          Historical dispatch logs ({historyLogs.length})
-        </button>
+      {/* 2. KPI Metrics Grid */}
+      <div className="metric-grid" style={{ marginBottom: '14px' }}>
+        {/* Morning Shift Card */}
+        <div className="metric-card metric-amber">
+          <div className="metric-top">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <Sunrise size={14} style={{ color: '#d97706' }} /> Morning Shift
+            </span>
+            <span className="metric-icon">
+              <Sunrise size={14} />
+            </span>
+          </div>
+          <div className="metric-value-row">
+            <strong>{morningCompleted}</strong>
+            <span className="metric-trend" style={{ color: 'var(--muted)' }}>
+              / {buses.length} finished
+            </span>
+          </div>
+          <div className="metric-bottom">
+            <span>Live in progress:</span>
+            <strong style={{ color: 'var(--green)' }}>{morningInProgress} Active</strong>
+          </div>
+        </div>
+
+        {/* Evening Shift Card */}
+        <div className="metric-card metric-blue">
+          <div className="metric-top">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <Sunset size={14} style={{ color: '#6366f1' }} /> Evening Shift
+            </span>
+            <span className="metric-icon">
+              <Sunset size={14} />
+            </span>
+          </div>
+          <div className="metric-value-row">
+            <strong>{eveningCompleted}</strong>
+            <span className="metric-trend" style={{ color: 'var(--muted)' }}>
+              / {buses.length} finished
+            </span>
+          </div>
+          <div className="metric-bottom">
+            <span>Live in progress:</span>
+            <strong style={{ color: 'var(--green)' }}>{eveningInProgress} Active</strong>
+          </div>
+        </div>
+
+        {/* Monitored Fleet */}
+        <div className="metric-card metric-green">
+          <div className="metric-top">
+            <span>Monitored Fleet</span>
+            <span className="metric-icon">
+              <BusIcon size={14} />
+            </span>
+          </div>
+          <div className="metric-value-row">
+            <strong>{buses.length}</strong>
+            <span className="metric-trend">Buses</span>
+          </div>
+          <div className="metric-bottom">
+            <span>Assigned corridors:</span>
+            <strong>{routes.length} Routes</strong>
+          </div>
+        </div>
+
+        {/* Live Telemetry Engine */}
+        <div className="metric-card metric-green">
+          <div className="metric-top">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <span className="footer-live-dot" /> Live Telemetry
+            </span>
+            <span className="metric-icon">
+              <RefreshCw size={14} />
+            </span>
+          </div>
+          <div className="metric-value-row">
+            <strong style={{ fontSize: '20px' }}>Realtime Sync</strong>
+          </div>
+          <div className="metric-bottom">
+            <span>Driver trigger:</span>
+            <strong style={{ color: 'var(--green)' }}>Automated</strong>
+          </div>
+        </div>
       </div>
 
-      {/* 2. Data Toolbar */}
+      {/* 3. Primary Shift Segmented Tab Switcher */}
+      <div
+        className="change-type-tabs"
+        style={{
+          marginBottom: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px',
+        }}
+      >
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            type="button"
+            className={activeShiftTab === 'morning' ? 'active' : ''}
+            onClick={() => setActiveShiftTab('morning')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Sunrise size={14} style={{ color: activeShiftTab === 'morning' ? '#d97706' : 'inherit' }} />
+            <span>Morning Shift ({morningList.length})</span>
+          </button>
+
+          <button
+            type="button"
+            className={activeShiftTab === 'evening' ? 'active' : ''}
+            onClick={() => setActiveShiftTab('evening')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Sunset size={14} style={{ color: activeShiftTab === 'evening' ? '#6366f1' : 'inherit' }} />
+            <span>Evening Shift ({eveningList.length})</span>
+          </button>
+
+          <button
+            type="button"
+            className={activeShiftTab === 'all' ? 'active' : ''}
+            onClick={() => setActiveShiftTab('all')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Clock size={14} />
+            <span>All Shifts ({timeRecords.length})</span>
+          </button>
+        </div>
+
+        {/* Date Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <Calendar size={14} /> Trip Date:
+          </span>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={{
+              padding: '6px 10px',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              background: 'var(--panel)',
+              color: 'var(--ink)',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* 4. Toolbar */}
       <div className="data-toolbar">
-        <div className="data-toolbar-left">
-          <label className="table-search">
+        <div className="data-toolbar-left" style={{ flex: 1 }}>
+          <label className="table-search" style={{ width: '100%', maxWidth: '300px' }}>
             <Search size={15} />
             <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Search ${activeTab}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by bus, driver, route or terminal..."
             />
             <kbd>/</kbd>
           </label>
 
           <label className="select-wrap">
             <Filter size={14} />
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option>All status</option>
-              {activeTab === 'trips' ? (
-                <>
-                  <option>Active</option>
-                  <option>Delayed</option>
-                  <option>Completed</option>
-                </>
-              ) : (
-                <>
-                  <option>On time</option>
-                  <option>Delayed</option>
-                  <option>Completed</option>
-                </>
-              )}
+            <select value={busFilter} onChange={(e) => setBusFilter(e.target.value)}>
+              <option value="all">All Buses ({buses.length})</option>
+              {buses.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.bus_number} • {b.bus_name}
+                </option>
+              ))}
             </select>
             <ChevronDown size={13} />
           </label>
+
+          <label className="select-wrap">
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
+              <option value="all">All Statuses</option>
+              <option value="completed">Completed</option>
+              <option value="in_progress">In Progress</option>
+              <option value="scheduled">Scheduled</option>
+            </select>
+            <ChevronDown size={13} />
+          </label>
+
+          {(searchQuery || busFilter !== 'all' || statusFilter !== 'all' || selectedDate) && (
+            <button
+              type="button"
+              className="text-action"
+              onClick={() => {
+                setSearchQuery('');
+                setBusFilter('all');
+                setStatusFilter('all');
+                setSelectedDate('');
+              }}
+            >
+              Reset <X size={12} />
+            </button>
+          )}
         </div>
 
         <div className="data-toolbar-right">
-          <button className="button button-quiet" onClick={exportCSV}>
-            <Download size={15} /> Export
+          {canEdit && (
+            <>
+              <button
+                type="button"
+                className="button button-quiet"
+                onClick={() => {
+                  setManualBusId(buses[0]?.id || '');
+                  setManualShift(activeShiftTab === 'evening' ? 'evening' : 'morning');
+                  setManualAction('start');
+                  setIsManualModalOpen(true);
+                }}
+                title="Manually log a start or end trip entry"
+              >
+                <Plus size={14} /> Log Trip Entry
+              </button>
+
+              <button
+                type="button"
+                className="button button-danger"
+                onClick={handleClearAllHistory}
+                title="Clear all stored time history logs"
+              >
+                <Trash2 size={14} /> Clear all
+              </button>
+            </>
+          )}
+
+          <button type="button" className="button button-quiet" onClick={handleExportCSV}>
+            <FileSpreadsheet size={15} /> Export CSV
           </button>
         </div>
       </div>
 
-      {/* 3. Table Panel */}
+      {/* 5. Main Dispatch Table matching the old design columns */}
       <div className="panel table-panel">
         <div className="table-meta">
           <span>
-            Showing <strong>{visibleStart}–{visibleEnd}</strong> of {filtered.length} filtered records{' '}
-            <small>({currentDataset.length} total)</small>
+            Showing <strong>{filteredRecords.length}</strong> dispatch records
+            {selectedDate && <small> for {selectedDate}</small>}
           </span>
-          {(query || statusFilter !== 'All status') && (
-            <button
-              className="text-action"
-              onClick={() => {
-                setQuery('');
-                setStatusFilter('All status');
-              }}
-            >
-              Clear filters <X size={13} />
-            </button>
-          )}
+          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+            Start & End timestamps recorded from driver cockpit actions
+          </span>
         </div>
 
         <div className="table-scroll">
           <table>
             <thead>
-              {activeTab === 'trips' ? (
-                <tr>
-                  <th>Trip</th>
-                  <th>Bus</th>
-                  <th>Route</th>
-                  <th>Driver</th>
-                  <th>Shift</th>
-                  <th>Started</th>
-                  <th>Ended</th>
-                  <th>Distance</th>
-                  <th>Status</th>
-                  <th className="actions-col">Actions</th>
-                </tr>
-              ) : (
-                <tr>
-                  <th>Log ID</th>
-                  <th>Date</th>
-                  <th>Bus</th>
-                  <th>Driver</th>
-                  <th>Shift</th>
-                  <th>Scheduled</th>
-                  <th>Actual</th>
-                  <th>Duration</th>
-                  <th>Status</th>
-                </tr>
-              )}
+              <tr>
+                <th>Bus & Shift</th>
+                <th>Assigned Driver</th>
+                <th>Route & Corridor</th>
+                <th style={{ textAlign: 'center' }}>
+                  <span style={{ color: '#d97706' }}>Scheduled Time</span>
+                </th>
+                <th>
+                  <span style={{ color: 'var(--green)' }}>● Driver Start Time</span>
+                </th>
+                <th>
+                  <span style={{ color: 'var(--red)' }}>🏁 Driver End Time</span>
+                </th>
+                <th style={{ textAlign: 'center' }}>Duration</th>
+                <th style={{ textAlign: 'center' }}>Status</th>
+                <th className="actions-col" style={{ textAlign: 'right' }}>
+                  Admin Actions
+                </th>
+              </tr>
             </thead>
             <tbody>
-              {activeTab === 'trips'
-                ? visibleRows.map((trip: any) => (
-                    <tr key={trip.id}>
-                      <td>
-                        <span className="font-mono font-bold">{trip.id}</span>
-                      </td>
-                      <td>
-                        <span className="bus-tag">
-                          <BusFront size={12} /> {trip.bus}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="route-tag">
-                          <span className="route-color-dot" /> {trip.route}
-                        </span>
-                      </td>
-                      <td>{trip.driver}</td>
-                      <td>
-                        <span className="shift-tag">
-                          {trip.shift === 'Morning' ? <Sun size={12} /> : <Moon size={12} />}
-                          {trip.shift}
-                        </span>
-                      </td>
-                      <td>{trip.start}</td>
-                      <td>{trip.end}</td>
-                      <td>{trip.distance}</td>
-                      <td>
-                        <span
-                          className={`status-badge status-${
-                            trip.status === 'Active'
-                              ? 'positive'
-                              : trip.status === 'Delayed'
-                              ? 'warning'
-                              : 'muted'
-                          }`}
+              {filteredRecords.map((record) => {
+                const isMorning = record.shift === 'morning';
+                const isInProgress = record.status === 'in_progress';
+                const isCompleted = record.status === 'completed';
+
+                return (
+                  <tr key={record.id}>
+                    {/* Bus & Shift */}
+                    <td>
+                      <div className="primary-cell">
+                        <div
+                          className="primary-cell-icon"
+                          style={{
+                            background: isMorning ? 'var(--amber-soft)' : 'var(--blue-soft)',
+                            color: isMorning ? '#b45309' : '#2563eb',
+                            fontWeight: 700,
+                          }}
                         >
-                          <i /> {trip.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="row-actions">
-                          <button
-                            className="icon-button row-toggle"
-                            onClick={() => setInspectTrip(trip)}
-                            title="Inspect trip trace"
-                          >
-                            <Eye size={14} />
-                          </button>
+                          {record.bus_number.replace('BUS-', '')}
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                : visibleRows.map((log: any) => (
-                    <tr key={log.id}>
-                      <td>
-                        <span className="font-mono font-bold">{log.id}</span>
-                      </td>
-                      <td>{log.date}</td>
-                      <td>
-                        <span className="bus-tag">
-                          <BusFront size={12} /> {log.bus}
+                        <span>
+                          <strong style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            {record.bus_number}
+                            <span
+                              className={`status-badge ${isMorning ? 'status-warning' : 'status-neutral'}`}
+                              style={{ fontSize: '9px', padding: '1px 5px' }}
+                            >
+                              {isMorning ? '🌅 Morning' : '🌆 Evening'}
+                            </span>
+                          </strong>
+                          <small style={{ fontFamily: 'monospace' }}>
+                            {record.registration_number || record.bus_name || 'TN 67 AM 9785'}
+                          </small>
                         </span>
-                      </td>
-                      <td>{log.driver}</td>
-                      <td>
-                        <span className="shift-tag">
-                          {log.shift === 'Morning' ? <Sun size={12} /> : <Moon size={12} />}
-                          {log.shift}
+                      </div>
+                    </td>
+
+                    {/* Assigned Driver */}
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <strong style={{ color: 'var(--ink)' }}>{record.driver_name}</strong>
+                        <small style={{ fontFamily: 'monospace', color: 'var(--muted)' }}>
+                          {record.driver_phone || '+91 9894668646'}
+                        </small>
+                      </div>
+                    </td>
+
+                    {/* Route & Corridor */}
+                    <td style={{ maxWidth: '240px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <strong style={{ color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {record.route_name}
+                        </strong>
+                        <small style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span>{record.start_location}</span>
+                          <ArrowRight size={10} style={{ flexShrink: 0 }} />
+                          <span>{record.destination}</span>
+                        </small>
+                      </div>
+                    </td>
+
+                    {/* Scheduled Time */}
+                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '11.5px', fontWeight: 600, color: '#b45309' }}>
+                        {record.scheduled_start_time || '07:30 AM'} • {record.scheduled_end_time || '08:20 AM'}
+                      </div>
+                      <small style={{ fontSize: '10px', color: 'var(--muted)' }}>Scheduled Slot</small>
+                    </td>
+
+                    {/* Driver Start Time */}
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {record.start_time ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span className="footer-live-dot" style={{ margin: 0 }} />
+                          <div>
+                            <div style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 700, color: 'var(--green)' }}>
+                              {record.start_time}
+                            </div>
+                            <small style={{ fontSize: '10px', color: 'var(--muted)' }}>Noted on Start Click</small>
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--muted-2)', fontFamily: 'monospace', fontSize: '11px', fontStyle: 'italic' }}>
+                          --:-- (Standby)
                         </span>
-                      </td>
-                      <td>{log.scheduled}</td>
-                      <td>{log.actual}</td>
-                      <td>{log.duration}</td>
-                      <td>
-                        <span
-                          className={`status-badge status-${
-                            log.status === 'On time'
-                              ? 'positive'
-                              : log.status === 'Delayed'
-                              ? 'warning'
-                              : 'muted'
-                          }`}
+                      )}
+                    </td>
+
+                    {/* Driver End Time */}
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {record.end_time ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--red)', display: 'inline-block' }} />
+                          <div>
+                            <div style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 700, color: 'var(--red)' }}>
+                              {record.end_time}
+                            </div>
+                            <small style={{ fontSize: '10px', color: 'var(--muted)' }}>Noted on End Click</small>
+                          </div>
+                        </div>
+                      ) : isInProgress ? (
+                        <span className="status-badge status-positive" style={{ fontSize: '10px', animation: 'pulse 1.5s infinite' }}>
+                          Trip In Progress...
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--muted-2)', fontFamily: 'monospace', fontSize: '11px', fontStyle: 'italic' }}>
+                          --:-- (Pending)
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Duration */}
+                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontFamily: 'monospace', fontWeight: 650, color: 'var(--ink)' }}>
+                        {record.duration || '--'}
+                      </div>
+                      {record.distance_km ? (
+                        <small style={{ fontSize: '10px', color: 'var(--muted)' }}>{record.distance_km} km</small>
+                      ) : null}
+                    </td>
+
+                    {/* Status */}
+                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {isCompleted ? (
+                        <span className="status-badge status-positive">
+                          <CheckCircle2 size={11} /> Completed
+                        </span>
+                      ) : isInProgress ? (
+                        <span className="status-badge status-neutral" style={{ animation: 'pulse 1.5s infinite' }}>
+                          <PlayCircle size={11} /> In Progress
+                        </span>
+                      ) : (
+                        <span className="status-badge status-muted">
+                          <Timer size={11} /> Scheduled
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Admin Actions */}
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {!canEdit ? (
+                        <span style={{ fontSize: '11px', color: 'var(--muted)' }}>View Only</span>
+                      ) : isInProgress ? (
+                        <button
+                          type="button"
+                          className="button button-quiet"
+                          style={{ minHeight: '27px', fontSize: '11px', color: 'var(--red)', borderColor: 'var(--border)' }}
+                          onClick={() => handleAdminRecordEnd(record)}
+                          title="Record finish time now"
                         >
-                          <i /> {log.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                          <StopCircle size={12} /> Log Finish Time
+                        </button>
+                      ) : isCompleted ? (
+                        <button
+                          type="button"
+                          className="button button-quiet"
+                          style={{ minHeight: '27px', fontSize: '11px' }}
+                          onClick={() => handleAdminRecordStart(record)}
+                          title="Re-log or update trip start timestamp"
+                        >
+                          <PlayCircle size={12} /> Start New
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="button button-quiet"
+                          style={{ minHeight: '27px', fontSize: '11px', color: 'var(--green)' }}
+                          onClick={() => handleAdminRecordStart(record)}
+                          title="Start trip"
+                        >
+                          <PlayCircle size={12} /> Start Trip
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {filteredRecords.length === 0 && (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '48px 16px' }}>
+                    <div className="empty-state">
+                      <span><Clock size={20} /></span>
+                      <strong>No Time History Records Found</strong>
+                      <p style={{ maxWidth: '420px', margin: '6px auto 14px', lineHeight: 1.5 }}>
+                        Trip start and finish records are dynamically logged here whenever drivers click{' '}
+                        <strong style={{ color: 'var(--green)' }}>Start Trip</strong> and{' '}
+                        <strong style={{ color: 'var(--red)' }}>End Trip</strong> in their app (or logged manually by an admin).
+                      </p>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          className="button button-primary"
+                          onClick={() => {
+                            setManualBusId(buses[0]?.id || '');
+                            setManualShift(activeShiftTab === 'evening' ? 'evening' : 'morning');
+                            setManualAction('start');
+                            setIsManualModalOpen(true);
+                          }}
+                        >
+                          <Plus size={14} /> Log Trip Entry
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-
-          {filtered.length === 0 && (
-            <div className="empty-state">
-              <span>
-                <Search size={19} />
-              </span>
-              <strong>No records found</strong>
-              <p>{query ? `Nothing matched “${query}”.` : 'No logs match the current filter.'}</p>
-            </div>
-          )}
-        </div>
-
-        {/* 4. Table Footer */}
-        <div className="table-footer">
-          <span>
-            {visibleStart}–{visibleEnd} of {filtered.length} records
-          </span>
-          <div className="pagination">
-            <button
-              aria-label="Previous page"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((v) => Math.max(1, v - 1))}
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className="page-number active">
-              {currentPage} / {pageCount}
-            </span>
-            <button
-              aria-label="Next page"
-              disabled={currentPage >= pageCount}
-              onClick={() => setCurrentPage((v) => Math.min(pageCount, v + 1))}
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
-
-          <label className="rows-select">
-            Rows per page{' '}
-            <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-            <ChevronDown size={12} aria-hidden="true" />
-          </label>
         </div>
       </div>
 
-      {/* 5. Trip Inspection Modal */}
-      {inspectTrip && (
+      {/* 6. Manual Dispatch Modal */}
+      {isManualModalOpen && (
         <div
           className="modal-backdrop"
           role="presentation"
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setInspectTrip(null);
+            if (e.target === e.currentTarget) setIsManualModalOpen(false);
           }}
         >
-          <section className="modal" role="dialog" aria-modal="true">
+          <section className="modal" role="dialog" aria-modal="true" style={{ maxWidth: '480px' }}>
             <header className="modal-header">
               <div>
                 <span className="modal-kicker">
-                  <span className="eyebrow-dot" /> JOURNEY INSPECTION
+                  <span className="eyebrow-dot" /> DISPATCH OVERRIDE
                 </span>
-                <h2>Trip {inspectTrip.id}</h2>
-                <p>
-                  {inspectTrip.route} · {inspectTrip.shift} shift
-                </p>
+                <h2>Manual Trip Dispatch</h2>
+                <p>Record a driver trip start or finish timestamp for today's fleet schedule.</p>
               </div>
-              <button className="icon-button" onClick={() => setInspectTrip(null)} aria-label="Close dialog">
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setIsManualModalOpen(false)}
+                aria-label="Close dialog"
+              >
                 <X size={18} />
               </button>
             </header>
 
-            <div className="trip-inspect">
-              <div className="trip-summary">
-                <span className="trip-bus">
-                  <BusFront size={20} />
-                </span>
-                <div>
-                  <strong>{inspectTrip.bus}</strong>
-                  <small>{inspectTrip.driver}</small>
-                </div>
-                <span
-                  className={`status-badge status-${
-                    inspectTrip.status === 'Active'
-                      ? 'positive'
-                      : inspectTrip.status === 'Delayed'
-                      ? 'warning'
-                      : 'muted'
-                  }`}
+            <form className="record-form" onSubmit={handleManualDispatchSubmit}>
+              <div className="record-form-grid" style={{ gridTemplateColumns: '1fr' }}>
+                <label>
+                  Select Bus
+                  <select
+                    value={manualBusId}
+                    onChange={(e) => setManualBusId(e.target.value)}
+                  >
+                    {buses.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.bus_number} • {b.bus_name} ({b.registration_number || 'TN 67 AM 9785'})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Shift
+                  <select
+                    value={manualShift}
+                    onChange={(e) => setManualShift(e.target.value as any)}
+                  >
+                    <option value="morning">🌅 Morning Shift (Pickup ➔ Campus)</option>
+                    <option value="evening">🌆 Evening Shift (Campus ➔ Return)</option>
+                  </select>
+                </label>
+
+                <label>
+                  Telemetry Action
+                  <select
+                    value={manualAction}
+                    onChange={(e) => setManualAction(e.target.value as any)}
+                  >
+                    <option value="start">🟢 Record Start Trip (Driver Departure)</option>
+                    <option value="end">🏁 Record End Trip (Driver Arrival)</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="button button-quiet"
+                  onClick={() => setIsManualModalOpen(false)}
                 >
-                  <i /> {inspectTrip.status}
-                </span>
+                  Cancel
+                </button>
+                <button type="submit" className="button button-primary">
+                  Confirm Dispatch <ArrowRight size={14} />
+                </button>
               </div>
-
-              <div className="trip-path">
-                <div className="trip-stop">
-                  <i className="trip-stop-start" />
-                  <div>
-                    <small>DEPARTED</small>
-                    <strong>Old Bus Stand</strong>
-                    <span>{inspectTrip.start}</span>
-                  </div>
-                </div>
-
-                <div className="trip-path-line" />
-
-                <div className="trip-stop">
-                  <i className="trip-stop-current" />
-                  <div>
-                    <small>{inspectTrip.status === 'Completed' ? 'ARRIVED' : 'NEXT STOP'}</small>
-                    <strong>{inspectTrip.status === 'Completed' ? 'Campus Gate' : 'Gandhi Statue'}</strong>
-                    <span>{inspectTrip.end}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="trip-inspect-stats">
-                <div>
-                  <small>Distance</small>
-                  <strong>{inspectTrip.distance}</strong>
-                </div>
-                <div>
-                  <small>Duration</small>
-                  <strong>{inspectTrip.status === 'Completed' ? '42 min' : 'In progress'}</strong>
-                </div>
-                <div>
-                  <small>GPS trace</small>
-                  <strong>Live telemetry</strong>
-                </div>
-              </div>
-
-              <div className="modal-note">
-                <MapPin size={14} /> Telemetry route coordinates logged via vehicle GPS transceiver.
-              </div>
-            </div>
+            </form>
           </section>
         </div>
       )}

@@ -134,13 +134,39 @@ export const App: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => loadStorage('bustrack_sidebar_collapsed', false));
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+  // Helper to ensure all master routes, buses, drivers, stops, and commuters are preserved and never duplicated by stale localStorage caches
+  const mergeMaster = <T extends { id: string }>(key: string, masterList: T[]): T[] => {
+    const stored = loadStorage<T[]>(key, masterList);
+    if (!Array.isArray(stored) || stored.length === 0) return masterList;
+    const map = new Map<string, T>(masterList.map(item => [item.id, item]));
+    stored.forEach(item => {
+      if (item && item.id) {
+        // Find existing master item by business identifier to prevent duplicate entries (e.g., Route 4 with different IDs)
+        const matchMaster = masterList.find(m => {
+          if (m.id === item.id) return true;
+          const mAny = m as any;
+          const iAny = item as any;
+          if (mAny.route_name && iAny.route_name && mAny.route_name.trim().toLowerCase() === iAny.route_name.trim().toLowerCase()) return true;
+          if (mAny.bus_number && iAny.bus_number && mAny.bus_number.trim().toLowerCase() === iAny.bus_number.trim().toLowerCase()) return true;
+          if (mAny.stop_name && iAny.stop_name && mAny.route_id === iAny.route_id && mAny.stop_name.trim().toLowerCase() === iAny.stop_name.trim().toLowerCase()) return true;
+          return false;
+        });
+
+        const targetId = matchMaster ? matchMaster.id : item.id;
+        const existing = map.get(targetId) || matchMaster;
+        map.set(targetId, { ...existing, ...item, id: targetId });
+      }
+    });
+    return Array.from(map.values());
+  };
+
   // Persistent System Central State (Synced to localStorage and Supabase)
-  const [buses, setBuses] = useState<Bus[]>(() => loadStorage('bustrack_buses_v1', INITIAL_BUSES));
-  const [drivers, setDrivers] = useState<Driver[]>(() => loadStorage('bustrack_drivers_v1', INITIAL_DRIVERS));
-  const [students, setStudents] = useState<Student[]>(() => loadStorage('bustrack_students_v1', INITIAL_STUDENTS));
-  const [staffCommuters, setStaffCommuters] = useState<StaffCommuter[]>(() => loadStorage('bustrack_staff_commuters_v1', INITIAL_STAFF_COMMUTERS));
-  const [routes, setRoutes] = useState<RouteType[]>(() => loadStorage('bustrack_routes_v1', INITIAL_ROUTES));
-  const [stops, setStops] = useState<Stop[]>(() => loadStorage('bustrack_stops_v1', INITIAL_STOPS));
+  const [buses, setBuses] = useState<Bus[]>(() => mergeMaster('bustrack_buses_v1', INITIAL_BUSES));
+  const [drivers, setDrivers] = useState<Driver[]>(() => mergeMaster('bustrack_drivers_v1', INITIAL_DRIVERS));
+  const [students, setStudents] = useState<Student[]>(() => mergeMaster('bustrack_students_v1', INITIAL_STUDENTS));
+  const [staffCommuters, setStaffCommuters] = useState<StaffCommuter[]>(() => mergeMaster('bustrack_staff_commuters_v1', INITIAL_STAFF_COMMUTERS));
+  const [routes, setRoutes] = useState<RouteType[]>(() => mergeMaster('bustrack_routes_v1', INITIAL_ROUTES));
+  const [stops, setStops] = useState<Stop[]>(() => mergeMaster('bustrack_stops_v1', INITIAL_STOPS));
   const [trips, setTrips] = useState<Trip[]>(() => loadStorage('bustrack_trips_v1', INITIAL_TRIPS));
   const [locations, setLocations] = useState<CurrentBusLocation[]>(() => loadStorage('bustrack_locations_v1', INITIAL_LOCATIONS));
   const [emergencies, setEmergencies] = useState<EmergencyAlert[]>(() => loadStorage('bustrack_emergencies_v1', INITIAL_EMERGENCIES));
@@ -1637,15 +1663,20 @@ export const App: React.FC = () => {
   };
 
   const handleSaveRoute = async (route: RouteType) => {
+    let nextRoutes: RouteType[] = [];
     setRoutes(prev => {
       const idx = prev.findIndex(r => r.id === route.id);
       if (idx >= 0) {
         const copy = [...prev];
         copy[idx] = route;
+        nextRoutes = copy;
         return copy;
       }
-      return [...prev, route];
+      nextRoutes = [...prev, route];
+      return nextRoutes;
     });
+
+    saveStorage('bustrack_routes_v1', nextRoutes);
 
     if (supabase) {
       try {
@@ -1665,8 +1696,14 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteRoute = async (routeId: string) => {
-    setRoutes(prev => prev.filter(r => r.id !== routeId));
+    let nextRoutes: RouteType[] = [];
+    setRoutes(prev => {
+      nextRoutes = prev.filter(r => r.id !== routeId);
+      return nextRoutes;
+    });
     setStops(prev => prev.filter(s => s.route_id !== routeId));
+
+    saveStorage('bustrack_routes_v1', nextRoutes);
 
     if (supabase) {
       try {
@@ -1710,6 +1747,9 @@ export const App: React.FC = () => {
           longitude: stop.longitude,
           stop_order: stop.stop_order,
           estimated_arrival: stop.estimated_arrival,
+          morning_time: stop.morning_time,
+          evening_time: stop.evening_time,
+          google_maps_link: stop.google_maps_link,
           status: stop.status || 'active'
         });
       } catch (e) {
@@ -1772,6 +1812,9 @@ export const App: React.FC = () => {
             longitude: st.longitude,
             stop_order: st.stop_order,
             estimated_arrival: st.estimated_arrival,
+            morning_time: st.morning_time,
+            evening_time: st.evening_time,
+            google_maps_link: st.google_maps_link,
             status: st.status || 'active'
           });
         }
@@ -2113,6 +2156,8 @@ export const App: React.FC = () => {
                     stops={stops}
                     buses={buses}
                     drivers={drivers}
+                    students={students}
+                    staffCommuters={staffCommuters}
                     onSaveRoute={handleSaveRoute}
                     onDeleteRoute={handleDeleteRoute}
                     onSaveStop={handleSaveStop}
@@ -2122,6 +2167,8 @@ export const App: React.FC = () => {
                     onSwapBus={handleSwapBus}
                     onRevertSubstituteDriver={handleRevertSubstituteDriver}
                     onRevertBusSwap={handleRevertBusSwap}
+                    onToggleStudentLeave={handleToggleStudentLeave}
+                    onToggleStaffLeave={handleToggleStaffCommuterLeave}
                     currentUser={currentUser}
                     canEdit={canEdit}
                   />

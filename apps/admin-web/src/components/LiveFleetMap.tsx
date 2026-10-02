@@ -352,7 +352,14 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
   }, [allFleetLocations]);
 
   const validStops = useMemo(() => {
-    return (stops || []).filter((s) => s && isValidCoord(s.latitude, s.longitude));
+    const raw = (stops || []).filter((s) => s && isValidCoord(s.latitude, s.longitude));
+    const seen = new Set<string>();
+    return raw.filter((s) => {
+      const key = `${s.route_id || ''}_${(s.stop_name || (s as any).name || '').trim().toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }, [stops]);
 
   // Collect all points for fit bounds
@@ -688,26 +695,28 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
             />
           )}
 
-          {/* COLLEGE CAMPUS TERMINUS LANDMARK */}
-          <Marker 
-            position={[COLLEGE_LOCATION.latitude, COLLEGE_LOCATION.longitude]} 
-            icon={collegeMarkerIcon} 
-            zIndexOffset={600}
-          >
-            <Tooltip direction="top" offset={[0, -14]} opacity={0.95}>
-              <span className="text-[11px] font-black text-purple-900">🏫 {COLLEGE_LOCATION.name}</span>
-            </Tooltip>
-            <Popup>
-              <div className="text-slate-900 font-bold p-1 space-y-1">
-                <div className="text-sm text-purple-700 flex items-center gap-1.5 font-extrabold">
-                  <span>🏫</span> {COLLEGE_LOCATION.name}
+          {/* COLLEGE CAMPUS TERMINUS LANDMARK (Only rendered when not already in displayedStops) */}
+          {(!displayedStops.some(s => Math.abs(s.latitude - COLLEGE_LOCATION.latitude) < 0.001 && Math.abs(s.longitude - COLLEGE_LOCATION.longitude) < 0.001)) && (
+            <Marker 
+              position={[COLLEGE_LOCATION.latitude, COLLEGE_LOCATION.longitude]} 
+              icon={collegeMarkerIcon} 
+              zIndexOffset={600}
+            >
+              <Tooltip direction="top" offset={[0, -14]} opacity={0.95}>
+                <span className="text-[11px] font-black text-purple-900">🏫 {COLLEGE_LOCATION.name}</span>
+              </Tooltip>
+              <Popup>
+                <div className="text-slate-900 font-bold p-1 space-y-1">
+                  <div className="text-sm text-purple-700 flex items-center gap-1.5 font-extrabold">
+                    <span>🏫</span> {COLLEGE_LOCATION.name}
+                  </div>
+                  <div className="text-xs text-slate-600 font-normal">
+                    Primary Campus Central Bus Bay & Destination Terminal.
+                  </div>
                 </div>
-                <div className="text-xs text-slate-600 font-normal">
-                  Primary Campus Central Bus Bay & Destination Terminal.
-                </div>
-              </div>
-            </Popup>
-          </Marker>
+              </Popup>
+            </Marker>
+          )}
 
           {/* DUAL-STROKE ROUTE POLYLINES FOR ALL BUS ROUTES */}
           {(routes || []).map((route, idx) => {
