@@ -168,9 +168,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <Icon size={17} strokeWidth={1.8} />
                     {!collapsed && <span className="nav-label">{item.label}</span>}
-                    {!collapsed && item.count && (
+                    {!collapsed && (item as any).count && (
                       <span className="nav-count alert-count">
-                        {item.count}
+                        {(item as any).count}
                       </span>
                     )}
                   </NavLink>

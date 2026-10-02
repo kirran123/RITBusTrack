@@ -21,6 +21,11 @@
     "noFallthroughCasesInSwitch": true,
 
     "baseUrl": ".",
+    "types": ["vite/client"],
+    "typeRoots": [
+      "./node_modules/@types",
+      "../../node_modules/@types"
+    ],
     "paths": {
       "@/*": ["src/*"],
       "@college-bus/shared": ["../../packages/shared/src/index.ts"]
