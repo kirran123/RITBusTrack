@@ -401,23 +401,43 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
   };
 
   return (
-    <div className="w-full rounded-3xl overflow-hidden border border-slate-800 shadow-2xl relative z-10 flex flex-col bg-slate-950" style={{ height }}>
-      
+    <div
+      className="w-full h-full relative z-10 flex flex-col overflow-hidden"
+      style={{
+        height,
+        background: 'var(--panel)',
+        color: 'var(--ink)',
+      }}
+    >
       {/* TOP HEADER: Clean Route Selector Bar with Visible Scroll Controls */}
       {showRouteSelector && (
-        <div className="bg-slate-900 px-3 py-2.5 border-b border-slate-800/90 z-20 flex items-center justify-between gap-2">
-          
+        <div
+          className="px-3 py-2 border-b z-20 flex items-center justify-between gap-2"
+          style={{
+            background: 'var(--panel-soft)',
+            borderColor: 'var(--border)',
+            color: 'var(--ink)',
+          }}
+        >
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-slate-400 font-extrabold text-[11px] flex items-center gap-1">
-              <Layers className="w-3.5 h-3.5 text-blue-400" />
+            <span
+              className="font-extrabold text-[11px] flex items-center gap-1"
+              style={{ color: 'var(--muted)' }}
+            >
+              <Layers className="w-3.5 h-3.5" style={{ color: 'var(--green, #39764d)' }} />
               <span className="hidden sm:inline">Routes:</span>
             </span>
-            
+
             {/* Scroll Left Button */}
             <button
               type="button"
               onClick={() => scrollRoutes('left')}
-              className="p-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition-all shadow-sm flex items-center justify-center"
+              className="p-1 rounded-lg border transition-all flex items-center justify-center"
+              style={{
+                background: 'var(--panel)',
+                borderColor: 'var(--border)',
+                color: 'var(--ink-2)',
+              }}
               title="Scroll Routes Left"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -425,7 +445,7 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
           </div>
 
           {/* Scrollable Chips Container */}
-          <div 
+          <div
             ref={routeScrollRef}
             className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none py-0.5 flex-1 min-w-0 scroll-smooth"
           >
@@ -436,14 +456,22 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
                 setInternalSelectedRouteId('all');
                 if (onSelectRoute) onSelectRoute('');
               }}
-              className={`px-3 py-1 rounded-xl font-bold transition-all text-[11px] flex items-center gap-1.5 shrink-0 ${
-                activeRouteId === 'all'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700/60'
-              }`}
+              className="px-3 py-1 rounded-xl font-bold transition-all text-[11px] flex items-center gap-1.5 shrink-0 border"
+              style={{
+                background: activeRouteId === 'all' ? 'var(--accent-strong, #84a93c)' : 'var(--panel)',
+                borderColor: activeRouteId === 'all' ? 'var(--accent-strong, #84a93c)' : 'var(--border)',
+                color: activeRouteId === 'all' ? '#ffffff' : 'var(--ink-2)',
+                boxShadow: activeRouteId === 'all' ? '0 2px 8px rgba(132, 169, 60, 0.3)' : 'none',
+              }}
             >
               <span>🌐 All Routes</span>
-              <span className="bg-slate-950/60 px-1.5 py-0.2 rounded text-[9.5px] font-mono">
+              <span
+                className="px-1.5 py-0.2 rounded text-[9.5px] font-mono"
+                style={{
+                  background: activeRouteId === 'all' ? 'rgba(0,0,0,0.2)' : 'var(--hover)',
+                  color: activeRouteId === 'all' ? '#ffffff' : 'var(--muted)',
+                }}
+              >
                 {routes.length}
               </span>
             </button>
@@ -452,7 +480,7 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
             {routes.map((route, idx) => {
               const routeColor = route.route_color || DEFAULT_ROUTE_COLORS[idx % DEFAULT_ROUTE_COLORS.length];
               const isSelected = activeRouteId === route.id;
-              const assignedBuses = buses.filter(b => b.route_id === route.id);
+              const assignedBuses = buses.filter((b) => b.route_id === route.id);
 
               return (
                 <button
@@ -462,14 +490,12 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
                     setInternalSelectedRouteId(route.id);
                     if (onSelectRoute) onSelectRoute(route.id);
                   }}
-                  className={`px-3 py-1 rounded-xl font-bold transition-all text-[11px] flex items-center gap-1.5 shrink-0 ${
-                    isSelected
-                      ? 'text-white shadow-md'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700/60'
-                  }`}
+                  className="px-3 py-1 rounded-xl font-bold transition-all text-[11px] flex items-center gap-1.5 shrink-0 border"
                   style={{
-                    backgroundColor: isSelected ? routeColor : undefined,
-                    borderColor: isSelected ? '#ffffff' : undefined,
+                    backgroundColor: isSelected ? routeColor : 'var(--panel)',
+                    borderColor: isSelected ? routeColor : 'var(--border)',
+                    color: isSelected ? '#ffffff' : 'var(--ink-2)',
+                    boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.18)' : 'none',
                   }}
                 >
                   <span
@@ -478,8 +504,14 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
                   />
                   <span className="whitespace-nowrap">{route.route_name}</span>
                   {assignedBuses.length > 0 && (
-                    <span className="bg-slate-950/60 px-1.5 py-0.2 rounded text-[9px] font-mono text-slate-200">
-                      {assignedBuses.map(b => b.bus_number.replace(/BUS\s*/i, '')).join(', ')}
+                    <span
+                      className="px-1.5 py-0.2 rounded text-[9px] font-mono"
+                      style={{
+                        background: isSelected ? 'rgba(0,0,0,0.25)' : 'var(--hover)',
+                        color: isSelected ? '#ffffff' : 'var(--muted)',
+                      }}
+                    >
+                      {assignedBuses.map((b) => b.bus_number.replace(/BUS\s*/i, '')).join(', ')}
                     </span>
                   )}
                 </button>
@@ -492,7 +524,12 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
             <button
               type="button"
               onClick={() => scrollRoutes('right')}
-              className="p-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition-all shadow-sm flex items-center justify-center"
+              className="p-1 rounded-lg border transition-all flex items-center justify-center"
+              style={{
+                background: 'var(--panel)',
+                borderColor: 'var(--border)',
+                color: 'var(--ink-2)',
+              }}
               title="Scroll Routes Right"
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -501,11 +538,16 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
             {/* Quick Fit Action */}
             <button
               type="button"
-              onClick={() => setFitBoundsTrigger(prev => prev + 1)}
-              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition-all shadow-md shrink-0 flex items-center gap-1 text-[11px] font-bold ml-1"
+              onClick={() => setFitBoundsTrigger((prev) => prev + 1)}
+              className="p-1.5 rounded-xl border transition-all shrink-0 flex items-center gap-1 text-[11px] font-bold ml-1"
+              style={{
+                background: 'var(--panel)',
+                borderColor: 'var(--border)',
+                color: 'var(--ink-2)',
+              }}
               title="Fit All Buses in View"
             >
-              <Maximize2 className="w-3.5 h-3.5 text-blue-400" />
+              <Maximize2 className="w-3.5 h-3.5" style={{ color: 'var(--green, #39764d)' }} />
               <span className="hidden sm:inline">Fit</span>
             </button>
           </div>
@@ -514,73 +556,81 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
 
       {/* MAP CONTAINER & FLOATING LAYER CONTROLS */}
       <div className="relative flex-1 w-full overflow-hidden">
-        
         {/* Floating Clean Control Bar inside Map (Top Right) */}
-        <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1 rounded-2xl border border-slate-700/80 shadow-2xl text-[10.5px]">
+        <div
+          className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 p-1 rounded-2xl border text-[10.5px]"
+          style={{
+            background: 'color-mix(in srgb, var(--panel) 92%, transparent)',
+            borderColor: 'var(--border)',
+            backdropFilter: 'blur(10px)',
+            boxShadow: 'var(--shadow-pop)',
+            color: 'var(--ink)',
+          }}
+        >
           {/* Stops Mode */}
-          <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-slate-800">
+          <div
+            className="flex items-center p-0.5 rounded-xl border"
+            style={{
+              background: 'var(--hover)',
+              borderColor: 'var(--border)',
+            }}
+          >
             <button
               type="button"
               onClick={() => setStopFilterMode('all')}
-              className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
-                stopFilterMode === 'all' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
+              className="px-2 py-0.5 rounded-lg font-bold transition-all"
+              style={{
+                background: stopFilterMode === 'all' ? 'var(--green, #39764d)' : 'transparent',
+                color: stopFilterMode === 'all' ? '#ffffff' : 'var(--muted)',
+              }}
             >
               Stops
             </button>
             <button
               type="button"
               onClick={() => setStopFilterMode('none')}
-              className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
-                stopFilterMode === 'none' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
+              className="px-2 py-0.5 rounded-lg font-bold transition-all"
+              style={{
+                background: stopFilterMode === 'none' ? 'var(--green, #39764d)' : 'transparent',
+                color: stopFilterMode === 'none' ? '#ffffff' : 'var(--muted)',
+              }}
             >
               Paths Only
             </button>
           </div>
 
           {/* Map Layer Switcher */}
-          <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-slate-800">
-            <button
-              type="button"
-              onClick={() => setMapStyle('google')}
-              className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
-                mapStyle === 'google' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-              title="Google Roadmap"
-            >
-              Roadmap
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapStyle('satellite')}
-              className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
-                mapStyle === 'satellite' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-              title="Satellite Hybrid"
-            >
-              Satellite
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapStyle('dark')}
-              className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
-                mapStyle === 'dark' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-              title="Dark Transit"
-            >
-              Dark
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapStyle('osm')}
-              className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
-                mapStyle === 'osm' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-              title="OpenStreetMap"
-            >
-              OSM
-            </button>
+          <div
+            className="flex items-center p-0.5 rounded-xl border"
+            style={{
+              background: 'var(--hover)',
+              borderColor: 'var(--border)',
+            }}
+          >
+            {(['google', 'satellite', 'dark', 'osm'] as const).map((styleKey) => {
+              const labelMap = {
+                google: 'Roadmap',
+                satellite: 'Satellite',
+                dark: 'Dark',
+                osm: 'OSM',
+              };
+              const isCurrent = mapStyle === styleKey;
+              return (
+                <button
+                  key={styleKey}
+                  type="button"
+                  onClick={() => setMapStyle(styleKey)}
+                  className="px-2 py-0.5 rounded-lg font-bold transition-all"
+                  style={{
+                    background: isCurrent ? 'var(--green, #39764d)' : 'transparent',
+                    color: isCurrent ? '#ffffff' : 'var(--muted)',
+                  }}
+                  title={labelMap[styleKey]}
+                >
+                  {labelMap[styleKey]}
+                </button>
+              );
+            })}
           </div>
         </div>
 

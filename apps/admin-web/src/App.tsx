@@ -48,6 +48,17 @@ const saveStorage = <T,>(key: string, data: T): void => {
   }
 };
 
+export function isInternalRegistryNotification(notif: any): boolean {
+  if (!notif) return false;
+  if (notif.id === CLOUD_REGISTRY_SNAPSHOT_ID) return true;
+  if (notif.title === CLOUD_REGISTRY_NOTIFICATION_TITLE) return true;
+  if (typeof notif.title === 'string' && (notif.title.includes('REGISTRY_SNAPSHOT') || notif.title.includes('BUST_TRACK_REGISTRY'))) return true;
+  if (notif.type === 'system_registry' || notif.type === 'registry_snapshot' || notif.type === 'system_internal') return true;
+  if (notif.target_type === 'system') return true;
+  if (typeof notif.message === 'string' && (notif.message.trim().startsWith('{"version"') || notif.message.includes('BUST_TRACK_REGISTRY') || notif.message.includes('"students":'))) return true;
+  return false;
+}
+
 const getResolvedEmergencyIds = (): Set<string> => {
   try {
     const raw = localStorage.getItem('bustrack_resolved_emergencies_v1');
@@ -64,11 +75,63 @@ const markEmergencyResolvedLocally = (id: string) => {
   } catch {}
 };
 
+function LoadingScreen({ theme }: { theme: 'light' | 'dark' }) {
+  return (
+    <div className={`loading-screen theme-${theme}`} role="status" aria-live="polite">
+      <div className="loader-wordmark" aria-label="RITBusTrack">
+        RIT<span>Bus</span>Track
+      </div>
+      <div className="loader-snap-stage" aria-hidden="true">
+        <span className="snap-wind snap-wind-one" />
+        <span className="snap-wind snap-wind-two" />
+        <span className="snap-wind snap-wind-three" />
+        <span className="snap-arrival-glow" />
+        <img className="loader-snap-logo" src="/ritbustrack-logo.png" alt="RITBusTrack" />
+      </div>
+      <p>Bringing your fleet into view</p>
+      <div className="loader-sub">Connecting the route dots</div>
+    </div>
+  );
+}
+
 export const App: React.FC = () => {
+  // Theme state: Persisted in localStorage and system preference aware
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem('ritbus-theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+      return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const changeTheme = (next: 'light' | 'dark') => {
+    setTheme(next);
+    try {
+      localStorage.setItem('ritbus-theme', next);
+      document.documentElement.classList.remove('theme-light', 'theme-dark');
+      document.documentElement.classList.add(`theme-${next}`);
+    } catch {}
+  };
+
+  useEffect(() => {
+    document.documentElement.classList.remove('theme-light', 'theme-dark');
+    document.documentElement.classList.add(`theme-${theme}`);
+  }, [theme]);
+
+  // Initial wind-snap startup loader
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setLoading(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   // Authentication State: Persisted in localStorage so reloading stays logged in
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => loadStorage<UserProfile | null>('bustrack_auth_user', null));
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => loadStorage('bustrack_sidebar_collapsed', false));
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Persistent System Central State (Synced to localStorage and Supabase)
@@ -81,7 +144,10 @@ export const App: React.FC = () => {
   const [trips, setTrips] = useState<Trip[]>(() => loadStorage('bustrack_trips_v1', INITIAL_TRIPS));
   const [locations, setLocations] = useState<CurrentBusLocation[]>(() => loadStorage('bustrack_locations_v1', INITIAL_LOCATIONS));
   const [emergencies, setEmergencies] = useState<EmergencyAlert[]>(() => loadStorage('bustrack_emergencies_v1', INITIAL_EMERGENCIES));
-  const [notifications, setNotifications] = useState<SystemNotification[]>(() => loadStorage('bustrack_notifications_v1', INITIAL_NOTIFICATIONS));
+  const [notifications, setNotifications] = useState<SystemNotification[]>(() => {
+    const loaded = loadStorage<SystemNotification[]>('bustrack_notifications_v1', INITIAL_NOTIFICATIONS);
+    return (loaded || []).filter((n) => !isInternalRegistryNotification(n));
+  });
   const [staffList, setStaffList] = useState<StaffUser[]>(() => loadStorage('bustrack_staff_v1', INITIAL_STAFF));
 
   // Auto-Save Effect Watchers (Preserves all state & auth across page reloads)
@@ -100,7 +166,8 @@ export const App: React.FC = () => {
   useEffect(() => saveStorage('bustrack_stops_v1', stops), [stops]);
   useEffect(() => saveStorage('bustrack_staff_v1', staffList), [staffList]);
   useEffect(() => saveStorage('bustrack_emergencies_v1', emergencies), [emergencies]);
-  useEffect(() => saveStorage('bustrack_notifications_v1', notifications), [notifications]);
+  useEffect(() => saveStorage('bustrack_notifications_v1', notifications.filter(n => !isInternalRegistryNotification(n))), [notifications]);
+  useEffect(() => saveStorage('bustrack_sidebar_collapsed', sidebarCollapsed), [sidebarCollapsed]);
 
   // Cloud Sync state and manual trigger
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -361,7 +428,7 @@ export const App: React.FC = () => {
             }
           } else if (data.type === 'broadcast_notification') {
             const notif = data.payload;
-            if (notif && notif.id) {
+            if (notif && notif.id && !isInternalRegistryNotification(notif)) {
               setNotifications(prev => {
                 if (prev.some(n => n.id === notif.id)) return prev;
                 return [notif, ...prev];
@@ -374,6 +441,15 @@ export const App: React.FC = () => {
                     tag: notif.id,
                   });
                 } catch {}
+              }
+            }
+          } else if (data.type === 'time_history_update') {
+            const { action, params } = data.payload || {};
+            if (params) {
+              if (action === 'start') {
+                timeHistoryStore.recordTripStart(params);
+              } else if (action === 'end') {
+                timeHistoryStore.recordTripEnd(params);
               }
             }
           }
@@ -443,7 +519,7 @@ export const App: React.FC = () => {
             }
           } else if (data.type === 'broadcast_notification') {
             const notif = data.payload;
-            if (notif && notif.id) {
+            if (notif && notif.id && !isInternalRegistryNotification(notif)) {
               setNotifications(prev => {
                 if (prev.some(n => n.id === notif.id)) return prev;
                 return [notif, ...prev];
@@ -456,6 +532,15 @@ export const App: React.FC = () => {
                     tag: notif.id,
                   });
                 } catch {}
+              }
+            }
+          } else if (data.type === 'time_history_update') {
+            const { action, params } = data.payload || {};
+            if (params) {
+              if (action === 'start') {
+                timeHistoryStore.recordTripStart(params);
+              } else if (action === 'end') {
+                timeHistoryStore.recordTripEnd(params);
               }
             }
           }
@@ -557,21 +642,23 @@ export const App: React.FC = () => {
 
       if (notifRows && Array.isArray(notifRows) && notifRows.length > 0) {
         setNotifications(prev => {
-          const prevMap = new Map(prev.map(n => [n.id, n]));
-          notifRows.forEach((row: any) => {
-            if (!prevMap.has(row.id)) {
-              prevMap.set(row.id, {
-                id: row.id,
-                title: row.title,
-                message: row.message,
-                type: row.type || 'general',
-                target_type: row.target_type || 'all',
-                target_id: row.target_id || null,
-                created_at: row.created_at || new Date().toISOString(),
-                read_at: row.read_at || null,
-              });
-            }
-          });
+          const prevMap = new Map(prev.filter(n => !isInternalRegistryNotification(n)).map(n => [n.id, n]));
+          notifRows
+            .filter((row: any) => !isInternalRegistryNotification(row))
+            .forEach((row: any) => {
+              if (!prevMap.has(row.id)) {
+                prevMap.set(row.id, {
+                  id: row.id,
+                  title: row.title,
+                  message: row.message,
+                  type: row.type || 'general',
+                  target_type: row.target_type || 'all',
+                  target_id: row.target_id || null,
+                  created_at: row.created_at || new Date().toISOString(),
+                  read_at: row.read_at || null,
+                });
+              }
+            });
           const updated = Array.from(prevMap.values()).sort(
             (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           );
@@ -708,7 +795,7 @@ export const App: React.FC = () => {
           setStudents(prev => prev.map(s => s.id === payload.studentId ? { ...s, is_on_leave: payload.isOnLeave } : s));
         })
         .on('broadcast', { event: 'broadcast_notification' }, ({ payload }: any) => {
-          if (!payload || !payload.id) return;
+          if (!payload || !payload.id || isInternalRegistryNotification(payload)) return;
           setNotifications(prev => {
             if (prev.some(n => n.id === payload.id)) return prev;
             return [payload, ...prev];
@@ -760,7 +847,7 @@ export const App: React.FC = () => {
           }
         })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, ({ new: row }: any) => {
-          if (!row) return;
+          if (!row || isInternalRegistryNotification(row)) return;
           const notifItem: SystemNotification = {
             id: row.id,
             title: row.title,
@@ -1886,8 +1973,12 @@ export const App: React.FC = () => {
 
   const activeEmergenciesCount = emergencies.filter(e => (e.status || '').toUpperCase() === 'ACTIVE').length;
 
+  if (loading) {
+    return <LoadingScreen theme={theme} />;
+  }
+
   if (!currentUser) {
-    return <Login onLogin={setCurrentUser} staffList={staffList} />;
+    return <Login onLogin={setCurrentUser} staffList={staffList} theme={theme} setTheme={changeTheme} />;
   }
 
   // Role-Based Edit Permission: Super Admin or Staff with Edit access level
@@ -1895,12 +1986,14 @@ export const App: React.FC = () => {
 
   return (
     <BrowserRouter>
-      <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans antialiased selection:bg-blue-600 selection:text-white">
+      <div className={`app-shell theme-${theme}`}>
         
         {/* Modern Sidebar (Desktop + Mobile overlay) */}
         <Sidebar
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
           activeEmergenciesCount={activeEmergenciesCount}
           onOpenProfile={() => setIsProfileOpen(true)}
           currentUser={currentUser}
@@ -1908,7 +2001,7 @@ export const App: React.FC = () => {
         />
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 lg:pl-64 h-screen overflow-hidden">
+        <div className="app-main">
           {/* Top Navigation Bar */}
           <Navbar
             onOpenSidebar={() => setSidebarOpen(true)}
@@ -1923,11 +2016,13 @@ export const App: React.FC = () => {
             onDismissNotification={handleDeleteNotification}
             onSyncCloud={handleSyncCloud}
             isSyncing={isSyncing}
+            theme={theme}
+            setTheme={changeTheme}
           />
 
           {/* Scrollable Viewport Container */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col">
-            <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto">
+            <main className="page-content" style={{ width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
               <Routes>
               <Route path="/" element={
                 <ErrorBoundary fallbackTitle="Dashboard Operations">
@@ -2136,13 +2231,11 @@ export const App: React.FC = () => {
             </Routes>
 
             {/* Global Page Footer Credit */}
-            <footer className="mt-12 pt-6 pb-6 border-t border-slate-800/80 text-center space-y-1">
-              <p className="text-xs font-bold text-slate-400">
-                Designed and Developed by <span className="text-blue-400 font-extrabold">Kirran S T</span>
-              </p>
-              <p className="text-[11px] text-slate-500 font-semibold tracking-wider uppercase">
-                Department of Information Technology &bull; Ramco Institute of Technology
-              </p>
+            <footer className="app-footer" style={{ marginTop: '32px' }}>
+              <span>RITBusTrack · Transport operations</span>
+              <span>
+                <span className="footer-live-dot" /> Dept. of IT, Ramco Institute of Technology <span className="footer-divider">·</span> Designed & Developed by Kirran S T
+              </span>
             </footer>
           </main>
 

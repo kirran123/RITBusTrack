@@ -1,21 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  MapPin, 
-  Bus as BusIcon, 
-  Users, 
-  GraduationCap, 
-  Briefcase,
-  Route as RouteIcon, 
-  History, 
-  Clock,
-  AlertTriangle, 
-  Bell, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Map,
+  BusFront,
+  UserRound,
+  Route as RouteIcon,
+  Users,
+  Building2,
+  Navigation,
+  Clock3,
+  Siren,
+  Bell,
+  Activity,
   Settings,
-  ShieldCheck,
-  X
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Radio,
 } from 'lucide-react';
 import { UserProfile } from '@college-bus/shared';
 
@@ -26,138 +29,198 @@ interface SidebarProps {
   currentUser?: UserProfile | null;
   onOpenProfile?: () => void;
   onLogout?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ 
-  isOpen, 
-  onClose, 
+export const Sidebar: React.FC<SidebarProps> = ({
+  isOpen,
+  onClose,
   activeEmergenciesCount,
-  currentUser 
+  currentUser,
+  isCollapsed,
+  onToggleCollapse,
 }) => {
+  const [localCollapsed, setLocalCollapsed] = useState(false);
+  const collapsed = isCollapsed !== undefined ? isCollapsed : localCollapsed;
+  const handleToggle = onToggleCollapse || (() => setLocalCollapsed(!localCollapsed));
   const isAdmin = currentUser?.role === 'admin';
-  const isViewOnly = currentUser?.role === 'staff' && currentUser?.access_level === 'view';
 
-  const mainNav = [
-    { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { label: 'Live Bus Tracking', path: '/live', icon: MapPin, highlight: true },
-  ];
-
-  const fleetNav = [
-    { label: 'Bus Management', path: '/buses', icon: BusIcon },
-    { label: 'Driver Management', path: '/drivers', icon: Users },
-    { label: 'Student Management', path: '/students', icon: GraduationCap },
-    { label: 'Staff Management', path: '/staff', icon: Briefcase },
-    { label: 'Routes & Stops', path: '/routes', icon: RouteIcon },
-    { label: 'Time History', path: '/time-history', icon: Clock },
-  ];
-
-  const safetyNav = [
-    { 
-      label: 'Emergency Alerts', 
-      path: '/emergency', 
-      icon: AlertTriangle, 
-      badge: activeEmergenciesCount > 0 ? `${activeEmergenciesCount} ACTIVE` : undefined,
-      badgeColor: 'bg-rose-500 text-white animate-pulse'
+  const NAV_GROUPS = [
+    {
+      title: 'Fleet',
+      items: [
+        { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+        { label: 'Live tracking', path: '/live', icon: Map, highlight: true },
+        { label: 'Buses', path: '/buses', icon: BusFront },
+        { label: 'Drivers', path: '/drivers', icon: UserRound },
+        { label: 'Routes', path: '/routes', icon: RouteIcon },
+      ],
     },
-    { label: 'Notifications', path: '/notifications', icon: Bell },
-    { label: 'Reports & Analytics', path: '/reports', icon: BarChart3 },
-    ...(isAdmin ? [{ label: 'Settings', path: '/settings', icon: Settings }] : []),
+    {
+      title: 'People',
+      items: [
+        { label: 'Students', path: '/students', icon: Users },
+        { label: 'Staff', path: '/staff', icon: Building2 },
+      ],
+    },
+    {
+      title: 'Operations',
+      items: [
+        { label: 'Trips', path: '/time-history', icon: Navigation },
+        { label: 'Time history', path: '/time-history', icon: Clock3 },
+      ],
+    },
+    {
+      title: 'Safety',
+      items: [
+        {
+          label: 'Emergency',
+          path: '/emergency',
+          icon: Siren,
+          alert: activeEmergenciesCount > 0,
+          count: activeEmergenciesCount > 0 ? activeEmergenciesCount : undefined,
+        },
+        { label: 'Notifications', path: '/notifications', icon: Bell },
+      ],
+    },
+    {
+      title: 'Insights & system',
+      items: [
+        { label: 'Reports', path: '/reports', icon: Activity },
+        ...(isAdmin ? [{ label: 'Settings', path: '/settings', icon: Settings }] : []),
+      ],
+    },
   ];
-
-  const renderNavGroup = (title: string, items: typeof mainNav) => (
-    <div className="space-y-1">
-      <div className="px-3 pt-3 pb-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider">
-        {title}
-      </div>
-      {items.map((item: any) => {
-        const Icon = item.icon;
-        return (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            onClick={() => onClose()}
-            className={({ isActive }) => `
-              flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-200
-              ${isActive 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
-                : item.highlight
-                ? 'text-blue-400 bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 hover:text-white'
-                : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'}
-            `}
-          >
-            <div className="flex items-center space-x-3">
-              <Icon className="w-4 h-4" />
-              <span>{item.label}</span>
-            </div>
-            {item.badge && (
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${item.badgeColor || 'bg-blue-500/20 text-blue-300'}`}>
-                {item.badge}
-              </span>
-            )}
-          </NavLink>
-        );
-      })}
-    </div>
-  );
 
   return (
     <>
       {/* Mobile overlay */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-950/70 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+        <div
+          className="mobile-scrim"
+          style={{ display: 'block' }}
           onClick={onClose}
         />
       )}
 
-      <aside className={`
-        fixed top-0 left-0 bottom-0 w-64 bg-slate-900 border-r border-slate-800 text-slate-300 z-50
-        transform transition-transform duration-300 ease-in-out flex flex-col
-        lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        {/* Header */}
-        <div className="h-16 px-6 flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
-              <BusIcon className="w-5 h-5" />
-            </div>
+      <aside className={`sidebar ${collapsed ? 'is-collapsed' : ''} ${isOpen ? 'mobile-open' : ''}`}>
+        {/* Brand Header */}
+        <div className="sidebar-brand">
+          <span className="brand-mark brand-mark--image">
+            <img src="/ritbustrack-logo.png" alt="RITBusTrack Logo" />
+          </span>
+          {!collapsed && (
             <div>
-              <h1 className="font-black text-white text-base leading-tight tracking-tight">BusTrack</h1>
-              <p className="text-[11px] text-blue-400 font-semibold">Ramco Institute Tech</p>
+              <div className="brand-name">
+                RIT<span>Bus</span>Track
+              </div>
+              <div className="brand-caption">TRANSPORT OPS</div>
             </div>
-          </div>
-          <button 
-            onClick={onClose} 
-            className="lg:hidden p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+          )}
+          {/* Top Minimize Button */}
+          <button
+            type="button"
+            className="icon-button small-icon desktop-collapse-btn"
+            onClick={handleToggle}
+            title={collapsed ? 'Expand sidebar' : 'Minimize sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Minimize sidebar'}
+            style={{ marginLeft: 'auto' }}
           >
-            <X className="w-5 h-5" />
+            {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+          </button>
+          <button
+            className="mobile-close icon-button"
+            onClick={onClose}
+            aria-label="Close navigation"
+          >
+            <X size={18} />
           </button>
         </div>
 
-        {/* Navigation Groups */}
-        <div className="flex-1 overflow-y-auto py-3 px-3 space-y-3 no-scrollbar">
-          {renderNavGroup('Command & Radar', mainNav)}
-          {renderNavGroup('Bus Operations', fleetNav)}
-          {renderNavGroup('Safety & Intelligence', safetyNav)}
+        {/* Workspace Selector */}
+        <div className="workspace-select" title={collapsed ? 'RIT Campus' : undefined}>
+          <span className="workspace-logo">R</span>
+          {!collapsed && (
+            <>
+              <span className="workspace-name">RIT Campus</span>
+              <ChevronDown size={14} className="workspace-chevron" />
+            </>
+          )}
         </div>
 
-        {/* Footer info */}
-        <div className="p-3.5 border-t border-slate-800 bg-slate-950/60 space-y-2">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            <div className="text-[11px] text-emerald-400 font-bold">
-              Realtime GPS Connected
+        {/* Navigation Groups */}
+        <nav className="side-nav">
+          {NAV_GROUPS.map((group) => (
+            <div className="nav-group" key={group.title}>
+              {!collapsed && <div className="nav-group-title">{group.title}</div>}
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.label + item.path}
+                    to={item.path}
+                    onClick={() => onClose()}
+                    title={collapsed ? item.label : undefined}
+                    className={({ isActive }) =>
+                      `nav-item ${isActive ? 'active' : ''}`
+                    }
+                  >
+                    <Icon size={17} strokeWidth={1.8} />
+                    {!collapsed && <span className="nav-label">{item.label}</span>}
+                    {!collapsed && item.count && (
+                      <span className="nav-count alert-count">
+                        {item.count}
+                      </span>
+                    )}
+                  </NavLink>
+                );
+              })}
             </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-spacer" />
+
+        {/* Footer info & Developer Credits */}
+        <div className="sidebar-bottom">
+          <div
+            className="help-card"
+            style={{ marginBottom: '10px' }}
+            title={collapsed ? 'GPS Connected · Live fleet telemetry' : undefined}
+          >
+            <span className="help-icon">
+              <Radio size={15} />
+            </span>
+            {!collapsed && (
+              <div>
+                <strong>GPS Connected</strong>
+                <span>Live fleet telemetry</span>
+              </div>
+            )}
           </div>
-          <div className="pt-2 border-t border-slate-800/80">
-            <p className="text-[10.5px] font-bold text-slate-300">
-              Designed & Developed by <span className="text-blue-400 font-extrabold">Kirran S T</span>
-            </p>
-            <p className="text-[9.5px] text-slate-500 font-medium leading-tight">
-              Dept. of Information Technology
-            </p>
-          </div>
+
+          {!collapsed && (
+            <div style={{ padding: '4px 6px', fontSize: '10.5px', color: 'var(--muted)' }}>
+              <div style={{ fontWeight: 700, color: 'var(--ink)' }}>
+                Kirran S T
+              </div>
+              <div>Dept. of IT · RIT</div>
+            </div>
+          )}
         </div>
+
+        {/* Dedicated Bottom Minimize / Collapse Button */}
+        <button
+          type="button"
+          className="collapse-button"
+          onClick={handleToggle}
+          aria-label={collapsed ? 'Expand sidebar' : 'Minimize sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Minimize sidebar'}
+        >
+          {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+          {!collapsed && <span>Collapse menu</span>}
+        </button>
       </aside>
     </>
   );

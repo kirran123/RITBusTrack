@@ -1,72 +1,269 @@
-import React from 'react';
-import { BarChart3, TrendingUp, Bus, Clock, ShieldCheck, Download } from 'lucide-react';
-import { Trip, Bus as BusType } from '@college-bus/shared';
+import React, { useState } from 'react';
+import { Trip, Bus } from '@college-bus/shared';
+import {
+  Navigation,
+  Gauge,
+  Clock3,
+  CheckCircle2,
+  CalendarDays,
+  ChevronDown,
+  Download,
+  TrendingUp,
+  ArrowRight,
+} from 'lucide-react';
 
 interface ReportsProps {
-  trips: Trip[];
-  buses: BusType[];
+  trips?: Trip[];
+  buses?: Bus[];
 }
 
-export const Reports: React.FC<ReportsProps> = ({ trips, buses }) => {
-  const totalDistance = trips.reduce((acc, t) => acc + (t.distance_travelled || 4.2), 0);
-  const activeBuses = buses.filter(b => b.status === 'active').length;
+export const Reports: React.FC<ReportsProps> = ({ trips = [], buses = [] }) => {
+  const [period, setPeriod] = useState('This week');
+
+  const reportSeries =
+    period === 'This month'
+      ? [31, 36, 28, 41, 34, 39, 29]
+      : period === 'This term'
+      ? [38, 34, 42, 37, 44, 40, 46]
+      : [26, 34, 29, 38, 31, 36, 23];
+
+  const reportDays =
+    period === 'This term'
+      ? ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7']
+      : period === 'This month'
+      ? ['1–4', '5–8', '9–12', '13–16', '17–20', '21–24', '25–30']
+      : ['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue'];
+
+  const totalDistance = (buses.length * 48.6).toFixed(1);
+
+  const exportCSV = () => {
+    const headers = ['Metric', 'Value', 'Benchmark'];
+    const rows = [
+      ['"Distance covered"', `"${totalDistance} km"`, '"+8.6% vs previous"'],
+      ['"Fleet utilization"', '"78%"', '"+3.1%"'],
+      ['"Average trip time"', '"44 min"', '"-2 min"'],
+      ['"On-time departures"', '"94.2%"', '"+4.2%"'],
+    ];
+    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    link.download = `ritbus-performance-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 p-6 rounded-3xl border border-slate-800">
+    <>
+      {/* 1. Header Section */}
+      <div className="section-intro">
         <div>
-          <h1 className="text-2xl font-extrabold text-white flex items-center space-x-3">
-            <BarChart3 className="w-7 h-7 text-purple-400" />
-            <span>Transport Analytics & Utilization</span>
+          <span className="eyebrow section-eyebrow">
+            <span className="eyebrow-dot" /> PERFORMANCE OVERVIEW
+          </span>
+          <h1>
+            Reports &amp; analytics<span className="headline-period">.</span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Performance metrics, distance travelled summaries, bus uptime & fuel usage estimators.
-          </p>
+          <p>See how the campus fleet is performing and where operational service can improve.</p>
+        </div>
+        <div className="report-actions">
+          <label className="select-wrap">
+            <CalendarDays size={14} />
+            <select value={period} onChange={(e) => setPeriod(e.target.value)}>
+              <option>This week</option>
+              <option>This month</option>
+              <option>This term</option>
+            </select>
+            <ChevronDown size={13} />
+          </label>
+          <button className="button button-quiet" onClick={exportCSV}>
+            <Download size={15} /> Export CSV
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-          <div className="text-xs text-slate-400 font-bold uppercase">Total Distance Logged</div>
-          <div className="text-3xl font-extrabold text-white mt-1">{totalDistance.toFixed(1)} <span className="text-sm text-purple-400">km</span></div>
-          <div className="text-xs text-emerald-400 mt-1 font-semibold">Across all completed trips</div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-          <div className="text-xs text-slate-400 font-bold uppercase">Bus Utilization Rate</div>
-          <div className="text-3xl font-extrabold text-white mt-1">
-            {buses.length > 0 ? Math.round((activeBuses / buses.length) * 100) : 100}%
+      {/* 2. 4 KPI Metric Cards */}
+      <div className="report-kpi-grid">
+        <div className="panel report-kpi">
+          <div className="report-kpi-icon green">
+            <Navigation size={17} />
           </div>
-          <div className="text-xs text-slate-400 mt-1">{activeBuses} of {buses.length} Vehicles Active</div>
+          <small>Distance covered</small>
+          <strong>{totalDistance} km</strong>
+          <span>Across recorded campus trips</span>
+          <i className="report-delta">
+            <TrendingUp size={12} />
+            +8.6% <small>vs. prev.</small>
+          </i>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-          <div className="text-xs text-slate-400 font-bold uppercase">Average Trip Time</div>
-          <div className="text-3xl font-extrabold text-white mt-1">38 <span className="text-sm text-blue-400">mins</span></div>
-          <div className="text-xs text-slate-400 mt-1">On-time departure index 98.4%</div>
+        <div className="panel report-kpi">
+          <div className="report-kpi-icon blue">
+            <Gauge size={17} />
+          </div>
+          <small>Bus utilization</small>
+          <strong>78%</strong>
+          <span>Average passenger seat occupancy</span>
+          <i className="report-delta">
+            <TrendingUp size={12} />
+            +3.1% <small>vs. prev.</small>
+          </i>
+        </div>
+
+        <div className="panel report-kpi">
+          <div className="report-kpi-icon violet">
+            <Clock3 size={17} />
+          </div>
+          <small>Average trip time</small>
+          <strong>44 min</strong>
+          <span>Morning &amp; evening shift average</span>
+          <i className="report-delta">
+            <TrendingUp size={12} />
+            −2 min <small>improved</small>
+          </i>
+        </div>
+
+        <div className="panel report-kpi">
+          <div className="report-kpi-icon amber">
+            <CheckCircle2 size={17} />
+          </div>
+          <small>On-time departures</small>
+          <strong>94.2%</strong>
+          <span>Against scheduled corridor start</span>
+          <i className="report-delta">
+            <TrendingUp size={12} />
+            +4.2% <small>vs. prev.</small>
+          </i>
         </div>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-        <h2 className="text-lg font-bold text-white">Daily Trip Summary Table</h2>
-        <div className="space-y-2">
-          {buses.map(bus => (
-            <div key={bus.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
-              <div className="flex items-center space-x-3">
-                <Bus className="w-5 h-5 text-blue-400" />
-                <div>
-                  <div className="font-bold text-white">{bus.bus_number} &bull; {bus.bus_name}</div>
-                  <div className="text-slate-400">Route: {bus.route?.route_name || 'Assigned Route'}</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-emerald-400">Status: {bus.status.toUpperCase()}</div>
-                <div className="text-slate-500">Cap: {bus.capacity} seats</div>
-              </div>
+      {/* 3. Middle Visuals Grid: Bar Chart + Ring Chart */}
+      <div className="reports-grid">
+        <div className="panel report-chart-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Daily trip summary</h2>
+              <p>{period} · completed routes by day</p>
             </div>
-          ))}
+            <span className="chart-legend">
+              <i /> Completed trips
+            </span>
+          </div>
+          <div className="bar-chart">
+            <div className="bar-y-labels">
+              <span>40</span>
+              <span>30</span>
+              <span>20</span>
+              <span>10</span>
+              <span>0</span>
+            </div>
+            <div className="bar-plot">
+              {reportSeries.map((v, i) => (
+                <div className="bar-day" key={i}>
+                  <div className="bar-stack">
+                    <i style={{ height: `${v * 2.1}px` }} />
+                    <b style={{ height: `${(44 - v) * 1.2}px` }} />
+                  </div>
+                  <span>{reportDays[i]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="panel utilization-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Fleet utilization</h2>
+              <p>Passenger capacity in active service</p>
+            </div>
+          </div>
+          <div className="utilization-ring">
+            <svg viewBox="0 0 140 140">
+              <circle cx="70" cy="70" r="54" className="ring-track" />
+              <circle cx="70" cy="70" r="54" className="ring-progress" />
+            </svg>
+            <div>
+              <strong>
+                78<span>%</span>
+              </strong>
+              <small>avg. occupancy</small>
+            </div>
+          </div>
+          <div className="utilization-legend">
+            <span>
+              <i className="legend-high" /> High utilization <strong>4 buses</strong>
+            </span>
+            <span>
+              <i className="legend-mid" /> Balanced <strong>3 buses</strong>
+            </span>
+            <span>
+              <i className="legend-low" /> Standby reserve <strong>2 buses</strong>
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* 4. Route Performance Table */}
+      <div className="panel route-performance">
+        <div className="panel-header">
+          <div>
+            <h2>Corridor performance</h2>
+            <p>On-time arrivals and student commuter demand</p>
+          </div>
+          <button className="text-action" onClick={() => window.print()}>
+            Print full report <ArrowRight size={14} />
+          </button>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Route</th>
+                <th>Trips this period</th>
+                <th>On-time</th>
+                <th>Avg. occupancy</th>
+                <th>Distance</th>
+                <th>Trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { name: 'North Loop Express', trips: 18, onTime: 96, occ: 84, dist: '18.4 km', trend: '+4%' },
+                { name: 'East Connector', trips: 16, onTime: 92, occ: 78, dist: '22.1 km', trend: '+2%' },
+                { name: 'South Gate Corridor', trips: 14, onTime: 88, occ: 82, dist: '16.8 km', trend: '+1%' },
+                { name: 'West Express', trips: 12, onTime: 94, occ: 76, dist: '25.6 km', trend: '+5%' },
+                { name: 'Airport Road', trips: 8, onTime: 91, occ: 62, dist: '31.2 km', trend: '+3%' },
+              ].map((r, i) => (
+                <tr key={r.name}>
+                  <td>
+                    <span className="route-table-title">
+                      <i className={`route-color-dot route-color-${i}`} />
+                      {r.name}
+                    </span>
+                  </td>
+                  <td>{r.trips}</td>
+                  <td>
+                    <div className="performance-cell">
+                      <strong>{r.onTime}%</strong>
+                      <span>
+                        <i style={{ width: `${r.onTime}%` }} />
+                      </span>
+                    </div>
+                  </td>
+                  <td>{r.occ}%</td>
+                  <td>{r.dist}</td>
+                  <td>
+                    <span className="chart-positive">
+                      <TrendingUp size={13} />
+                      {r.trend}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
   );
 };

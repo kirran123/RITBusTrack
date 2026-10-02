@@ -1,21 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Menu,
   Bell,
   BellOff,
-  AlertTriangle,
-  LogOut,
+  Sun,
+  Moon,
   Search,
-  User,
-  Eye,
-  Edit2,
+  ChevronRight,
+  LogOut,
+  RefreshCw,
+  AlertTriangle,
+  Radio,
   CheckCheck,
   Trash2,
   X,
-  Radio,
-  Bus,
-  RefreshCw,
   ExternalLink,
 } from 'lucide-react';
 import { UserProfile, SystemNotification } from '@college-bus/shared';
@@ -34,7 +33,25 @@ interface NavbarProps {
   onDismissNotification?: (id: string) => void;
   onSyncCloud?: () => void;
   isSyncing?: boolean;
+  theme?: 'light' | 'dark';
+  setTheme?: (theme: 'light' | 'dark') => void;
 }
+
+const BREADCRUMB_MAP: Record<string, [string, string]> = {
+  '/': ['Fleet', 'Dashboard'],
+  '/live': ['Fleet', 'Live tracking'],
+  '/buses': ['Fleet', 'Buses'],
+  '/drivers': ['Fleet', 'Drivers'],
+  '/routes': ['Fleet', 'Routes'],
+  '/students': ['People', 'Students'],
+  '/staff': ['People', 'Staff'],
+  '/trips': ['Operations', 'Trips'],
+  '/time-history': ['Operations', 'Time history'],
+  '/emergency': ['Safety', 'Emergency center'],
+  '/notifications': ['Safety', 'Notifications'],
+  '/reports': ['Insights & system', 'Reports'],
+  '/settings': ['Insights & system', 'Settings'],
+};
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenSidebar,
@@ -50,330 +67,250 @@ export const Navbar: React.FC<NavbarProps> = ({
   onDismissNotification,
   onSyncCloud,
   isSyncing = false,
+  theme = 'dark',
+  setTheme,
 }) => {
+  const location = useLocation();
   const navigate = useNavigate();
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const notificationRef = useRef<HTMLDivElement>(null);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const notifRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const activeUser = user || currentUser;
-  const isAdmin = activeUser?.role === 'admin';
-  const isStaff = activeUser?.role === 'staff';
-  const isViewOnly = isStaff && activeUser?.access_level === 'view';
+  const userNotifications = notifications.filter((n) => {
+    if (!n) return false;
+    const title = (n.title || '').trim();
+    const msg = (n.message || '').trim();
+    return (
+      !title.includes('REGISTRY_SNAPSHOT') &&
+      !title.includes('BUST_TRACK_REGISTRY') &&
+      !msg.startsWith('{"version"') &&
+      !msg.includes('BUST_TRACK_REGISTRY') &&
+      !msg.includes('"students":') &&
+      n.id !== '90000000-0000-0000-0000-000000000001'
+    );
+  });
+  const unreadCount = userNotifications.filter((n) => !n.read_at && n.is_read !== true).length;
+  const [parentName, currentName] = BREADCRUMB_MAP[location.pathname] || ['Fleet', 'Dashboard'];
 
-  const unreadCount = notifications.filter((n) => !n.read_at && n.is_read !== true).length;
-
-  // Close dropdown when clicking outside
+  // Global `/` key listener to focus search
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target as Node)
-      ) {
-        setIsNotificationOpen(false);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName || '')) {
+        e.preventDefault();
+        document.getElementById('global-search')?.focus();
+      }
+      if (e.key === 'Escape') {
+        setNotifOpen(false);
+        setProfileOpen(false);
       }
     };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
 
-    if (isNotificationOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+  // Click outside listener
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
     };
-  }, [isNotificationOpen]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const formatNotificationTime = (isoString?: string) => {
-    if (!isoString) return 'Just now';
-    try {
-      const date = new Date(isoString);
-      const now = new Date();
-      const diffMins = Math.round((now.getTime() - date.getTime()) / (1000 * 60));
-      if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins}m ago`;
-      const diffHours = Math.round(diffMins / 60);
-      if (diffHours < 24) return `${diffHours}h ago`;
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    } catch {
-      return 'Recent';
+  const toggleTheme = () => {
+    if (setTheme) {
+      setTheme(theme === 'light' ? 'dark' : 'light');
     }
   };
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'emergency':
-        return <AlertTriangle className="w-4 h-4 text-rose-400" />;
-      case 'swap':
-        return <RefreshCw className="w-4 h-4 text-amber-400" />;
-      case 'trip':
-        return <Bus className="w-4 h-4 text-emerald-400" />;
-      default:
-        return <Radio className="w-4 h-4 text-blue-400" />;
-    }
+  const getInitials = (name?: string) => {
+    if (!name || typeof name !== 'string' || !name.trim()) return 'SA';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'SA';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   return (
-    <header className="h-16 bg-slate-900 border-b border-slate-800 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30 shadow-md">
-      <div className="flex items-center space-x-4">
+    <header className="topbar">
+      {/* Left side: Hamburger menu + Breadcrumbs */}
+      <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <button
+          className="icon-button mobile-menu"
           onClick={onOpenSidebar}
-          className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-          aria-label="Toggle Navigation Sidebar"
+          aria-label="Open sidebar"
         >
-          <Menu className="w-6 h-6" />
+          <Menu size={18} />
         </button>
 
-        {/* Global Search Bar */}
-        <div className="relative hidden md:block w-72">
-          <div className="relative flex items-center">
-            <Search className="w-4 h-4 absolute left-3.5 text-slate-500 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search bus, driver, route..."
-              className="w-full bg-slate-950/70 text-slate-200 text-xs pl-9 pr-4 py-2 rounded-xl border border-slate-800/90 focus:outline-none focus:border-blue-500/70 focus:ring-1 focus:ring-blue-500/30 hover:border-slate-700/80 transition-all placeholder:text-slate-500 shadow-inner"
-            />
-          </div>
-        </div>
-
-        {/* Role & Access Tier Indicator in Top Bar */}
-        {isViewOnly && (
-          <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-bold shadow-sm">
-            <Eye className="w-3.5 h-3.5" />
-            <span>Admin Staff (View-Only)</span>
-          </div>
-        )}
-        {isStaff && !isViewOnly && (
-          <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-sm">
-            <Edit2 className="w-3.5 h-3.5" />
-            <span>Admin Staff (Edit Access)</span>
-          </div>
-        )}
+        <nav className="breadcrumb" aria-label="Breadcrumb">
+          <span>{parentName}</span>
+          <ChevronRight size={13} />
+          <strong>{currentName}</strong>
+        </nav>
       </div>
 
-      <div className="flex items-center space-x-3 lg:space-x-4">
-        {/* Sync with Mobile App Cloud Button */}
+      {/* Right side: Actions */}
+      <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Global Search Bar */}
+        <label className="global-search" htmlFor="global-search">
+          <Search size={14} />
+          <input
+            id="global-search"
+            type="search"
+            placeholder="Search records..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <kbd>/</kbd>
+        </label>
+
+        {/* Cloud Sync Action */}
         {onSyncCloud && (
           <button
+            type="button"
+            className="icon-button"
+            title="Synchronize registry with mobile cloud"
             onClick={onSyncCloud}
             disabled={isSyncing}
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl border transition-all text-xs font-bold ${
-              isSyncing
-                ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 cursor-not-allowed'
-                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
-            }`}
-            title="Sync all registered Students, Staff, and Drivers to Supabase & Mobile App in real-time"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-400' : 'text-emerald-400'}`} />
-            <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Mobile App'}</span>
+            <RefreshCw size={15} className={isSyncing ? 'animate-spin' : ''} />
           </button>
         )}
 
-        {/* Emergency Alert Indicator Banner */}
-        {activeEmergenciesCount > 0 && (
+        {/* Theme Toggle Button */}
+        {setTheme && (
           <button
-            onClick={onOpenEmergencies}
-            className="flex items-center space-x-2 px-3 py-1.5 bg-rose-500/15 border border-rose-500/40 text-rose-400 rounded-xl hover:bg-rose-500/25 transition-all shadow-sm shadow-rose-500/10 group"
+            type="button"
+            className="icon-button theme-button"
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            onClick={toggleTheme}
           >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-            </span>
-            <AlertTriangle className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-bold tracking-wide hidden sm:inline uppercase">
-              {activeEmergenciesCount} Emergency Alert{activeEmergenciesCount > 1 ? 's' : ''}
-            </span>
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
           </button>
         )}
 
-        {/* Interactive Notifications Button & Dropdown */}
-        <div className="relative" ref={notificationRef}>
+        {/* Notification Bell & Popover */}
+        <div className="popover-anchor" ref={notifRef}>
           <button
-            onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-            className={`relative p-2 rounded-xl transition-all ${
-              isNotificationOpen
-                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-            title="Notifications"
-            aria-label="Toggle notifications dropdown"
+            type="button"
+            className={`icon-button notification-button ${notifOpen ? 'is-open' : ''}`}
+            onClick={() => setNotifOpen(!notifOpen)}
+            aria-label="Notifications"
           >
-            <Bell className="w-5 h-5" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center shadow-md animate-pulse">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
+            <Bell size={16} />
+            {unreadCount > 0 && <span className="notification-dot" />}
           </button>
 
-          {/* Notifications Popover Dropdown */}
-          {isNotificationOpen && (
-            <div className="absolute right-0 mt-2.5 w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl shadow-black/80 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-              {/* Dropdown Header */}
-              <div className="p-3.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <span className="font-bold text-xs text-white">Notifications</span>
-                  {unreadCount > 0 ? (
-                    <span className="px-1.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[10px] font-black">
-                      {unreadCount} new
-                    </span>
-                  ) : (
-                    <span className="px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold">
-                      {notifications.length} total
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center space-x-1">
-                  {unreadCount > 0 && onMarkAllNotificationsRead && (
-                    <button
-                      onClick={onMarkAllNotificationsRead}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-slate-800 text-xs flex items-center space-x-1 transition-colors"
-                      title="Mark all as read"
-                    >
-                      <CheckCheck className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-bold">Read All</span>
-                    </button>
-                  )}
-
-                  {notifications.length > 0 && onClearNotifications && (
-                    <button
-                      onClick={onClearNotifications}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 text-xs flex items-center space-x-1 transition-colors"
-                      title="Clear all notifications"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-bold">Clear</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => setIsNotificationOpen(false)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-1"
-                  >
-                    <X className="w-4 h-4" />
+          {notifOpen && (
+            <div className="popover notification-popover">
+              <div className="popover-head">
+                <strong>Notifications</strong>
+                {unreadCount > 0 && onMarkAllNotificationsRead && (
+                  <button type="button" onClick={onMarkAllNotificationsRead}>
+                    Mark all read
                   </button>
-                </div>
+                )}
               </div>
 
-              {/* Notifications List or Clean Empty State */}
-              <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/50">
-                {notifications.length === 0 ? (
-                  /* Clean Empty Notification State */
-                  <div className="py-12 px-6 text-center space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-950 border border-slate-800/80 flex items-center justify-center mx-auto text-slate-500 shadow-inner">
-                      <BellOff className="w-6 h-6" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-black text-slate-200">No notifications</p>
-                      <p className="text-xs text-slate-400 max-w-[220px] mx-auto leading-relaxed">
-                        You have no new alerts. Real-time bus swaps, driver changes, and dispatch notices will appear here.
-                      </p>
-                    </div>
+              <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                {userNotifications.length === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: '12px' }}>
+                    <BellOff size={22} style={{ margin: '0 auto 6px', opacity: 0.6 }} />
+                    No notifications
                   </div>
                 ) : (
-                  /* Notification List Items */
-                  notifications.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        setIsNotificationOpen(false);
-                        navigate('/notifications');
-                      }}
-                      className={`p-3.5 hover:bg-slate-800/60 cursor-pointer transition-colors flex items-start space-x-3 ${
-                        !item.read_at && item.is_read !== true ? 'bg-blue-950/20' : ''
-                      }`}
-                    >
-                      <div className="p-2 rounded-xl bg-slate-950 border border-slate-800 shrink-0 mt-0.5">
-                        {getNotificationIcon(item.type)}
+                  userNotifications.slice(0, 5).map((notif) => (
+                    <div className="notification-item" key={notif.id}>
+                      <span
+                        className={`notif-icon ${
+                          notif.type === 'emergency' ? 'amber' : 'green'
+                        }`}
+                      >
+                        {notif.type === 'emergency' ? <AlertTriangle size={14} /> : <Radio size={14} />}
+                      </span>
+                      <div>
+                        <strong>{notif.title}</strong>
+                        <p>{notif.message}</p>
+                        <small>{notif.created_at ? new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}</small>
                       </div>
-
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center justify-between gap-1">
-                          <p className={`text-xs truncate ${!item.read_at && item.is_read !== true ? 'font-black text-white' : 'font-bold text-slate-300'}`}>
-                            {item.title}
-                          </p>
-                          <span className="text-[10px] text-slate-400 shrink-0 font-medium">
-                            {formatNotificationTime(item.created_at)}
-                          </span>
-                        </div>
-
-                        <p className="text-[11px] text-slate-400 leading-relaxed break-words line-clamp-2">
-                          {item.message}
-                        </p>
-                      </div>
-
-                      {onDismissNotification && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDismissNotification(item.id);
-                          }}
-                          className="text-slate-400 hover:text-rose-400 p-1 rounded hover:bg-slate-800 shrink-0"
-                          title="Dismiss"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
                     </div>
                   ))
                 )}
               </div>
 
-              {/* Dropdown Footer */}
-              <div className="p-2.5 bg-slate-950/90 border-t border-slate-800 flex items-center justify-between">
-                <span className="text-[10px] text-slate-400 font-medium">
-                  Live Dispatch Sync
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsNotificationOpen(false);
-                    navigate('/notifications');
-                  }}
-                  className="text-[10.5px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-                >
-                  <span>View All Alerts</span>
-                  <ExternalLink className="w-3 h-3" />
-                </button>
-              </div>
+              <button
+                type="button"
+                className="popover-link"
+                onClick={() => {
+                  setNotifOpen(false);
+                  navigate('/notifications');
+                }}
+              >
+                View all updates &rarr;
+              </button>
             </div>
           )}
         </div>
 
-        {/* User Info & Profile */}
-        <div
-          onClick={onOpenProfile}
-          className="flex items-center space-x-3 pl-2 border-l border-slate-800 cursor-pointer hover:opacity-90 transition-opacity"
-          title="Open User Profile"
-        >
-          <div
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-sm shadow ${
-              isAdmin
-                ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
-                : isViewOnly
-                ? 'bg-sky-600/20 border-sky-500/40 text-sky-300'
-                : 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
-            }`}
-          >
-            {activeUser?.name ? activeUser.name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
-          </div>
-          <div className="hidden sm:block text-left">
-            <div className="text-xs font-semibold text-white leading-tight">
-              {activeUser?.name || 'Super Admin'}
-            </div>
-            <div className="text-[10px] text-blue-400 uppercase font-black tracking-wider">
-              {isAdmin ? '👑 Super Admin' : isViewOnly ? '👁️ Admin Staff (View)' : '✏️ Admin Staff (Edit)'}
-            </div>
-          </div>
-
+        {/* User Profile Popover */}
+        <div className="popover-anchor" ref={profileRef}>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onLogout();
-            }}
-            title="Logout"
-            className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+            type="button"
+            className="profile-button"
+            onClick={() => setProfileOpen(!profileOpen)}
+            aria-label="User profile"
           >
-            <LogOut className="w-5 h-5" />
+            <span className="avatar avatar-green">
+              {getInitials(activeUser?.name)}
+            </span>
           </button>
+
+          {profileOpen && (
+            <div className="popover profile-popover">
+              <div className="profile-pop-head">
+                <span className="avatar avatar-green">
+                  {getInitials(activeUser?.name)}
+                </span>
+                <div>
+                  <strong>{activeUser?.name || 'Administrator'}</strong>
+                  <small>{activeUser?.email || 'admin@ritrjpm.ac.in'}</small>
+                </div>
+              </div>
+
+              {onOpenProfile && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    onOpenProfile();
+                  }}
+                >
+                  Account Profile
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="signout-item"
+                onClick={() => {
+                  setProfileOpen(false);
+                  onLogout();
+                }}
+              >
+                <LogOut size={14} />
+                <span>Sign out</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

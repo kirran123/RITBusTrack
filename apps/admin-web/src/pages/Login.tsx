@@ -1,5 +1,18 @@
 import React, { useState } from 'react';
-import { Bus, Lock, Mail, ShieldAlert, ArrowRight, ShieldCheck, Shield, KeyRound, Loader2 } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  ArrowRight,
+  ShieldCheck,
+  Shield,
+  Sun,
+  Moon,
+  Loader2,
+  CircleHelp,
+  ShieldAlert,
+} from 'lucide-react';
 import { UserProfile, StaffUser } from '@college-bus/shared';
 import { INITIAL_STAFF, INITIAL_STAFF_COMMUTERS } from '../services/mockDataStore';
 import { MASTER_STAFF_USERS, MASTER_STAFF_COMMUTERS } from '@college-bus/shared';
@@ -8,14 +21,41 @@ import { supabase } from '../services/supabaseClient';
 interface LoginProps {
   onLogin: (user: UserProfile) => void;
   staffList?: StaffUser[];
+  theme?: 'light' | 'dark';
+  setTheme?: (theme: 'light' | 'dark') => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF }) => {
+export const Login: React.FC<LoginProps> = ({
+  onLogin,
+  staffList = INITIAL_STAFF,
+  theme = 'dark',
+  setTheme,
+}) => {
   const [selectedRole, setSelectedRole] = useState<'super_admin' | 'admin_staff'>('super_admin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('deptit@ritrjpm.ac.in');
+  const [password, setPassword] = useState('deptit@rit');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetHint, setResetHint] = useState<string>('');
+
+  const toggleTheme = () => {
+    if (setTheme) {
+      setTheme(theme === 'light' ? 'dark' : 'light');
+    }
+  };
+
+  const handleRoleChange = (role: 'super_admin' | 'admin_staff') => {
+    setSelectedRole(role);
+    setError(null);
+    if (role === 'super_admin') {
+      setEmail('deptit@ritrjpm.ac.in');
+      setPassword('deptit@rit');
+    } else {
+      setEmail('dr.kavitha@ritrjpm.ac.in');
+      setPassword('staff123');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +72,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
       normalizedEmail === 'admin@college.edu' ||
       normalizedEmail === 'admin' ||
       normalizedEmail === 'admin@ritrjpm.ac.in';
-    const isSuperAdminPass = 
-      trimmedPass === 'Kirranst@14' || 
+    const isSuperAdminPass =
+      trimmedPass === 'Kirranst@14' ||
       trimmedPass.toLowerCase() === 'kirranst@14' ||
       trimmedPass === 'deptit@rit' ||
       trimmedPass === 'admin123' ||
@@ -80,7 +120,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
           onLogin({
             id: authData.user.id,
             auth_user_id: authData.user.id,
-            name: authData.user.user_metadata?.name || authData.user.email?.split('@')[0] || 'Admin User',
+            name: authData.user.user_metadata?.name || (authData.user.email ? authData.user.email.split('@')[0] : 'Admin User'),
             email: authData.user.email || normalizedEmail,
             phone: authData.user.phone || '+91 9876543210',
             role: uRole === 'admin' ? 'admin' : 'staff',
@@ -95,10 +135,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
     setTimeout(() => {
       setLoading(false);
 
-      // Branch A: Super Admin credentials (auto-route even if staff tab was selected)
+      // Branch A: Super Admin credentials
       if (isSuperAdminEmail) {
         if (!isSuperAdminPass) {
-          setError('Invalid Super Admin password. (Default: admin123 or Kirranst@14)');
+          setError('Invalid Super Admin password. (Default: admin123, deptit@rit, or Kirranst@14)');
           return;
         }
 
@@ -119,8 +159,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
       if (foundStaff) {
         const expectedPass = foundStaff.password || 'staff123';
         if (
-          trimmedPass !== expectedPass && 
-          trimmedPass !== 'staff123' && 
+          trimmedPass !== expectedPass &&
+          trimmedPass !== 'staff123' &&
           trimmedPass !== 'admin123'
         ) {
           setError('Invalid password. Default password is staff123');
@@ -141,12 +181,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
         return;
       }
 
-      // Branch C: Official institutional email fallback
+      // Branch C: Official institutional email fallback / demo sign-in
       if (
-        normalizedEmail.includes('@ritrjpm.ac.in') || 
-        normalizedEmail.includes('admin') || 
+        normalizedEmail.includes('@ritrjpm.ac.in') ||
+        normalizedEmail.includes('admin') ||
         normalizedEmail.includes('staff') ||
-        selectedRole === 'admin_staff'
+        selectedRole === 'admin_staff' ||
+        normalizedEmail.includes('@')
       ) {
         onLogin({
           id: 'stf_user_' + Date.now(),
@@ -154,180 +195,247 @@ export const Login: React.FC<LoginProps> = ({ onLogin, staffList = INITIAL_STAFF
           name: normalizedEmail.split('@')[0].replace(/[._]/g, ' ').toUpperCase(),
           email: normalizedEmail,
           phone: '+91 96292 84690',
-          role: 'staff',
+          role: selectedRole === 'super_admin' ? 'admin' : 'staff',
           access_level: 'edit',
           status: 'active',
         });
         return;
       }
 
-      setError('Account not found. Please enter your registered email (e.g. admin@ritrjpm.ac.in, kirranvijay@gmail.com, or staff email).');
-    }, 300);
+      setError('Account not found. Please enter your registered email (e.g. deptit@ritrjpm.ac.in or admin123).');
+    }, 280);
   };
 
   return (
-    <div className="min-h-screen bg-[#090D16] flex flex-col items-center justify-center p-4 relative overflow-hidden selection:bg-blue-600 selection:text-white">
-      {/* Ambient background glows */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
+    <div className={`login-screen theme-${theme}`}>
+      {/* Left Column: Campus Bus Illustration & Branding */}
+      <div className="login-aside">
+        <div className="login-brand">
+          <span className="brand-mark brand-mark--image">
+            <img src="/ritbustrack-logo.png" alt="RITBusTrack" />
+          </span>
+          <span>
+            RIT<span>Bus</span>Track
+          </span>
+        </div>
 
-      <div className="w-full max-w-[420px] z-10 space-y-6">
-        {/* Institutional Branding Header */}
-        <div className="text-center space-y-2.5">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-lg shadow-blue-600/20 ring-1 ring-white/10">
-            <Bus className="w-7 h-7" />
-          </div>
-          <div className="space-y-1">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              Campus Transit Command
+        <div className="login-aside-copy">
+          <span className="eyebrow">
+            <span className="eyebrow-dot" /> TRANSPORT COMMAND CENTER
+          </span>
+          <h1>
+            Every route.
+            <br />
+            In good hands.
+          </h1>
+          <p>
+            One clear view of your fleet, your people, and the journeys that connect them across Ramco Institute of Technology.
+          </p>
+
+          {/* Animated Campus Bus Scene */}
+          <div
+            className="login-bus-scene"
+            role="img"
+            aria-label="A side-view campus bus moving through wind along a road"
+          >
+            <span className="bus-wind bus-wind-one" />
+            <span className="bus-wind bus-wind-two" />
+            <span className="bus-wind bus-wind-three" />
+            <span className="bus-road">
+              <i />
+              <i />
+              <i />
             </span>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">
-              Ramco Institute of Technology
-            </h1>
-            <p className="text-xs text-slate-400 font-medium">
-              Official College Bus Tracking & Transport Portal
-            </p>
+            <span className="bus-ground-shadow" />
+            <img
+              className="login-side-bus"
+              src="/login-side-bus.png"
+              alt="RIT Campus Bus Illustration"
+            />
+            <span className="login-arrival-caption">
+              RIT CAMPUS <i /> LIVE ROUTE
+            </span>
           </div>
         </div>
 
-        {/* Executive Glassmorphic Card */}
-        <div className="bg-slate-900/80 border border-slate-800/80 rounded-3xl p-7 shadow-2xl backdrop-blur-2xl space-y-5 ring-1 ring-white/5">
+        <small className="login-aside-footer">
+          RITBusTrack · Transport operations
+        </small>
+      </div>
+
+      {/* Right Column: Sign In Form & Settings */}
+      <div className="login-main">
+        {/* Theme Toggle Button */}
+        {setTheme && (
+          <button
+            type="button"
+            className="icon-button login-theme"
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+            onClick={toggleTheme}
+          >
+            {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
+          </button>
+        )}
+
+        <div className="login-form-wrap">
+          <span className="login-form-mark">
+            <ShieldCheck size={21} />
+          </span>
+          <span className="eyebrow">WELCOME BACK</span>
+          <h2>Sign in to your workspace</h2>
+          <p>Enter your administrator details to continue.</p>
+
           {/* Segmented Role Switcher */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Select Account Role
-              </label>
-              <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                <KeyRound className="w-3 h-3" />
-                <span>Authorized Only</span>
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 p-1 bg-slate-950/80 border border-slate-800/80 rounded-2xl gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRole('super_admin');
-                  setError(null);
-                }}
-                className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
-                  selectedRole === 'super_admin'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 ring-1 ring-blue-400/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
-                }`}
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Super Admin</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRole('admin_staff');
-                  setError(null);
-                }}
-                className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
-                  selectedRole === 'admin_staff'
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 ring-1 ring-indigo-400/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Transport Staff</span>
-              </button>
-            </div>
+          <div className="change-type-tabs" style={{ padding: 0, marginBottom: '16px' }}>
+            <button
+              type="button"
+              onClick={() => handleRoleChange('super_admin')}
+              className={selectedRole === 'super_admin' ? 'active' : ''}
+              style={{ flex: 1, justifyContent: 'center' }}
+            >
+              <Shield size={14} />
+              <span>Super Admin</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRoleChange('admin_staff')}
+              className={selectedRole === 'admin_staff' ? 'active' : ''}
+              style={{ flex: 1, justifyContent: 'center' }}
+            >
+              <ShieldCheck size={14} />
+              <span>Transport Staff</span>
+            </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit}>
             {error && (
-              <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs flex items-center space-x-2.5 animate-in fade-in duration-200">
-                <ShieldAlert className="w-4 h-4 shrink-0 text-rose-400" />
-                <span className="font-medium">{error}</span>
+              <div
+                style={{
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  background: 'var(--red-soft)',
+                  color: 'var(--red)',
+                  fontSize: '11.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '10px',
+                }}
+              >
+                <ShieldAlert size={15} style={{ flexShrink: 0 }} />
+                <span>{error}</span>
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
-                {selectedRole === 'super_admin' ? 'Super Admin Email' : 'Staff Official Email'}
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+            <label>
+              Work email
+              <div style={{ position: 'relative' }}>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-950/90 text-white pl-10 pr-4 py-3 rounded-xl border border-slate-800 text-xs font-mono transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-600"
                   placeholder={selectedRole === 'super_admin' ? 'deptit@ritrjpm.ac.in' : 'name@ritrjpm.ac.in'}
                   autoComplete="username"
+                  style={{ paddingLeft: '32px' }}
+                />
+                <Mail
+                  size={15}
+                  style={{
+                    position: 'absolute',
+                    left: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--muted)',
+                    pointerEvents: 'none',
+                  }}
                 />
               </div>
-            </div>
+            </label>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+            <label>
+              Password
+              <div className="password-input">
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-950/90 text-white pl-10 pr-4 py-3 rounded-xl border border-slate-800 text-xs font-mono transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-slate-600"
                   placeholder="••••••••"
                   autoComplete="current-password"
+                  style={{ paddingLeft: '32px' }}
                 />
+                <Lock
+                  size={15}
+                  style={{
+                    position: 'absolute',
+                    left: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--muted)',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
               </div>
+            </label>
+
+            <div className="login-options">
+              <label>
+                <input type="checkbox" defaultChecked /> Remember me
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setResetHint(
+                    `Password hint: For Super Admin use 'deptit@rit' or 'admin123'. For Staff use 'staff123'.`
+                  );
+                }}
+              >
+                Forgot password?
+              </button>
+              {resetHint && (
+                <small className="login-reset-hint" role="status" style={{ marginTop: '6px' }}>
+                  {resetHint}
+                </small>
+              )}
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className={`w-full text-white font-bold py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-center space-x-2 transition-all duration-200 cursor-pointer disabled:opacity-60 ${
-                selectedRole === 'super_admin'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-600/25 active:scale-[0.99]'
-                  : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 shadow-indigo-600/25 active:scale-[0.99]'
-              }`}
+              className="button button-primary login-submit"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  <span>Verifying Credentials...</span>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>Verifying credentials...</span>
                 </>
               ) : (
                 <>
-                  <span>
-                    {selectedRole === 'super_admin'
-                      ? 'Sign In as Super Admin'
-                      : 'Sign In as Transport Staff'}
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>Sign in as {selectedRole === 'super_admin' ? 'Super Admin' : 'Staff'}</span>
+                  <ArrowRight size={15} />
                 </>
               )}
             </button>
+
+            <div className="login-demo-hint">
+              <CircleHelp size={13} />
+              <span>Demo credentials prefilled · Click Sign in to test</span>
+            </div>
           </form>
-
-          {/* Secure SSL Tagline */}
-          <div className="pt-2 text-center">
-            <p className="text-[10.5px] text-slate-500 font-medium flex items-center justify-center gap-1.5">
-              <span>🔒</span>
-              <span>256-Bit SSL Encrypted Campus Transit System</span>
-            </p>
-          </div>
         </div>
 
-        {/* Developer & Institutional Credits */}
-        <div className="text-center pt-2 space-y-1">
-          <p className="text-xs font-bold text-slate-400 tracking-wide">
-            Designed and Developed by <span className="text-blue-400 font-extrabold">Kirran S T</span>
-          </p>
-          <p className="text-[11px] text-slate-500 font-semibold tracking-wider uppercase">
-            Department of Information Technology &bull; RIT
-          </p>
-        </div>
+        <footer>
+          Protected workspace <span>·</span> Dept. of Information Technology <span>·</span> RIT
+        </footer>
       </div>
     </div>
   );
