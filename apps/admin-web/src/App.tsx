@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
-import { BottomNav } from './components/BottomNav';
 import { ProfileModal } from './components/ProfileModal';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -1103,7 +1102,7 @@ export const App: React.FC = () => {
     // Automatically sync live GPS location entry so newly created buses appear immediately on the map!
     setLocations(prev => {
       const existingIdx = prev.findIndex(l => l.bus_id === bus.id);
-      const routeStops = stops.filter(s => s.route_id === bus.route_id).sort((a, b) => a.stop_order - b.stop_order);
+      const routeStops = stops.filter(s => s.route_id === bus.route_id).sort((a, b) => (a.stop_order || 0) - (b.stop_order || 0));
       const startLat = routeStops[0]?.latitude || (9.4475 + ((prev.length + 1) * 0.003));
       const startLng = routeStops[0]?.longitude || (77.5450 + ((prev.length + 1) * 0.0025));
 
@@ -1815,9 +1814,9 @@ export const App: React.FC = () => {
   const handleSimulateLoginAsStaff = (staff: StaffUser) => {
     setCurrentUser({
       id: staff.id,
-      auth_user_id: staff.auth_user_id,
+      auth_user_id: staff.auth_user_id || `auth_${staff.id}`,
       name: staff.name,
-      email: staff.email,
+      email: staff.email || `${staff.name.toLowerCase().replace(/\s+/g, '.')}@ritrjpm.ac.in`,
       phone: staff.phone,
       role: 'staff',
       access_level: staff.access_level,
@@ -2062,7 +2061,7 @@ export const App: React.FC = () => {
                     onSaveRoute={handleSaveRoute}
                     onSaveStop={handleSaveStop}
                     onDeleteStop={handleDeleteStop}
-                    onReorderStops={handleReorderStops}
+                    onReorderStops={handleReorderStops as any}
                     onSubstituteDriver={handleSubstituteDriver}
                     onSwapBus={handleSwapBus}
                     onRevertSubstituteDriver={handleRevertSubstituteDriver}
@@ -2117,11 +2116,7 @@ export const App: React.FC = () => {
                     onDeleteRoute={handleDeleteRoute}
                     onSaveStop={handleSaveStop}
                     onDeleteStop={handleDeleteStop}
-                    onReorderStops={handleReorderStops}
-                    onSubstituteDriver={handleSubstituteDriver}
-                    onSwapBus={handleSwapBus}
-                    onRevertSubstituteDriver={handleRevertSubstituteDriver}
-                    onRevertBusSwap={handleRevertBusSwap}
+                    onReorderStops={handleReorderStops as any}
                     currentUser={currentUser}
                     canEdit={canEdit}
                   />
@@ -2137,7 +2132,7 @@ export const App: React.FC = () => {
                     stops={stops}
                     onSaveStudent={handleSaveStudent}
                     onDeleteStudent={handleDeleteStudent}
-                    onImportCSV={handleImportStudentsCSV}
+                    onImportCSV={handleImportStudentsCSV as any}
                     onToggleStudentLeave={handleToggleStudentLeave}
                     onUpdateStudentPassword={handleUpdateStudentPassword}
                     currentUser={currentUser}
@@ -2166,7 +2161,7 @@ export const App: React.FC = () => {
                     onDeleteStaffCommuter={handleDeleteStaffCommuter}
                     onToggleStaffCommuterLeave={handleToggleStaffCommuterLeave}
                     onUpdateStaffCommuterPassword={handleUpdateStaffCommuterPassword}
-                    onImportStaffCommuterCSV={handleImportStaffCommutersCSV}
+                    onImportStaffCommuterCSV={handleImportStaffCommutersCSV as any}
                   />
                 </ErrorBoundary>
               } />
@@ -2238,12 +2233,6 @@ export const App: React.FC = () => {
               </span>
             </footer>
           </main>
-
-          {/* Bottom Navigation for Modern Responsive App Experience */}
-          <BottomNav
-            activeEmergenciesCount={activeEmergenciesCount}
-            onOpenProfile={() => setIsProfileOpen(true)}
-          />
         </div>
 
         {/* Profile Modal */}

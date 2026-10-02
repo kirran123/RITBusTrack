@@ -161,7 +161,7 @@ export const Routes: React.FC<RoutesProps> = ({
     setEditingRoute(route);
     const routeStops = stops.filter((s) => s.route_id === route.id).map((s) => s.name);
     setFormValues({
-      name: route.name,
+      name: route.name || route.route_name || '',
       startPoint: route.start_point || 'Terminal',
       endPoint: route.end_point || 'Campus Gate',
       distance: (route as any).distance || '18.4 km',

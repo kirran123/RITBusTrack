@@ -46,8 +46,8 @@ export async function pushRegistryToCloud(params: {
 
   // 1. Sanitize & enrich students
   const enrichedStudents: Student[] = (params.students || []).map((s, idx) => {
-    const rawEmail = (s.profile?.email || s.email || '').trim().toLowerCase();
-    const regNum = (s.register_number || s.roll_number || (s as any).rollNumber || '').trim();
+    const rawEmail = (s.profile?.email || (s as any).email || '').trim().toLowerCase();
+    const regNum = (s.register_number || (s as any).roll_number || (s as any).rollNumber || '').trim();
     const effectiveEmail = rawEmail || (regNum ? `${regNum}@ritrjpm.ac.in` : `student${idx + 1}@ritrjpm.ac.in`);
     const studentPass = s.password || (s as any).profile?.password || 'student123';
     return {
