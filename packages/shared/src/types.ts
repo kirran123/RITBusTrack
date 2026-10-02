@@ -4,22 +4,25 @@ export type StaffAccessLevel = 'edit' | 'view';
 
 export interface StaffUser {
   id: string;
-  auth_user_id: string;
+  auth_user_id?: string;
   name: string;
-  email: string;
+  email?: string;
   phone: string;
   password?: string;
   department: string;
-  designation: string;
+  designation?: string;
   access_level: StaffAccessLevel; // 'edit' | 'view'
   assigned_route_ids?: string[];
   status: 'active' | 'inactive';
-  created_at: string;
+  created_at?: string;
   updated_at?: string;
   last_login?: string;
+  profile?: UserProfile;
+  employee_id?: string;
+  role?: string;
 }
 
-export type BusStatus = 'active' | 'inactive' | 'maintenance';
+export type BusStatus = 'active' | 'inactive' | 'maintenance' | 'delayed';
 
 export type TripStatus = 'scheduled' | 'active' | 'completed' | 'cancelled';
 
@@ -27,20 +30,20 @@ export type EmergencyStatus = 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
 
 export type EmergencyType = 'breakdown' | 'accident' | 'medical' | 'emergency' | 'other';
 
-export type NotificationType = 'general' | 'trip' | 'delay' | 'emergency' | 'maintenance' | 'announcement' | 'route_change' | 'sos' | 'urgent';
+export type NotificationType = 'general' | 'trip' | 'delay' | 'emergency' | 'maintenance' | 'announcement' | 'route_change' | 'sos' | 'urgent' | 'broadcast' | 'system_registry' | 'registry_snapshot' | 'system_internal';
 
-export type NotificationTargetType = 'all' | 'route' | 'bus' | 'role' | 'user';
+export type NotificationTargetType = 'all' | 'route' | 'bus' | 'role' | 'user' | 'system';
 
 export interface UserProfile {
-  id: string;
-  auth_user_id: string;
+  id?: string;
+  auth_user_id?: string;
   name: string;
   email: string;
-  phone: string;
-  role: UserRole;
+  phone?: string;
+  role?: UserRole;
   access_level?: StaffAccessLevel;
   profile_image?: string | null;
-  status: 'active' | 'inactive';
+  status?: 'active' | 'inactive' | 'available' | 'on_duty' | 'off_duty';
   created_at?: string;
   updated_at?: string;
 }
@@ -64,15 +67,20 @@ export interface StudentLeave {
 
 export interface Student {
   id: string;
-  user_id: string;
-  register_number: string;
+  user_id?: string;
+  register_number?: string;
+  roll_number?: string;
+  name?: string;
+  email?: string;
   department: string;
   year: number;
-  section: string;
+  section?: string;
   password?: string;
   route_id?: string | null;
   bus_id?: string | null;
+  assigned_bus_id?: string | null;
   boarding_stop_id?: string | null;
+  assigned_stop_id?: string | null;
   status: 'active' | 'inactive';
   is_on_leave?: boolean;
   leave_date?: string;
@@ -89,18 +97,20 @@ export interface Student {
 
 export interface StaffCommuter {
   id: string;
-  user_id: string;
-  employee_id: string;
+  user_id?: string;
+  employee_id?: string;
   name: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   password?: string;
-  department: string;
-  designation: string;
+  department?: string;
+  designation?: string;
   bus_id?: string | null;
+  assigned_bus_id?: string | null;
   route_id?: string | null;
   boarding_stop_id?: string | null;
-  status: 'active' | 'inactive';
+  assigned_stop_id?: string | null;
+  status?: 'active' | 'inactive';
   is_on_leave?: boolean;
   leave_date?: string;
   leave_reason?: string;
@@ -115,17 +125,18 @@ export interface StaffCommuter {
 
 export interface Driver {
   id: string;
-  user_id: string;
-  employee_id: string;
-  license_number: string;
-  phone: string;
+  user_id?: string;
+  employee_id?: string;
+  license_number?: string;
+  phone?: string;
+  name?: string;
   password?: string;
   assigned_bus_id?: string | null;
   bus_number?: string;
   bus_name?: string;
   route_id?: string | null;
   route_name?: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'available' | 'on_duty' | 'off_duty';
   created_at?: string;
   updated_at?: string;
   // Joined fields
@@ -138,8 +149,9 @@ export type TripShift = 'morning' | 'evening';
 export interface Bus {
   id: string;
   bus_number: string;
-  registration_number: string;
-  bus_name: string;
+  registration_number?: string;
+  plate_number?: string;
+  bus_name?: string;
   capacity: number;
   route_id?: string | null;
   assigned_driver_id?: string | null;
@@ -162,12 +174,16 @@ export interface Bus {
 
 export interface Route {
   id: string;
-  route_name: string;
+  route_name?: string;
+  name?: string;
+  route_number?: string;
   description?: string | null;
-  start_location: string;
-  destination: string;
-  distance_km: number;
-  estimated_duration: string;
+  start_location?: string;
+  start_point?: string;
+  destination?: string;
+  end_point?: string;
+  distance_km?: number;
+  estimated_duration?: string;
   route_color?: string;
   start_time?: string;
   end_time?: string;
@@ -182,16 +198,17 @@ export interface Route {
 
 export interface Stop {
   id: string;
-  route_id: string;
-  stop_name: string;
+  route_id?: string;
+  stop_name?: string;
+  name?: string;
   latitude: number;
   longitude: number;
-  stop_order: number;
+  stop_order?: number;
   estimated_arrival?: string | null;
   morning_time?: string | null;
   evening_time?: string | null;
   google_maps_link?: string;
-  status: 'active' | 'inactive';
+  status?: 'active' | 'inactive';
   created_at?: string;
   updated_at?: string;
 }
