@@ -24,7 +24,7 @@ interface OSMMapViewProps {
 }
 
 export const OSMMapView: React.FC<OSMMapViewProps> = ({
-  busLocation = { latitude: 9.449, longitude: 77.5472, speed: 30, heading: 45 },
+  busLocation,
   userLocation,
   userLocationLabel = '📍 Your Location',
   busNumber = 'BUS-01',
@@ -34,66 +34,94 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
   boardingStop,
   height,
 }) => {
-  const busLat = busLocation?.latitude || 9.449;
-  const busLng = busLocation?.longitude || 77.5472;
+  const hasBusLocation = Boolean(
+    busLocation &&
+    typeof busLocation.latitude === 'number' &&
+    typeof busLocation.longitude === 'number' &&
+    !isNaN(busLocation.latitude) &&
+    !isNaN(busLocation.longitude)
+  );
+
+  const initialCenterLat = hasBusLocation
+    ? (busLocation?.latitude as number)
+    : stops.length > 0
+      ? stops[0].latitude
+      : 9.4520;
+
+  const initialCenterLng = hasBusLocation
+    ? (busLocation?.longitude as number)
+    : stops.length > 0
+      ? stops[0].longitude
+      : 77.5535;
+
+  const busLat = hasBusLocation ? (busLocation?.latitude as number) : initialCenterLat;
+  const busLng = hasBusLocation ? (busLocation?.longitude as number) : initialCenterLng;
   const speed = Math.round(busLocation?.speed || 0);
   const heading = busLocation?.heading || 0;
 
   const stopsJson = JSON.stringify(
     stops.map((s, idx) => {
-      // Haversine distance in km from bus to this stop
-      const R = 6371;
-      const dLat = ((s.latitude - busLat) * Math.PI) / 180;
-      const dLon = ((s.longitude - busLng) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((busLat * Math.PI) / 180) *
-          Math.cos((s.latitude * Math.PI) / 180) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-      // Dynamic ETA calculation based on speed & dwell
-      let effectiveSpeed = 22;
-      if (speed >= 35) effectiveSpeed = Math.min(50, Math.round(speed * 0.85));
-      else if (speed >= 15) effectiveSpeed = Math.max(16, Math.round(speed * 0.9));
-      else effectiveSpeed = 16;
-
-      const stopDwell = Math.max(0, idx) * 1.2;
-      const travelMins = (distKm / effectiveSpeed) * 60;
-      const totalEtaMins = Math.max(1, Math.round(travelMins + stopDwell));
-
-      const now = new Date();
-      const arrDate = new Date(now.getTime() + totalEtaMins * 60 * 1000);
-      const arrH = arrDate.getHours();
-      const arrM = arrDate.getMinutes();
-      const ampm = arrH >= 12 ? 'PM' : 'AM';
-      const liveEtaTime = `${(arrH % 12 || 12).toString().padStart(2, '0')}:${arrM.toString().padStart(2, '0')} ${ampm}`;
-
-      let delayLabel = 'On Time';
-      let delayColor = '#10b981';
+      let distKm = 0;
+      let totalEtaMins = 0;
+      let liveEtaTime = s.estimated_arrival || '--';
+      let delayLabel = 'Scheduled';
+      let delayColor = '#0284c7';
       let isDelayed = false;
 
-      if (totalEtaMins <= 2) {
-        delayLabel = 'Arriving Soon';
-        delayColor = '#f59e0b';
-      } else if (s.estimated_arrival) {
-        const parts = s.estimated_arrival.match(/(\d+):(\d+)\s*(AM|PM)/i);
-        if (parts) {
-          let sH = parseInt(parts[1], 10);
-          const sM = parseInt(parts[2], 10);
-          if (parts[3].toUpperCase() === 'PM' && sH < 12) sH += 12;
-          if (parts[3].toUpperCase() === 'AM' && sH === 12) sH = 0;
-          const sDate = new Date(now);
-          sDate.setHours(sH, sM, 0, 0);
-          const diffMins = Math.round((arrDate.getTime() - sDate.getTime()) / (60 * 1000));
-          if (diffMins > 2) {
-            isDelayed = true;
-            delayLabel = `Delayed (+${diffMins}m)`;
-            delayColor = '#f43f5e';
-          } else if (diffMins < -3) {
-            delayLabel = `${Math.abs(diffMins)}m Early`;
-            delayColor = '#38bdf8';
+      if (hasBusLocation) {
+        // Haversine distance in km from live bus to this stop
+        const R = 6371;
+        const dLat = ((s.latitude - busLat) * Math.PI) / 180;
+        const dLon = ((s.longitude - busLng) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((busLat * Math.PI) / 180) *
+            Math.cos((s.latitude * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+        distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        // Dynamic ETA calculation based on speed & dwell
+        let effectiveSpeed = 22;
+        if (speed >= 35) effectiveSpeed = Math.min(50, Math.round(speed * 0.85));
+        else if (speed >= 15) effectiveSpeed = Math.max(16, Math.round(speed * 0.9));
+        else effectiveSpeed = 16;
+
+        const stopDwell = Math.max(0, idx) * 1.2;
+        const travelMins = (distKm / effectiveSpeed) * 60;
+        totalEtaMins = Math.max(1, Math.round(travelMins + stopDwell));
+
+        const now = new Date();
+        const arrDate = new Date(now.getTime() + totalEtaMins * 60 * 1000);
+        const arrH = arrDate.getHours();
+        const arrM = arrDate.getMinutes();
+        const ampm = arrH >= 12 ? 'PM' : 'AM';
+        liveEtaTime = `${(arrH % 12 || 12).toString().padStart(2, '0')}:${arrM.toString().padStart(2, '0')} ${ampm}`;
+
+        delayLabel = 'On Time';
+        delayColor = '#10b981';
+
+        if (totalEtaMins <= 2) {
+          delayLabel = 'Arriving Soon';
+          delayColor = '#f59e0b';
+        } else if (s.estimated_arrival) {
+          const parts = s.estimated_arrival.match(/(\d+):(\d+)\s*(AM|PM)/i);
+          if (parts) {
+            let sH = parseInt(parts[1], 10);
+            const sM = parseInt(parts[2], 10);
+            if (parts[3].toUpperCase() === 'PM' && sH < 12) sH += 12;
+            if (parts[3].toUpperCase() === 'AM' && sH === 12) sH = 0;
+            const sDate = new Date(now);
+            sDate.setHours(sH, sM, 0, 0);
+            const diffMins = Math.round((arrDate.getTime() - sDate.getTime()) / (60 * 1000));
+            if (diffMins > 2) {
+              isDelayed = true;
+              delayLabel = `Delayed (+${diffMins}m)`;
+              delayColor = '#f43f5e';
+            } else if (diffMins < -3) {
+              delayLabel = `${Math.abs(diffMins)}m Early`;
+              delayColor = '#38bdf8';
+            }
           }
         }
       }
@@ -106,11 +134,11 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
         order: idx + 1,
         isStart: idx === 0,
         isEnd: idx === stops.length - 1,
-        isBoarding: boardingStop ? boardingStop.id === s.id : false,
+        isBoarding: boardingStop ? (boardingStop.id === s.id || boardingStop.stop_name === s.stop_name) : false,
         scheduledEta: s.estimated_arrival || '--',
         liveEta: liveEtaTime,
         etaMinutes: totalEtaMins,
-        distanceKm: distKm.toFixed(1),
+        distanceKm: hasBusLocation ? distKm.toFixed(1) : '--',
         delayLabel,
         delayColor,
         isDelayed,
@@ -512,20 +540,27 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           }
         }
 
-        // 4. Moving Bus Marker
-        var busIcon = L.divIcon({
-          html: '<div class="bus-marker-wrap"><div class="bus-badge"><span>🚌 ${busNumber}</span></div><div class="bus-icon-circle">🚌</div></div>',
-          className: '',
-          iconSize: [80, 48],
-          iconAnchor: [40, 46]
-        });
-        L.marker([${busLat}, ${busLng}], { icon: busIcon, zIndexOffset: 1000 })
-          .bindPopup("<div style='font-family:sans-serif;font-size:12px;padding:2px;'><b>${busNumber}</b><br/>Route: ${routeNumber}<br/>Live Speed: <b style='color:#059669;'>${speed} km/h</b><br/>Heading: ${heading}&deg;</div>")
-          .addTo(map);
-        bounds.push([${busLat}, ${busLng}]);
+        // 4. Moving Bus Marker (Render only when real live bus location is available)
+        var hasLiveBus = ${hasBusLocation ? 'true' : 'false'};
+        if (hasLiveBus) {
+          var busIcon = L.divIcon({
+            html: '<div class="bus-marker-wrap"><div class="bus-badge"><span>🚌 ${busNumber}</span></div><div class="bus-icon-circle">🚌</div></div>',
+            className: '',
+            iconSize: [80, 48],
+            iconAnchor: [40, 46]
+          });
+          L.marker([${busLat}, ${busLng}], { icon: busIcon, zIndexOffset: 1000 })
+            .bindPopup("<div style='font-family:sans-serif;font-size:12px;padding:2px;'><b>${busNumber}</b><br/>Route: ${routeNumber}<br/>Live Speed: <b style='color:#059669;'>${speed} km/h</b><br/>Heading: ${heading}&deg;</div>")
+            .addTo(map);
+          bounds.push([${busLat}, ${busLng}]);
+        }
 
         if (bounds.length > 1) {
           map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+        } else if (bounds.length === 1) {
+          map.setView(bounds[0], 15);
+        } else if (stopLatLngs.length > 0) {
+          map.fitBounds(stopLatLngs, { padding: [30, 30], maxZoom: 16 });
         } else {
           map.setView([${busLat}, ${busLng}], 15);
         }
@@ -539,7 +574,13 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
         }
 
         function recenterBus() {
-          map.flyTo([${busLat}, ${busLng}], 16, { duration: 0.8 });
+          if (hasLiveBus) {
+            map.flyTo([${busLat}, ${busLng}], 16, { duration: 0.8 });
+          } else if (stopLatLngs.length > 0) {
+            map.flyTo(stopLatLngs[0], 16, { duration: 0.8 });
+          } else {
+            map.flyTo([${busLat}, ${busLng}], 15, { duration: 0.8 });
+          }
         }
 
         function recenterUser() {
@@ -553,7 +594,7 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
         function fitAll() {
           if (stopLatLngs.length > 1) {
             var routeBounds = stopLatLngs.slice();
-            routeBounds.push([${busLat}, ${busLng}]);
+            if (hasLiveBus) routeBounds.push([${busLat}, ${busLng}]);
             if (isUserClose && userLoc) routeBounds.push([userLoc.lat, userLoc.lng]);
             map.fitBounds(routeBounds, { padding: [30, 30] });
           } else if (bounds.length > 1) {

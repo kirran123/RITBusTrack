@@ -22,7 +22,7 @@ import {
   calculateDistanceKm,
   calculateDynamicETA,
 } from '../../services/locationService';
-import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB, subscribeToStops, fetchLiveStops, isInternalRegistryNotification } from '../../services/supabase';
+import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB, subscribeToStops, fetchLiveStops, fetchCloudUserRegistry, isInternalRegistryNotification } from '../../services/supabase';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
@@ -229,13 +229,40 @@ export default function DriverDashboard() {
           ? session.user as any
           : null;
 
+        // Fetch dynamic cloud registry and stops on launch
+        fetchCloudUserRegistry(true).then(() => {
+          loadPassengersForBus();
+        }).catch(() => {});
+
         if (parsed) {
+          // Load dynamic buses and routes from persistent storage
+          let allBuses = [...MASTER_BUSES];
+          try {
+            const rawB = await authStorage.getItem('bustrack_buses_v1');
+            if (rawB) {
+              const pB = JSON.parse(rawB);
+              if (Array.isArray(pB) && pB.length > 0) allBuses = [...pB, ...allBuses];
+            }
+          } catch {}
+
+          let allRoutes = [...MASTER_ROUTES];
+          try {
+            const rawR = await authStorage.getItem('bustrack_routes_v1');
+            if (rawR) {
+              const pR = JSON.parse(rawR);
+              if (Array.isArray(pR) && pR.length > 0) allRoutes = [...pR, ...allRoutes];
+            }
+          } catch {}
+
           const bId = parsed.bus_id || parsed.busId || parsed.assigned_bus_id || parsed.assignedBusId || parsed.bus?.id || 'b1';
-          const busObj = MASTER_BUSES.find(b => b.id === bId || b.bus_number === parsed.bus_number || b.bus_number === parsed.busNumber);
+          const busObj = allBuses.find(b =>
+            (b.id && (b.id === bId || b.bus_number === parsed.bus_number || b.bus_number === parsed.busNumber)) ||
+            (b.assigned_driver_id && (b.assigned_driver_id === parsed.id || b.assigned_driver_id === parsed.employee_id))
+          );
           const bNum = parsed.bus?.bus_number || parsed.bus_number || parsed.busNumber || busObj?.bus_number || 'BUS-01';
           const rId = parsed.route_id || parsed.routeId || parsed.route?.id || busObj?.route_id || 'r1';
-          const rObj = MASTER_ROUTES.find(r => r.id === rId);
-          const rName = parsed.route_name || parsed.routeName || parsed.route?.route_name || rObj?.route_name || 'Route 1';
+          const rObj = allRoutes.find(r => r.id === rId);
+          const rName = parsed.route_name || parsed.routeName || parsed.route?.route_name || rObj?.route_name || (rObj ? `${rObj.route_name}` : `Route ${rId}`);
           const regNum = parsed.bus?.registration_number || parsed.registration_number || parsed.registrationNumber || busObj?.registration_number || 'TN 67 AM 9785';
 
           setDriverProfile((prev) => ({
@@ -268,7 +295,7 @@ export default function DriverDashboard() {
   const [studentSearch, setStudentSearch] = useState('');
   const [filterStopId, setFilterStopId] = useState('all');
 
-  // Load both allocated students and staff for driver's bus
+  // Load only allocated students and staff for driver's bus
   const loadPassengersForBus = async () => {
     const busId = driverProfile.assignedBusId || 'b1';
     const bNum = driverProfile.busNumber || 'BUS-01';
@@ -276,7 +303,7 @@ export default function DriverDashboard() {
     const cleanBusNum = bNum.toLowerCase().replace(/[- ]/g, '');
     const rId = (driverProfile.routeId || '').toLowerCase().trim();
 
-    // 1. Students
+    // 1. Students - Load from synced registry if available, else master data
     let allSt: any[] = [];
     try {
       const rawSt = await authStorage.getItem('bustrack_students_v1');
@@ -285,13 +312,8 @@ export default function DriverDashboard() {
         if (Array.isArray(parsed) && parsed.length > 0) allSt = parsed;
       }
     } catch {}
-    if (allSt.length === 0) allSt = [...MASTER_STUDENTS];
-    else {
-      MASTER_STUDENTS.forEach((ms) => {
-        if (!allSt.some((s) => s.id === ms.id || s.register_number === ms.register_number)) {
-          allSt.push(ms);
-        }
-      });
+    if (allSt.length === 0) {
+      allSt = [...MASTER_STUDENTS];
     }
 
     const matchedStudents: BusStudent[] = allSt
@@ -302,7 +324,6 @@ export default function DriverDashboard() {
         if (sBusNum && cleanBusNum && sBusNum === cleanBusNum) return true;
         if (sBusId && cleanTarget && sBusId === cleanTarget) return true;
         if (sRoute && rId && sRoute === rId) return true;
-        if ((!s.bus_id && !s.busId && !s.bus_number && !s.busNumber) && (cleanTarget === 'b1' || cleanBusNum === 'bus01')) return true;
         return false;
       })
       .map((s: any, idx: number) => ({
@@ -328,7 +349,7 @@ export default function DriverDashboard() {
 
     setStudents(matchedStudents);
 
-    // 2. Staff Commuters
+    // 2. Staff Commuters - Load from synced registry if available, else master data
     let allStaff: any[] = [];
     try {
       const rawSc = await authStorage.getItem('bustrack_staff_commuters_v1');
@@ -337,13 +358,8 @@ export default function DriverDashboard() {
         if (Array.isArray(parsed) && parsed.length > 0) allStaff = parsed;
       }
     } catch {}
-    if (allStaff.length === 0) allStaff = [...MASTER_STAFF_COMMUTERS];
-    else {
-      MASTER_STAFF_COMMUTERS.forEach((msc) => {
-        if (!allStaff.some((sc) => sc.id === msc.id || sc.employee_id === msc.employee_id)) {
-          allStaff.push(msc);
-        }
-      });
+    if (allStaff.length === 0) {
+      allStaff = [...MASTER_STAFF_COMMUTERS];
     }
 
     const matchedStaff = allStaff
@@ -354,7 +370,6 @@ export default function DriverDashboard() {
         if (scBusNum && cleanBusNum && scBusNum === cleanBusNum) return true;
         if (scBusId && cleanTarget && scBusId === cleanTarget) return true;
         if (scRoute && rId && scRoute === rId) return true;
-        if ((!sc.bus_id && !sc.busId && !sc.bus_number && !sc.busNumber) && (cleanTarget === 'b1' || cleanBusNum === 'bus01')) return true;
         return false;
       })
       .map((sc: any, idx: number) => ({
@@ -1150,12 +1165,25 @@ export default function DriverDashboard() {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity
-                style={[styles.modalCloseBtn, { backgroundColor: colors.surfaceSubtle }]}
-                onPress={() => setShowNotifModal(false)}
-              >
-                <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>✕</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {systemBroadcasts.length > 0 && (
+                  <TouchableOpacity
+                    style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: colors.surfaceSubtle, borderWidth: 1, borderColor: colors.border }}
+                    onPress={async () => {
+                      setSystemBroadcasts([]);
+                      await authStorage.setItem('bustrack_notifications_v1', '[]');
+                    }}
+                  >
+                    <Text style={{ color: colors.emergency, fontSize: 12, fontWeight: '700' }}>Clear All</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.modalCloseBtn, { backgroundColor: colors.surfaceSubtle }]}
+                  onPress={() => setShowNotifModal(false)}
+                >
+                  <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView style={{ maxHeight: 380, padding: 16 }}>

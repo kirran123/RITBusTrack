@@ -80,14 +80,16 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: "Bus Track Updated APK (v1.0.1)"
+          name: "Bus Track Updated APK (v1.0.2)"
           body: |
-            ### 🚌 Bus Track Standalone Mobile APK (v1.0.1)
-            **Included Fixes & Features:**
-            - **Dynamic Driver & Student Assignment**: Correctly connects driver and students to their assigned buses (e.g. Bus 2, Bus 3) and routes without defaulting to BUS-01 / Route 1.
-            - **Morning & Evening Stop Schedule**: Dual scheduled times displayed for all route stops.
-            - **Duplicate Alert & Push Notification Fix**: Prevents stacked duplicate alerts and double notification tray popups.
-            - **Realtime GPS & Status**: Live route telemetry synchronization with Admin Web.
+            ### 🚌 Bus Track Standalone Mobile APK (v1.0.2)
+            **Included Fixes & Enhancements:**
+            - **Map Marker & GPS Fixes**: Resolved student & staff map marker errors; decoupled bus marker from boarding stops when inactive, eliminated fake GPS coordinate fallbacks.
+            - **Walk Time Removed**: Completely removed "Walk Time" and walking distance displays across all logins.
+            - **Clear Notifications**: Added "Clear All" option in the alert and announcement sections across Student, Staff, and Driver apps.
+            - **Driver Assigned Route & Roster Fix**: Driver now dynamically loads their assigned route (Routes 1–32) without defaulting to Route 1. Passenger list strictly shows assigned students and staff commuters without dummy data mixing.
+            - **Staff App Parity**: Fixed staff boarding stop resolution and map telemetry to dynamically match their profile.
+            - **Dynamic Admin Cloud Sync**: Full synchronization between mobile app and Admin website for buses, routes, stops, staff, and students.
 
             **Installation:** Download `Bus-Track.apk` below and install directly on your Android device.
           files: output-apk/Bus-Track.apk

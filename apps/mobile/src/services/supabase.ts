@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
-import { GPSCoordinate, EmergencyAlert, SystemNotification, timeHistoryStore, Stop, INITIAL_STOPS, CLOUD_REGISTRY_SNAPSHOT_ID, CLOUD_REGISTRY_NOTIFICATION_TITLE, SyncedUserRegistryPayload } from '@college-bus/shared';
+import { GPSCoordinate, EmergencyAlert, SystemNotification, timeHistoryStore, Stop, INITIAL_STOPS, MASTER_STOPS, CLOUD_REGISTRY_SNAPSHOT_ID, CLOUD_REGISTRY_NOTIFICATION_TITLE, SyncedUserRegistryPayload } from '@college-bus/shared';
 import { authStorage } from './authStorage';
 
 // Read Supabase credentials with fallback to live production project
@@ -251,6 +251,9 @@ export async function applyRegistryToStorage(payload: SyncedUserRegistryPayload)
     }
     if (Array.isArray(payload.stops) && payload.stops.length > 0) {
       await authStorage.setItem('bustrack_stops_v1', JSON.stringify(payload.stops));
+      stopsListeners.forEach((listener) => {
+        try { listener(payload.stops); } catch {}
+      });
     }
     console.log('✅ Applied user registry to mobile storage. Students:', payload.students?.length, 'Drivers:', payload.drivers?.length, 'Staff:', payload.staffCommuters?.length);
   } catch (err) {
@@ -1054,6 +1057,18 @@ export function subscribeToStops(listener: StopsListener) {
  * Fetch latest dynamic stops with fallback to persistent storage and INITIAL_STOPS
  */
 export async function fetchLiveStops(): Promise<Stop[]> {
+  // 1. Try Supabase table directly if online
+  if (isLiveBackendConfigured && supabase) {
+    try {
+      const { data, error } = await supabase.from('stops').select('*').order('stop_order', { ascending: true });
+      if (!error && data && data.length > 0) {
+        await authStorage.setItem('bustrack_stops_v1', JSON.stringify(data));
+        return data as Stop[];
+      }
+    } catch {}
+  }
+
+  // 2. Try persistent storage
   try {
     const stored = await authStorage.getItem('bustrack_stops_v1');
     if (stored) {
@@ -1061,7 +1076,9 @@ export async function fetchLiveStops(): Promise<Stop[]> {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {}
-  return INITIAL_STOPS;
+
+  // 3. Fallback to complete master stops for all routes
+  return MASTER_STOPS;
 }
 
 /**

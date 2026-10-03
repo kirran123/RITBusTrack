@@ -39,6 +39,7 @@ import {
   TripUpdatePayload,
   subscribeToStops,
   fetchLiveStops,
+  fetchCloudUserRegistry,
   isInternalRegistryNotification,
 } from '../../services/supabase';
 import { authStorage } from '../../services/authStorage';
@@ -306,15 +307,43 @@ export default function StaffMobileDashboard() {
   useEffect(() => {
     const loadSavedStaff = async () => {
       try {
+        fetchCloudUserRegistry(true).catch(() => {});
+
         const session = await authStorage.getSession();
-        if (session && session.role === 'staff' && session.user) {
-          const u = session.user as any;
+        let u = (session && session.role === 'staff' && session.user)
+          ? session.user as any
+          : null;
+
+        if (!u) {
+          const raw = await authStorage.getItem('bustrack_current_mobile_staff');
+          if (raw) u = JSON.parse(raw);
+        }
+
+        if (u) {
+          let allBuses = [...MASTER_BUSES];
+          try {
+            const rawB = await authStorage.getItem('bustrack_buses_v1');
+            if (rawB) {
+              const pB = JSON.parse(rawB);
+              if (Array.isArray(pB) && pB.length > 0) allBuses = [...pB, ...allBuses];
+            }
+          } catch {}
+
+          let allRoutes = [...MASTER_ROUTES];
+          try {
+            const rawR = await authStorage.getItem('bustrack_routes_v1');
+            if (rawR) {
+              const pR = JSON.parse(rawR);
+              if (Array.isArray(pR) && pR.length > 0) allRoutes = [...pR, ...allRoutes];
+            }
+          } catch {}
+
           const bNum = u.bus?.bus_number || u.bus_number || u.busNumber || 'BUS-01';
-          const busObj = MASTER_BUSES.find(b => b.bus_number === bNum || b.id === (u.bus_id || u.busId));
+          const busObj = allBuses.find(b => b.bus_number === bNum || b.id === (u.bus_id || u.busId));
           const rId = u.route?.id || u.route_id || u.routeId || busObj?.route_id || 'r1';
-          const routeObj = MASTER_ROUTES.find(r => r.id === rId);
+          const routeObj = allRoutes.find(r => r.id === rId);
           const rName = u.route?.route_name || u.route_name || u.routeName || routeObj?.route_name || (rId ? `Route ${rId.replace(/\D/g, '') || '1'}` : 'Route 1');
-          const stopName = typeof u.boarding_stop === 'object' ? u.boarding_stop?.stop_name : (u.boarding_stop || u.boardingStopName || prevStaffStop(u));
+          const stopName = typeof u.boarding_stop === 'object' ? u.boarding_stop?.stop_name : (u.boarding_stop || u.boardingStopName || 'Assigned Stop');
 
           setFacultyProfile((prev) => ({
             ...prev,
@@ -323,6 +352,7 @@ export default function StaffMobileDashboard() {
             staffId: u.employee_id || u.staffId || prev.staffId,
             designation: u.designation || prev.designation,
             department: u.department || prev.department,
+            boardingStopId: u.boarding_stop_id || u.boardingStopId || prev.boardingStopId,
             boardingStopName: stopName || prev.boardingStopName,
             phone: u.profile?.phone || u.phone || prev.phone,
             email: u.profile?.email || u.email || prev.email,
@@ -336,7 +366,6 @@ export default function StaffMobileDashboard() {
         console.warn('Staff session load error:', e);
       }
     };
-    const prevStaffStop = (u: any) => u.boardingStopName || 'Assigned Stop';
     loadSavedStaff();
   }, []);
 
@@ -393,33 +422,21 @@ export default function StaffMobileDashboard() {
     }));
   }, [currentRouteStops, scheduleType]);
 
-  const staffBoardingStop = activeStops.find(s => s.id === 'st1_3' || s.id === 'stop_3') || activeStops[0];
+  const staffBoardingStop = React.useMemo(() => {
+    const targetId = facultyProfile.boardingStopId || '';
+    const targetName = (facultyProfile.boardingStopName || '').toLowerCase().trim();
+    if (targetId) {
+      const found = activeStops.find(s => s.id === targetId);
+      if (found) return found;
+    }
+    if (targetName && targetName !== 'assigned stop') {
+      const found = activeStops.find(s => s.stop_name.toLowerCase().includes(targetName.slice(0, 6)));
+      if (found) return found;
+    }
+    return activeStops[0];
+  }, [activeStops, facultyProfile.boardingStopId, facultyProfile.boardingStopName]);
 
   useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
-      try {
-        const storedCurrent = window.localStorage.getItem('bustrack_current_mobile_staff');
-        if (storedCurrent) {
-          const parsed = JSON.parse(storedCurrent);
-          if (parsed && parsed.name) {
-            setFacultyProfile(prev => ({
-              ...prev,
-              id: parsed.id || prev.id,
-              name: parsed.name || prev.name,
-              staffId: parsed.employee_id || prev.staffId,
-              designation: parsed.designation || prev.designation,
-              department: parsed.department || prev.department,
-              phone: parsed.phone || prev.phone,
-              email: parsed.email || prev.email,
-              busNumber: parsed.bus?.bus_number || parsed.bus_id || prev.busNumber,
-              boardingStopName: parsed.boarding_stop?.stop_name || prev.boardingStopName,
-              isOnLeave: parsed.is_on_leave || false,
-            }));
-          }
-        }
-      } catch (e) {}
-    }
-
     checkAndFetchStaffLocation();
     checkNotificationPermissionStatus();
 
@@ -631,18 +648,18 @@ export default function StaffMobileDashboard() {
           if (pos && typeof pos.latitude === 'number' && typeof pos.longitude === 'number') {
             setStaffLocation(pos);
           } else {
-            setStaffLocation({ latitude: 9.4490, longitude: 77.5480, accuracy: 6 });
+            setStaffLocation(null);
           }
         } catch {
-          setStaffLocation({ latitude: 9.4490, longitude: 77.5480, accuracy: 6 });
+          setStaffLocation(null);
         }
       } else {
         setHasLocationPermission(false);
-        setStaffLocation({ latitude: 9.4490, longitude: 77.5480, accuracy: 6 });
+        setStaffLocation(null);
       }
     } catch {
       setHasLocationPermission(false);
-      setStaffLocation({ latitude: 9.4490, longitude: 77.5480, accuracy: 6 });
+      setStaffLocation(null);
     }
   };
 
@@ -995,11 +1012,6 @@ export default function StaffMobileDashboard() {
                 value={distanceBusToStopKm !== null ? formatDistance(distanceBusToStopKm) : '--'}
                 style={{ flex: 1 }}
               />
-              <StatBadge
-                label="Walk to Stop"
-                value={walkingMinutes !== null ? `${walkingMinutes} min` : '--'}
-                style={{ flex: 1 }}
-              />
             </View>
 
             {/* Live Navigation Map */}
@@ -1010,8 +1022,8 @@ export default function StaffMobileDashboard() {
 
             <View style={[styles.mapContainer, { borderColor: colors.border }]}>
               <OSMMapView
-                busLocation={busLocation || (staffBoardingStop ? { latitude: staffBoardingStop.latitude, longitude: staffBoardingStop.longitude, speed: 0, heading: 0 } : null)}
-                userLocation={staffLocation}
+                busLocation={isDriverActive ? busLocation : null}
+                userLocation={hasLocationPermission ? staffLocation : null}
                 userLocationLabel="📍 Faculty Point"
                 busNumber={facultyProfile.busNumber}
                 routeNumber={facultyProfile.routeName}
@@ -1037,7 +1049,7 @@ export default function StaffMobileDashboard() {
                     {staffBoardingStop?.stop_name || 'PACR Mill Circle'}
                   </Text>
                   <Text style={[styles.boardingSubtitle, { color: colors.textSecondary }]}>
-                    Scheduled Departure: {staffBoardingStop?.estimated_arrival || '08:35 AM'} · {walkingDistanceFormatted} away
+                    Scheduled Departure: {staffBoardingStop?.estimated_arrival || '08:35 AM'}
                   </Text>
                 </View>
               </View>
@@ -1206,10 +1218,28 @@ export default function StaffMobileDashboard() {
             )}
 
             {/* System Announcements */}
-            <SectionHeader
-              title="Transport Bulletins"
-              subtitle="Official campus transport circulars and updates"
-            />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 17, fontWeight: '800' }]}>Transport Bulletins</Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: 12 }]}>Official campus transport circulars and updates</Text>
+              </View>
+              {(systemBroadcasts.length > 0 || emergencyAlerts.length > 0) && (
+                <TouchableOpacity
+                  style={[styles.refreshPill, { borderColor: colors.emergency, backgroundColor: colors.surface }]}
+                  onPress={async () => {
+                    setSystemBroadcasts([]);
+                    setEmergencyAlerts([]);
+                    setActiveSwapNotice(null);
+                    try {
+                      await authStorage.setItem('bustrack_notifications_v1', '[]');
+                      await authStorage.setItem('bustrack_emergency_alerts_v1', '[]');
+                    } catch {}
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: colors.emergency }}>Clear All</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
             {systemBroadcasts.length === 0 ? (
               <Card style={{ alignItems: 'center', paddingVertical: 40 }} padding="lg">

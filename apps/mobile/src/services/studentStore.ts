@@ -209,38 +209,27 @@ export const INITIAL_BUS12_STUDENTS: BusStudent[] = [
 ];
 
 const loadSavedStudents = (): BusStudent[] => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
-    try {
-      const raw = window.localStorage.getItem('bustrack_students_v1');
-      if (raw) {
-        const adminStudents = JSON.parse(raw);
-        if (Array.isArray(adminStudents) && adminStudents.length > 0) {
-          return adminStudents.map((as: any, idx: number) => ({
-            id: as.id || `s${idx + 1}`,
-            name: as.profile?.name || as.name || `Student ${idx + 1}`,
-            rollNumber: as.register_number || as.rollNumber || `REG-${idx + 1}`,
-            department: as.department || 'Computer Science',
-            year: as.year || 4,
-            section: as.section || 'A',
-            boardingStopId: as.boarding_stop_id || as.boardingStopId || 'st1',
-            boardingStopName: as.boarding_stop?.stop_name || as.boardingStopName || 'Old Bus Stand, RJPM',
-            phone: as.profile?.phone || as.phone || '+91 99887 76655',
-            email: as.profile?.email || as.email || 'student@ritrjpm.ac.in',
-            busId: as.bus_id || as.busId || 'b1',
-            busNumber: resolveStudentBusNumber(as),
-            routeId: resolveStudentRouteId(as),
-            routeName: as.route?.route_name || as.routeName || (as.route_id ? MASTER_ROUTES.find(r => r.id === as.route_id)?.route_name : undefined) || 'Route 1',
-            isBoarded: false,
-            isOnLeave: Boolean(as.is_on_leave || as.isOnLeave),
-            leaveDate: as.leave_date || as.leaveDate || (as.is_on_leave ? 'Today' : undefined),
-            leaveReason: as.leave_reason || as.leaveReason || undefined,
-            avatarBg: idx % 2 === 0 ? '#059669' : '#2563eb'
-          }));
-        }
-      }
-    } catch {}
-  }
-  return INITIAL_BUS12_STUDENTS;
+  return MASTER_STUDENTS.map((as: any, idx: number) => ({
+    id: as.id || `s${idx + 1}`,
+    name: as.profile?.name || as.name || `Student ${idx + 1}`,
+    rollNumber: as.register_number || as.rollNumber || `REG-${idx + 1}`,
+    department: as.department || 'BE Computer Science & Eng.',
+    year: as.year || 4,
+    section: as.section || 'A',
+    boardingStopId: as.boarding_stop_id || as.boardingStopId || 'st1_1',
+    boardingStopName: as.boarding_stop?.stop_name || as.boardingStopName || 'Assigned Stop',
+    phone: as.profile?.phone || as.phone || '+91 99887 76655',
+    email: as.profile?.email || as.email || 'student@ritrjpm.ac.in',
+    busId: as.bus_id || as.busId || 'b1',
+    busNumber: resolveStudentBusNumber(as),
+    routeId: resolveStudentRouteId(as),
+    routeName: as.route?.route_name || as.routeName || (as.route_id ? MASTER_ROUTES.find(r => r.id === as.route_id)?.route_name : undefined) || 'Route 1',
+    isBoarded: false,
+    isOnLeave: Boolean(as.is_on_leave || as.isOnLeave),
+    leaveDate: as.leave_date || as.leaveDate || (as.is_on_leave ? 'Today' : undefined),
+    leaveReason: as.leave_reason || as.leaveReason || undefined,
+    avatarBg: idx % 2 === 0 ? '#059669' : '#2563eb'
+  }));
 };
 
 class StudentRosterStore {
@@ -257,8 +246,7 @@ class StudentRosterStore {
         s.busId === busId ||
         s.busNumber === busId ||
         (sBusId.length > 0 && sBusId === cleanTarget) ||
-        (sBusNum.length > 0 && sBusNum === cleanTarget) ||
-        (!s.busId && busId === 'b1')
+        (sBusNum.length > 0 && sBusNum === cleanTarget)
       );
     });
   }
@@ -287,13 +275,8 @@ class StudentRosterStore {
       avatarBg: idx % 2 === 0 ? '#059669' : '#2563eb'
     }));
 
-    const current = [...this.students];
-    mapped.forEach((m) => {
-      const idx = current.findIndex((c) => c.id === m.id || c.rollNumber === m.rollNumber);
-      if (idx >= 0) current[idx] = { ...current[idx], ...m };
-      else current.push(m);
-    });
-    this.students = current;
+    // Replace store students with the synced registry to keep 100% in sync with Admin Web
+    this.students = mapped;
     this.notify();
   }
 

@@ -39,6 +39,7 @@ import {
   TripUpdatePayload,
   subscribeToStops,
   fetchLiveStops,
+  fetchCloudUserRegistry,
   isInternalRegistryNotification,
 } from '../../services/supabase';
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop, MASTER_BUSES, MASTER_ROUTES, MASTER_STOPS, MASTER_DRIVERS } from '@college-bus/shared';
@@ -456,45 +457,85 @@ export default function StudentDashboard() {
   )) || activeStops[0];
 
   useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+    const loadStudentSession = async () => {
       try {
-        const storedCurrent = window.localStorage.getItem('bustrack_current_mobile_student');
-        if (storedCurrent) {
-          const parsed = JSON.parse(storedCurrent);
-          if (parsed && (parsed.name || parsed.profile?.name)) {
-            const bId = parsed.bus_id || parsed.busId || 'b1';
-            const busObj = MASTER_BUSES.find(b => b.id === bId || b.bus_number === (parsed.bus?.bus_number || parsed.busNumber));
-            const bNum = parsed.bus?.bus_number || parsed.bus_number || parsed.busNumber || busObj?.bus_number || 'BUS-01';
-            const rId = parsed.route_id || parsed.routeId || parsed.route?.id || busObj?.route_id || 'r1';
-            const rObj = MASTER_ROUTES.find(r => r.id === rId);
-            const rName = parsed.route_name || parsed.routeName || parsed.route?.route_name || rObj?.route_name || 'Route 1';
+        // Fetch cloud user registry on launch
+        fetchCloudUserRegistry(true).catch(() => {});
 
-            setCurrentStudent((prev) => ({
-              ...prev,
-              id: parsed.id || prev.id,
-              name: parsed.profile?.name || parsed.name || prev.name,
-              rollNumber: parsed.register_number || parsed.rollNumber || prev.rollNumber,
-              department: parsed.department || prev.department,
-              year: parsed.year || prev.year,
-              section: parsed.section || prev.section,
-              boardingStopId: parsed.boarding_stop_id || parsed.boardingStopId || prev.boardingStopId,
-              boardingStopName: parsed.boarding_stop?.stop_name || parsed.boardingStopName || prev.boardingStopName,
-              phone: parsed.profile?.phone || parsed.phone || prev.phone,
-              email: parsed.profile?.email || parsed.email || prev.email,
-              busId: bId,
-              busNumber: bNum,
-              routeId: rId,
-              routeName: rName,
-              isBoarded: false,
-              isOnLeave: Boolean(parsed.is_on_leave),
-              leaveDate: parsed.leave_date,
-              leaveReason: parsed.leave_reason,
-              avatarBg: '#059669',
-            }));
-          }
+        // 1. First try authStorage session
+        const session = await authStorage.getSession();
+        let parsed = (session && session.role === 'student' && session.user)
+          ? session.user as any
+          : null;
+
+        // 2. Fallback to student profile key
+        if (!parsed) {
+          const raw = await authStorage.getItem('bustrack_current_mobile_student');
+          if (raw) parsed = JSON.parse(raw);
         }
-      } catch (e) {}
-    }
+
+        // 3. Fallback to localStorage on Web
+        if (!parsed && Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+          const storedCurrent = window.localStorage.getItem('bustrack_current_mobile_student');
+          if (storedCurrent) parsed = JSON.parse(storedCurrent);
+        }
+
+        if (parsed && (parsed.name || parsed.profile?.name)) {
+          // Load dynamic buses and routes from persistent storage
+          let allBuses = [...MASTER_BUSES];
+          try {
+            const rawB = await authStorage.getItem('bustrack_buses_v1');
+            if (rawB) {
+              const pB = JSON.parse(rawB);
+              if (Array.isArray(pB) && pB.length > 0) allBuses = [...pB, ...allBuses];
+            }
+          } catch {}
+
+          let allRoutes = [...MASTER_ROUTES];
+          try {
+            const rawR = await authStorage.getItem('bustrack_routes_v1');
+            if (rawR) {
+              const pR = JSON.parse(rawR);
+              if (Array.isArray(pR) && pR.length > 0) allRoutes = [...pR, ...allRoutes];
+            }
+          } catch {}
+
+          const bId = parsed.bus_id || parsed.busId || parsed.bus?.id || 'b1';
+          const busObj = allBuses.find(b => b.id === bId || b.bus_number === (parsed.bus?.bus_number || parsed.busNumber || parsed.bus_number));
+          const bNum = parsed.bus?.bus_number || parsed.bus_number || parsed.busNumber || busObj?.bus_number || 'BUS-01';
+          const rId = parsed.route_id || parsed.routeId || parsed.route?.id || busObj?.route_id || 'r1';
+          const rObj = allRoutes.find(r => r.id === rId);
+          const rName = parsed.route_name || parsed.routeName || parsed.route?.route_name || rObj?.route_name || (rObj ? `${rObj.route_name}` : `Route ${rId}`);
+
+          setCurrentStudent((prev) => ({
+            ...prev,
+            id: parsed.id || prev.id,
+            name: parsed.profile?.name || parsed.name || prev.name,
+            rollNumber: parsed.register_number || parsed.rollNumber || prev.rollNumber,
+            department: parsed.department || prev.department,
+            year: parsed.year || prev.year,
+            section: parsed.section || prev.section,
+            boardingStopId: parsed.boarding_stop_id || parsed.boardingStopId || prev.boardingStopId,
+            boardingStopName: parsed.boarding_stop?.stop_name || parsed.boardingStopName || prev.boardingStopName,
+            phone: parsed.profile?.phone || parsed.phone || prev.phone,
+            email: parsed.profile?.email || parsed.email || prev.email,
+            busId: bId,
+            busNumber: bNum,
+            routeId: rId,
+            routeName: rName,
+            isBoarded: false,
+            isOnLeave: Boolean(parsed.is_on_leave),
+            leaveDate: parsed.leave_date,
+            leaveReason: parsed.leave_reason,
+            avatarBg: '#059669',
+          }));
+        }
+      } catch (e) {
+        console.warn('Student session load error:', e);
+      }
+    };
+
+    loadStudentSession();
 
     checkAndFetchStudentLocation();
     checkNotificationPermissionStatus();
@@ -1006,12 +1047,6 @@ export default function StudentDashboard() {
                   unit="km/h"
                   style={{ flex: 1 }}
                 />
-                <StatBadge
-                  label="Walk Time"
-                  value={walkingMinutes !== null ? walkingMinutes : '--'}
-                  unit={walkingMinutes !== null ? 'min' : ''}
-                  style={{ flex: 1 }}
-                />
               </View>
             </Card>
 
@@ -1054,8 +1089,8 @@ export default function StudentDashboard() {
 
             <View style={[styles.mapCardContainer, { borderColor: colors.border }]}>
               <OSMMapView
-                busLocation={busLocation || (boardingStop ? { latitude: boardingStop.latitude, longitude: boardingStop.longitude, speed: 0, heading: 0 } : null)}
-                userLocation={studentLocation}
+                busLocation={isDriverActive ? busLocation : null}
+                userLocation={hasLocationPermission ? studentLocation : null}
                 userLocationLabel="Your Location"
                 busNumber={currentStudent.busNumber}
                 routeNumber={currentStudent.routeName}
@@ -1266,12 +1301,38 @@ export default function StudentDashboard() {
             ]}
             showsVerticalScrollIndicator={false}
           >
-            <SectionHeader
-              title="Alerts & Announcements"
-              subtitle="Real-time transit bulletins and notices"
-              actionText="Mark all read"
-              onActionPress={markAllNotificationsAsRead}
-            />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: 17, fontWeight: '800' }]}>Alerts & Announcements</Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: 12 }]}>Real-time transit bulletins and notices</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {systemBroadcasts.length > 0 && (
+                  <TouchableOpacity
+                    style={[styles.refreshPill, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                    onPress={markAllNotificationsAsRead}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textSecondary }}>Mark read</Text>
+                  </TouchableOpacity>
+                )}
+                {(systemBroadcasts.length > 0 || emergencyAlerts.length > 0 || swapNoticesList.length > 0) && (
+                  <TouchableOpacity
+                    style={[styles.refreshPill, { borderColor: colors.emergency, backgroundColor: colors.surface }]}
+                    onPress={async () => {
+                      setSystemBroadcasts([]);
+                      setEmergencyAlerts([]);
+                      setSwapNoticesList([]);
+                      try {
+                        await authStorage.setItem('bustrack_notifications_v1', '[]');
+                        await authStorage.setItem('bustrack_emergency_alerts_v1', '[]');
+                      } catch {}
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.emergency }}>Clear All</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
 
             {/* Emergency SOS Alerts (Priority, functional red) */}
             {emergencyAlerts.map((alert) => (

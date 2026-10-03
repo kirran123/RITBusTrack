@@ -483,24 +483,10 @@ class LocationTracker {
         };
       }
 
-      return {
-        latitude: ROUTE_1_MORNING_WAYPOINTS[0].lat,
-        longitude: ROUTE_1_MORNING_WAYPOINTS[0].lng,
-        speed: 0,
-        heading: 42,
-        accuracy: 3.5,
-        timestamp: new Date().toISOString(),
-      };
+      return null;
     } catch (err) {
       console.warn('Failed to obtain current position:', err);
-      return {
-        latitude: ROUTE_1_MORNING_WAYPOINTS[0].lat,
-        longitude: ROUTE_1_MORNING_WAYPOINTS[0].lng,
-        speed: 0,
-        heading: 42,
-        accuracy: 3.5,
-        timestamp: new Date().toISOString(),
-      };
+      return null;
     }
   }
 

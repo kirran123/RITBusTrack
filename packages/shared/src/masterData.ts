@@ -482,10 +482,147 @@ export const MASTER_STOPS: Stop[] = [
   { id: 'st2_2', route_id: 'r2', stop_name: 'Ayyanar Kovil Road Turn', latitude: 9.4350, longitude: 77.5420, stop_order: 2, estimated_arrival: '08:15 AM', morning_time: '08:15 AM', evening_time: '05:00 PM', status: 'active' },
   { id: 'st2_3', route_id: 'r2', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:35 AM', morning_time: '08:35 AM', evening_time: '04:30 PM', status: 'active' },
 
+  // Route 3 Stops
+  { id: 'st3_1', route_id: 'r3', stop_name: 'Thenmalai Bus Stop', latitude: 9.3800, longitude: 77.4200, stop_order: 1, estimated_arrival: '07:30 AM', morning_time: '07:30 AM', evening_time: '05:30 PM', status: 'active' },
+  { id: 'st3_2', route_id: 'r3', stop_name: 'Chockampatti Junction', latitude: 9.4100, longitude: 77.4800, stop_order: 2, estimated_arrival: '08:00 AM', morning_time: '08:00 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st3_3', route_id: 'r3', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 4 Stops
+  { id: 'st4_1', route_id: 'r4', stop_name: 'Malayadipatti, RJPM', latitude: 9.4580, longitude: 77.5420, stop_order: 1, estimated_arrival: '08:10 AM', morning_time: '08:10 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st4_2', route_id: 'r4', stop_name: 'Dhalavaipuram Road Cross', latitude: 9.4550, longitude: 77.5480, stop_order: 2, estimated_arrival: '08:25 AM', morning_time: '08:25 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st4_3', route_id: 'r4', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:40 AM', morning_time: '08:40 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 5 Stops
+  { id: 'st5_1', route_id: 'r5', stop_name: 'Thendral Nagar, RJPM', latitude: 9.4420, longitude: 77.5600, stop_order: 1, estimated_arrival: '08:25 AM', morning_time: '08:25 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st5_2', route_id: 'r5', stop_name: 'PACR Colony Main Arch', latitude: 9.4470, longitude: 77.5570, stop_order: 2, estimated_arrival: '08:35 AM', morning_time: '08:35 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st5_3', route_id: 'r5', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', morning_time: '08:45 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 6 Stops
+  { id: 'st6_1', route_id: 'r6', stop_name: 'Vasudevanallur Bus Stand', latitude: 9.2400, longitude: 77.4180, stop_order: 1, estimated_arrival: '07:30 AM', morning_time: '07:30 AM', evening_time: '05:35 PM', status: 'active' },
+  { id: 'st6_2', route_id: 'r6', stop_name: 'Sivagiri Main Road', latitude: 9.3400, longitude: 77.4320, stop_order: 2, estimated_arrival: '07:50 AM', morning_time: '07:50 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st6_3', route_id: 'r6', stop_name: 'Seithur Sugar Mill', latitude: 9.4200, longitude: 77.4900, stop_order: 3, estimated_arrival: '08:10 AM', morning_time: '08:10 AM', evening_time: '04:55 PM', status: 'active' },
+  { id: 'st6_4', route_id: 'r6', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 4, estimated_arrival: '08:25 AM', morning_time: '08:25 AM', evening_time: '04:30 PM', status: 'active' },
+
   // Route 7 Stops
   { id: 'st7_1', route_id: 'r7', stop_name: 'New Bus Stand - RJPM', latitude: 9.4475, longitude: 77.5450, stop_order: 1, estimated_arrival: '08:20 AM', morning_time: '08:20 AM', evening_time: '05:15 PM', status: 'active' },
   { id: 'st7_2', route_id: 'r7', stop_name: 'Gandhi Statue Junction', latitude: 9.4490, longitude: 77.5472, stop_order: 2, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '05:00 PM', status: 'active' },
   { id: 'st7_3', route_id: 'r7', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', morning_time: '08:45 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 9 Stops
+  { id: 'st9_1', route_id: 'r9', stop_name: 'Krishnankoil Bus Stop', latitude: 9.5100, longitude: 77.6200, stop_order: 1, estimated_arrival: '07:30 AM', morning_time: '07:30 AM', evening_time: '05:30 PM', status: 'active' },
+  { id: 'st9_2', route_id: 'r9', stop_name: 'Kunnur Junction', latitude: 9.4800, longitude: 77.5900, stop_order: 2, estimated_arrival: '07:50 AM', morning_time: '07:50 AM', evening_time: '05:10 PM', status: 'active' },
+  { id: 'st9_3', route_id: 'r9', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:15 AM', morning_time: '08:15 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 10 Stops
+  { id: 'st10_1', route_id: 'r10', stop_name: 'JawaherMaithanam, RJPM', latitude: 9.4520, longitude: 77.5480, stop_order: 1, estimated_arrival: '08:20 AM', morning_time: '08:20 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st10_2', route_id: 'r10', stop_name: 'Head Post Office Cross', latitude: 9.4510, longitude: 77.5510, stop_order: 2, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st10_3', route_id: 'r10', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', morning_time: '08:45 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 12 Stops
+  { id: 'st12_1', route_id: 'r12', stop_name: 'Attai Mill Junction', latitude: 9.4390, longitude: 77.5310, stop_order: 1, estimated_arrival: '07:50 AM', morning_time: '07:50 AM', evening_time: '05:25 PM', status: 'active' },
+  { id: 'st12_2', route_id: 'r12', stop_name: 'Sammandhapuram Circle', latitude: 9.4440, longitude: 77.5410, stop_order: 2, estimated_arrival: '08:05 AM', morning_time: '08:05 AM', evening_time: '05:05 PM', status: 'active' },
+  { id: 'st12_3', route_id: 'r12', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:25 AM', morning_time: '08:25 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 13 Stops
+  { id: 'st13_1', route_id: 'r13', stop_name: 'Theradi Stop- SRIVI', latitude: 9.5080, longitude: 77.6320, stop_order: 1, estimated_arrival: '08:10 AM', morning_time: '08:10 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st13_2', route_id: 'r13', stop_name: 'Andal Temple Car Street', latitude: 9.5050, longitude: 77.6300, stop_order: 2, estimated_arrival: '08:20 AM', morning_time: '08:20 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st13_3', route_id: 'r13', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', morning_time: '08:45 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 14 Stops
+  { id: 'st14_1', route_id: 'r14', stop_name: 'Mamsapuram Bus Stand', latitude: 9.4750, longitude: 77.5100, stop_order: 1, estimated_arrival: '08:15 AM', morning_time: '08:15 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st14_2', route_id: 'r14', stop_name: 'Pudupalayam Hospital Turn', latitude: 9.4620, longitude: 77.5300, stop_order: 2, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st14_3', route_id: 'r14', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', morning_time: '08:45 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 15 Stops
+  { id: 'st15_1', route_id: 'r15', stop_name: 'R.R.Nagar, RJPM', latitude: 9.4310, longitude: 77.5680, stop_order: 1, estimated_arrival: '08:15 AM', morning_time: '08:15 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st15_2', route_id: 'r15', stop_name: 'Ramco Staff Colony', latitude: 9.4410, longitude: 77.5610, stop_order: 2, estimated_arrival: '08:28 AM', morning_time: '08:28 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st15_3', route_id: 'r15', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:40 AM', morning_time: '08:40 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 16 Stops
+  { id: 'st16_1', route_id: 'r16', stop_name: 'S.Ramalingapuram', latitude: 9.4890, longitude: 77.4950, stop_order: 1, estimated_arrival: '08:00 AM', morning_time: '08:00 AM', evening_time: '05:25 PM', status: 'active' },
+  { id: 'st16_2', route_id: 'r16', stop_name: 'Cholapuram High School', latitude: 9.4720, longitude: 77.5180, stop_order: 2, estimated_arrival: '08:20 AM', morning_time: '08:20 AM', evening_time: '05:05 PM', status: 'active' },
+  { id: 'st16_3', route_id: 'r16', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:40 AM', morning_time: '08:40 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 17 Stops
+  { id: 'st17_1', route_id: 'r17', stop_name: 'Bus Stand - SRIVI', latitude: 9.5100, longitude: 77.6350, stop_order: 1, estimated_arrival: '08:05 AM', morning_time: '08:05 AM', evening_time: '05:20 PM', status: 'active' },
+  { id: 'st17_2', route_id: 'r17', stop_name: 'Government Hospital SRIVI', latitude: 9.4880, longitude: 77.6010, stop_order: 2, estimated_arrival: '08:22 AM', morning_time: '08:22 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st17_3', route_id: 'r17', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:40 AM', morning_time: '08:40 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 18 Stops
+  { id: 'st18_1', route_id: 'r18', stop_name: 'Ramakrishnapuram, SRIVI', latitude: 9.5250, longitude: 77.6450, stop_order: 1, estimated_arrival: '08:05 AM', morning_time: '08:05 AM', evening_time: '05:20 PM', status: 'active' },
+  { id: 'st18_2', route_id: 'r18', stop_name: 'Malli Road Cross', latitude: 9.4950, longitude: 77.6150, stop_order: 2, estimated_arrival: '08:25 AM', morning_time: '08:25 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st18_3', route_id: 'r18', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:45 AM', morning_time: '08:45 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 19 Stops
+  { id: 'st19_1', route_id: 'r19', stop_name: 'Ganthi Statue - RJPM', latitude: 9.4490, longitude: 77.5472, stop_order: 1, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '05:10 PM', status: 'active' },
+  { id: 'st19_2', route_id: 'r19', stop_name: 'Sanjeevi Hills Junction', latitude: 9.4510, longitude: 77.5505, stop_order: 2, estimated_arrival: '08:40 AM', morning_time: '08:40 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st19_3', route_id: 'r19', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:50 AM', morning_time: '08:50 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 20 Stops
+  { id: 'st20_1', route_id: 'r20', stop_name: 'Kaliyamman Kovil - RJPM', latitude: 9.4410, longitude: 77.5480, stop_order: 1, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '05:10 PM', status: 'active' },
+  { id: 'st20_2', route_id: 'r20', stop_name: 'Chathirapatti Road Entry', latitude: 9.4460, longitude: 77.5510, stop_order: 2, estimated_arrival: '08:40 AM', morning_time: '08:40 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st20_3', route_id: 'r20', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:50 AM', morning_time: '08:50 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 21 Stops
+  { id: 'st21_1', route_id: 'r21', stop_name: 'Sivakasi (Housing Board)', latitude: 9.4550, longitude: 77.8000, stop_order: 1, estimated_arrival: '07:40 AM', morning_time: '07:40 AM', evening_time: '05:35 PM', status: 'active' },
+  { id: 'st21_2', route_id: 'r21', stop_name: 'Thiruthangal Railway Gate', latitude: 9.4750, longitude: 77.7800, stop_order: 2, estimated_arrival: '08:00 AM', morning_time: '08:00 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st21_3', route_id: 'r21', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 22 Stops
+  { id: 'st22_1', route_id: 'r22', stop_name: 'Thiruvengadam Bus Stand', latitude: 9.2750, longitude: 77.6800, stop_order: 1, estimated_arrival: '07:35 AM', morning_time: '07:35 AM', evening_time: '05:40 PM', status: 'active' },
+  { id: 'st22_2', route_id: 'r22', stop_name: 'Kuruvikulam Cross', latitude: 9.3300, longitude: 77.6400, stop_order: 2, estimated_arrival: '08:00 AM', morning_time: '08:00 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st22_3', route_id: 'r22', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 23 Stops
+  { id: 'st23_1', route_id: 'r23', stop_name: 'Sithurajapuram - Sivakasi', latitude: 9.4400, longitude: 77.7800, stop_order: 1, estimated_arrival: '07:25 AM', morning_time: '07:25 AM', evening_time: '05:45 PM', status: 'active' },
+  { id: 'st23_2', route_id: 'r23', stop_name: 'Vilampatti Checkpost', latitude: 9.4450, longitude: 77.7200, stop_order: 2, estimated_arrival: '07:50 AM', morning_time: '07:50 AM', evening_time: '05:20 PM', status: 'active' },
+  { id: 'st23_3', route_id: 'r23', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:20 AM', morning_time: '08:20 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 24 Stops
+  { id: 'st24_1', route_id: 'r24', stop_name: 'Virudhunagar New Bus Stand', latitude: 9.5850, longitude: 77.9550, stop_order: 1, estimated_arrival: '07:00 AM', morning_time: '07:00 AM', evening_time: '06:00 PM', status: 'active' },
+  { id: 'st24_2', route_id: 'r24', stop_name: 'Collectorate Junction', latitude: 9.5700, longitude: 77.9400, stop_order: 2, estimated_arrival: '07:15 AM', morning_time: '07:15 AM', evening_time: '05:40 PM', status: 'active' },
+  { id: 'st24_3', route_id: 'r24', stop_name: 'Alagapuri Flyover', latitude: 9.5100, longitude: 77.7500, stop_order: 3, estimated_arrival: '07:45 AM', morning_time: '07:45 AM', evening_time: '05:10 PM', status: 'active' },
+  { id: 'st24_4', route_id: 'r24', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 4, estimated_arrival: '08:15 AM', morning_time: '08:15 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 25 Stops
+  { id: 'st25_1', route_id: 'r25', stop_name: 'Railway Station, SNKL', latitude: 9.1720, longitude: 77.5350, stop_order: 1, estimated_arrival: '07:40 AM', morning_time: '07:40 AM', evening_time: '05:35 PM', status: 'active' },
+  { id: 'st25_2', route_id: 'r25', stop_name: 'Kalugumalai Road Junction', latitude: 9.2500, longitude: 77.5400, stop_order: 2, estimated_arrival: '08:05 AM', morning_time: '08:05 AM', evening_time: '05:10 PM', status: 'active' },
+  { id: 'st25_3', route_id: 'r25', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 26 Stops
+  { id: 'st26_1', route_id: 'r26', stop_name: 'Rayagiri Bus Stop', latitude: 9.2800, longitude: 77.4400, stop_order: 1, estimated_arrival: '07:25 AM', morning_time: '07:25 AM', evening_time: '05:45 PM', status: 'active' },
+  { id: 'st26_2', route_id: 'r26', stop_name: 'Karivalamvandanallur', latitude: 9.3500, longitude: 77.4700, stop_order: 2, estimated_arrival: '07:55 AM', morning_time: '07:55 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st26_3', route_id: 'r26', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 27 Stops
+  { id: 'st27_1', route_id: 'r27', stop_name: 'Kadayanallur Bus Stand', latitude: 9.0750, longitude: 77.3450, stop_order: 1, estimated_arrival: '07:10 AM', morning_time: '07:10 AM', evening_time: '06:00 PM', status: 'active' },
+  { id: 'st27_2', route_id: 'r27', stop_name: 'Puliyangudi Market Road', latitude: 9.1750, longitude: 77.3950, stop_order: 2, estimated_arrival: '07:40 AM', morning_time: '07:40 AM', evening_time: '05:30 PM', status: 'active' },
+  { id: 'st27_3', route_id: 'r27', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:25 AM', morning_time: '08:25 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 28 Stops
+  { id: 'st28_1', route_id: 'r28', stop_name: 'Mottamalai - RJPM', latitude: 9.4700, longitude: 77.5700, stop_order: 1, estimated_arrival: '08:00 AM', morning_time: '08:00 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st28_2', route_id: 'r28', stop_name: 'Alagapuri Road Corner', latitude: 9.4600, longitude: 77.5620, stop_order: 2, estimated_arrival: '08:20 AM', morning_time: '08:20 AM', evening_time: '05:00 PM', status: 'active' },
+  { id: 'st28_3', route_id: 'r28', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:35 AM', morning_time: '08:35 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 29 Stops
+  { id: 'st29_1', route_id: 'r29', stop_name: 'Bus Stand , SNKL', latitude: 9.1700, longitude: 77.5300, stop_order: 1, estimated_arrival: '07:40 AM', morning_time: '07:40 AM', evening_time: '05:35 PM', status: 'active' },
+  { id: 'st29_2', route_id: 'r29', stop_name: 'Gomathi Amman Temple Car St', latitude: 9.1750, longitude: 77.5320, stop_order: 2, estimated_arrival: '08:00 AM', morning_time: '08:00 AM', evening_time: '05:15 PM', status: 'active' },
+  { id: 'st29_3', route_id: 'r29', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:30 AM', morning_time: '08:30 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 30 Stops
+  { id: 'st30_1', route_id: 'r30', stop_name: 'Alangulam Center', latitude: 9.3500, longitude: 77.6800, stop_order: 1, estimated_arrival: '07:40 AM', morning_time: '07:40 AM', evening_time: '05:35 PM', status: 'active' },
+  { id: 'st30_2', route_id: 'r30', stop_name: 'Cement Factory Nagar', latitude: 9.3800, longitude: 77.6300, stop_order: 2, estimated_arrival: '08:05 AM', morning_time: '08:05 AM', evening_time: '05:10 PM', status: 'active' },
+  { id: 'st30_3', route_id: 'r30', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:25 AM', morning_time: '08:25 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 31 Stops
+  { id: 'st31_1', route_id: 'r31', stop_name: 'Cornation-Sivakasi', latitude: 9.4520, longitude: 77.7950, stop_order: 1, estimated_arrival: '07:25 AM', morning_time: '07:25 AM', evening_time: '05:45 PM', status: 'active' },
+  { id: 'st31_2', route_id: 'r31', stop_name: 'Coronation Girls School Gate', latitude: 9.4560, longitude: 77.7880, stop_order: 2, estimated_arrival: '07:50 AM', morning_time: '07:50 AM', evening_time: '05:20 PM', status: 'active' },
+  { id: 'st31_3', route_id: 'r31', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:20 AM', morning_time: '08:20 AM', evening_time: '04:30 PM', status: 'active' },
+
+  // Route 32 Stops
+  { id: 'st32_1', route_id: 'r32', stop_name: 'Kansapuram Main Bus Stop', latitude: 9.6100, longitude: 77.5800, stop_order: 1, estimated_arrival: '07:10 AM', morning_time: '07:10 AM', evening_time: '06:00 PM', status: 'active' },
+  { id: 'st32_2', route_id: 'r32', stop_name: 'Watrap Road Junction', latitude: 9.5600, longitude: 77.5700, stop_order: 2, estimated_arrival: '07:40 AM', morning_time: '07:40 AM', evening_time: '05:30 PM', status: 'active' },
+  { id: 'st32_3', route_id: 'r32', stop_name: 'RIT Campus Main Gate', latitude: 9.4520, longitude: 77.5535, stop_order: 3, estimated_arrival: '08:15 AM', morning_time: '08:15 AM', evening_time: '04:30 PM', status: 'active' },
 ];
 
 // Master Students Registered across Routes
