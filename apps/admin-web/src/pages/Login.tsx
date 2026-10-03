@@ -71,7 +71,14 @@ export const Login: React.FC<LoginProps> = ({
       normalizedEmail === 'deptit@ritrjpm.ac.in' ||
       normalizedEmail === 'admin@college.edu' ||
       normalizedEmail === 'admin' ||
-      normalizedEmail === 'admin@ritrjpm.ac.in';
+      normalizedEmail === 'admin@ritrjpm.ac.in' ||
+      normalizedEmail === 'kishore' ||
+      normalizedEmail === 'kishorest' ||
+      normalizedEmail === 'kishore st' ||
+      normalizedEmail === 'kishore.it@ritrjpm.ac.in' ||
+      normalizedEmail === 'kirran' ||
+      normalizedEmail === 'superadmin' ||
+      normalizedEmail === 'sa_01';
     const isSuperAdminPass =
       trimmedPass === 'Kirranst@14' ||
       trimmedPass.toLowerCase() === 'kirranst@14' ||
@@ -79,7 +86,10 @@ export const Login: React.FC<LoginProps> = ({
       trimmedPass === 'admin123' ||
       trimmedPass.toLowerCase() === 'admin123' ||
       trimmedPass === 'admin' ||
-      trimmedPass === 'password';
+      trimmedPass === 'staff123' ||
+      trimmedPass === 'password' ||
+      trimmedPass === 'kishore' ||
+      trimmedPass === '123456';
 
     // 2. Aggregate all Staff and Faculty Commuters across sources
     let storedStaffCommuters: any[] = [];

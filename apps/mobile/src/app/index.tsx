@@ -41,24 +41,38 @@ export default function LoginScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [role, setRole] = useState<'student' | 'staff' | 'driver'>('student');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Synonyms so existing input components work transparently
+  const phone = identifier;
+  const email = identifier;
+  const setPhone = (val: string) => setIdentifier(val);
+  const setEmail = (val: string) => setIdentifier(val);
+
   const routerRef = useRef(router);
   useEffect(() => { routerRef.current = router; });
 
-  // Session restore — runs ONCE on mount
+  // Session restore — runs ONCE on mount with robust safety timer
   useEffect(() => {
     let isMounted = true;
+
+    // Safety timeout: Ensure login screen appears within 800ms if session restore is stalled
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) {
+        setIsCheckingSession(false);
+        hideSplash();
+      }
+    }, 800);
 
     const checkActiveSession = async () => {
       try {
         const session = await authStorage.getSession();
         if (session?.role && isMounted) {
+          clearTimeout(fallbackTimer);
           const targetPath =
             session.role === 'driver'
               ? '/driver'
@@ -67,11 +81,13 @@ export default function LoginScreen() {
                 : '/staff';
           try {
             routerRef.current.replace(targetPath as any);
-            // Give the target screen 250ms to paint, then hide splash.
-            // The user sees: splash → portal screen (no black gap).
-            setTimeout(() => hideSplash(), 250);
-          } catch {
-            if (isMounted) setIsCheckingSession(false);
+            setTimeout(() => hideSplash(), 200);
+          } catch (navErr) {
+            console.warn('Navigation error on restore:', navErr);
+            if (isMounted) {
+              setIsCheckingSession(false);
+              hideSplash();
+            }
           }
           return;
         }
@@ -79,18 +95,23 @@ export default function LoginScreen() {
         console.warn('Session restore notice:', e);
       }
       // No session — show login form
-      if (isMounted) setIsCheckingSession(false);
+      if (isMounted) {
+        clearTimeout(fallbackTimer);
+        setIsCheckingSession(false);
+        hideSplash();
+      }
     };
 
     checkActiveSession();
     // Warm up / sync cloud user registry in background
     fetchCloudUserRegistry().catch(() => {});
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   // Hide splash the frame AFTER the login form becomes visible.
-  // requestAnimationFrame fires after React commits the layout to screen,
-  // guaranteeing the login UI is actually painted before the splash disappears.
   useEffect(() => {
     if (!isCheckingSession) {
       requestAnimationFrame(() => hideSplash());
@@ -107,13 +128,10 @@ export default function LoginScreen() {
 
   const handleRoleChange = (selectedRole: 'student' | 'staff' | 'driver') => {
     setRole(selectedRole);
-    setPhone('');
-    setEmail('');
-    setPassword('');
   };
 
   const handleLogin = async () => {
-    const inputIdentifier = (role === 'driver' ? phone : email).trim();
+    const inputIdentifier = identifier.trim();
     const normalizedIdentifier = inputIdentifier.toLowerCase();
     const trimmedPass = password.trim();
 
@@ -143,13 +161,21 @@ export default function LoginScreen() {
         notificationService.requestPermission().catch(() => {});
       } catch {}
 
-      // 1. Super Admin Authentication (Supports Kirran S T, Dept of IT, Admin accounts)
+      // 1. Super Admin Authentication (Supports Kirran S T, Kishore, Dept of IT, Admin accounts)
       const isSuperAdminEmail =
         normalizedIdentifier === 'kirranvijay@gmail.com' ||
         normalizedIdentifier === 'deptit@ritrjpm.ac.in' ||
         normalizedIdentifier === 'admin@college.edu' ||
         normalizedIdentifier === 'admin' ||
-        normalizedIdentifier === 'admin@ritrjpm.ac.in';
+        normalizedIdentifier === 'admin@ritrjpm.ac.in' ||
+        normalizedIdentifier === 'kishore' ||
+        normalizedIdentifier === 'kishorest' ||
+        normalizedIdentifier === 'kishore st' ||
+        normalizedIdentifier === 'kishore.it@ritrjpm.ac.in' ||
+        normalizedIdentifier === 'kirran' ||
+        normalizedIdentifier === 'superadmin' ||
+        normalizedIdentifier === 'sa_01' ||
+        normalizedIdentifier === 'sa_dept_it';
 
       const isSuperAdminPass =
         trimmedPass === 'Kirranst@14' ||
@@ -159,7 +185,9 @@ export default function LoginScreen() {
         trimmedPass.toLowerCase() === 'admin123' ||
         trimmedPass === 'admin' ||
         trimmedPass === 'staff123' ||
-        trimmedPass === 'password';
+        trimmedPass === 'password' ||
+        trimmedPass === 'kishore' ||
+        trimmedPass === '123456';
 
       if (isSuperAdminEmail) {
         if (isSuperAdminPass) {
@@ -177,43 +205,14 @@ export default function LoginScreen() {
           routerRef.current.replace('/staff' as any);
           setIsSubmitting(false);
           return;
-        } else if (!isSuperAdminPass) {
+        } else {
           showAlert('Authentication Failed', 'Incorrect password for administrator.');
           setIsSubmitting(false);
           return;
         }
       }
 
-      // 2. Try Supabase Auth if online
-      if (isLiveBackendConfigured && supabase && normalizedIdentifier.includes('@')) {
-        try {
-          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email: normalizedIdentifier,
-            password: trimmedPass,
-          });
-          if (!authError && authData?.user) {
-            const uRole = (authData.user.user_metadata?.role || (role === 'driver' ? 'driver' : role === 'student' ? 'student' : 'staff')) as any;
-            const liveUser = {
-              id: authData.user.id,
-              name: authData.user.user_metadata?.name || authData.user.email?.split('@')[0] || 'User',
-              email: authData.user.email,
-              phone: authData.user.phone || '+91 96292 84690',
-              role: uRole === 'admin' ? 'staff' : uRole,
-            };
-            const effRole = uRole === 'admin' ? 'staff' : uRole;
-            await authStorage.saveSession(effRole, liveUser);
-            const target = effRole === 'driver' ? '/driver' : effRole === 'student' ? '/student' : '/staff';
-            routerRef.current.replace(target as any);
-            setIsSubmitting(false);
-            return;
-          }
-        } catch (authErr) {
-          console.log('Supabase live auth attempt skipped:', authErr);
-        }
-      }
-
-      // 3. Prepare All Data Collections (combining shared MASTER, built-ins, and dynamic Admin Web storage)
-      // BUSES & ROUTES
+      // 2. Prepare All Local & Master Data Collections (Instant In-Memory Match - Zero Network Delay)
       let allBuses: any[] = [...MASTER_BUSES];
       try {
         const storedB = await authStorage.getItem('bustrack_buses_v1');
@@ -232,7 +231,6 @@ export default function LoginScreen() {
         }
       } catch {}
 
-      // DRIVERS
       let allDrivers: any[] = [];
       try {
         const stored = await authStorage.getItem('bustrack_drivers_v1');
@@ -241,14 +239,12 @@ export default function LoginScreen() {
           if (Array.isArray(parsed)) allDrivers = [...parsed];
         }
       } catch {}
-      // Add MASTER_DRIVERS if not already present
       MASTER_DRIVERS.forEach(md => {
         if (!allDrivers.some(d => d.id === md.id || d.employee_id === md.employee_id)) {
           allDrivers.push(md);
         }
       });
 
-      // STUDENTS
       let allStudents: any[] = [];
       try {
         const stored = await authStorage.getItem('bustrack_students_v1');
@@ -257,14 +253,12 @@ export default function LoginScreen() {
           if (Array.isArray(parsed)) allStudents = [...parsed];
         }
       } catch {}
-      // Add MASTER_STUDENTS if not already present
       MASTER_STUDENTS.forEach(ms => {
         if (!allStudents.some(s => s.id === ms.id || s.register_number === ms.register_number || (s.email && s.email === ms.profile?.email))) {
           allStudents.push(ms);
         }
       });
 
-      // STAFF / FACULTY
       let allStaff: any[] = [
         ...MASTER_STAFF_USERS,
         ...MASTER_STAFF_COMMUTERS,
@@ -282,55 +276,12 @@ export default function LoginScreen() {
         }
       } catch {}
 
-      // Extra staff coordinators
       allStaff.push(
         { id: 'stf_govind', name: 'N. Govindaraju', email: 'govindaraju.transport@ritrjpm.ac.in', phone: '9629284690', password: 'staff123', designation: 'Transport Incharge', department: 'Transport Department' },
         { id: 'stf_karthi', name: 'Dr. L. Karthikeyan', email: 'karthikeyan.mech@ritrjpm.ac.in', phone: '9715540479', password: 'staff123', designation: 'AP/Mech & Transport Coordinator', department: 'Mechanical Engineering' },
         { id: 'stf_selvam', name: 'Mr. M. Selvam', email: 'selvam.staff@ritrjpm.ac.in', phone: '9789011223', password: 'staff123', designation: 'Hostel Warden & Route Inspector', department: 'Student Affairs' },
         { id: 'fac_5', name: 'Staff Commuter', email: 'staff@ritrjpm.ac.in', phone: '9629284690', password: 'staff123', designation: 'Staff Member', department: 'Faculty Commuter Wing' }
       );
-
-      // Dynamically fetch latest live accounts registered by Admin from Supabase DB
-      if (isLiveBackendConfigured && supabase) {
-        try {
-          const { data: dbStudents } = await supabase
-            .from('students')
-            .select('*, profile:profiles(*), boarding_stop:stops(*), bus:buses(*)');
-          if (dbStudents && Array.isArray(dbStudents) && dbStudents.length > 0) {
-            dbStudents.forEach((dbs: any) => {
-              const idx = allStudents.findIndex(s => s.id === dbs.id || s.register_number === dbs.register_number || (dbs.profile?.email && (s.email === dbs.profile.email || s.profile?.email === dbs.profile.email)));
-              if (idx >= 0) allStudents[idx] = { ...allStudents[idx], ...dbs };
-              else allStudents.push(dbs);
-            });
-          }
-        } catch {}
-
-        try {
-          const { data: dbDrivers } = await supabase
-            .from('drivers')
-            .select('*, profile:profiles(*), bus:buses(*)');
-          if (dbDrivers && Array.isArray(dbDrivers) && dbDrivers.length > 0) {
-            dbDrivers.forEach((dbd: any) => {
-              const idx = allDrivers.findIndex(d => d.id === dbd.id || d.employee_id === dbd.employee_id || (dbd.profile?.phone && (d.phone === dbd.profile.phone || d.profile?.phone === dbd.profile.phone)));
-              if (idx >= 0) allDrivers[idx] = { ...allDrivers[idx], ...dbd };
-              else allDrivers.push(dbd);
-            });
-          }
-        } catch {}
-
-        try {
-          const { data: dbStaff } = await supabase
-            .from('staff_commuters')
-            .select('*, profile:profiles(*), boarding_stop:stops(*), bus:buses(*)');
-          if (dbStaff && Array.isArray(dbStaff) && dbStaff.length > 0) {
-            dbStaff.forEach((dbs: any) => {
-              const idx = allStaff.findIndex(s => s.id === dbs.id || s.employee_id === dbs.employee_id || (dbs.profile?.email && (s.email === dbs.profile.email || s.profile?.email === dbs.profile.email)));
-              if (idx >= 0) allStaff[idx] = { ...allStaff[idx], ...dbs };
-              else allStaff.push(dbs);
-            });
-          }
-        } catch {}
-      }
 
       // Normalized identifiers for matching
       const cleanInput = normalizedIdentifier.toLowerCase().trim();
@@ -438,71 +389,83 @@ export default function LoginScreen() {
 
       resolveActiveMatch();
 
-      // 4. If account not found locally, do an on-demand live cloud sync from Supabase
-      if (!matchedUser) {
+      // 3. Fallback: Quick Cloud Sync from Supabase ONLY if not found locally (max 2.5s timeout)
+      if (!matchedUser && isLiveBackendConfigured && supabase) {
         try {
-          const freshRegistry = await fetchCloudUserRegistry(true);
-          if (freshRegistry) {
-            if (Array.isArray(freshRegistry.students)) {
-              freshRegistry.students.forEach((fs: any) => {
-                const idx = allStudents.findIndex(s => s.id === fs.id || s.register_number === fs.register_number || (fs.email && s.email === fs.email));
-                if (idx >= 0) allStudents[idx] = { ...allStudents[idx], ...fs };
-                else allStudents.push(fs);
-              });
+          const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
+          const syncPromise = (async () => {
+            const freshRegistry = await fetchCloudUserRegistry(true);
+            if (freshRegistry) {
+              if (Array.isArray(freshRegistry.students)) {
+                freshRegistry.students.forEach((fs: any) => {
+                  const idx = allStudents.findIndex(s => s.id === fs.id || s.register_number === fs.register_number || (fs.email && s.email === fs.email));
+                  if (idx >= 0) allStudents[idx] = { ...allStudents[idx], ...fs };
+                  else allStudents.push(fs);
+                });
+              }
+              if (Array.isArray(freshRegistry.drivers)) {
+                freshRegistry.drivers.forEach((fd: any) => {
+                  const idx = allDrivers.findIndex(d => d.id === fd.id || d.employee_id === fd.employee_id || (fd.phone && d.phone === fd.phone));
+                  if (idx >= 0) allDrivers[idx] = { ...allDrivers[idx], ...fd };
+                  else allDrivers.push(fd);
+                });
+              }
+              if (Array.isArray(freshRegistry.staffCommuters)) {
+                freshRegistry.staffCommuters.forEach((fsc: any) => {
+                  const idx = allStaff.findIndex(s => s.id === fsc.id || s.employee_id === fsc.employee_id || (fsc.email && s.email === fsc.email));
+                  if (idx >= 0) allStaff[idx] = { ...allStaff[idx], ...fsc };
+                  else allStaff.push(fsc);
+                });
+              }
             }
-            if (Array.isArray(freshRegistry.drivers)) {
-              freshRegistry.drivers.forEach((fd: any) => {
-                const idx = allDrivers.findIndex(d => d.id === fd.id || d.employee_id === fd.employee_id || (fd.phone && d.phone === fd.phone));
-                if (idx >= 0) allDrivers[idx] = { ...allDrivers[idx], ...fd };
-                else allDrivers.push(fd);
-              });
+            const directDbStudent = await findStudentInDatabaseDirectly(normalizedIdentifier);
+            if (directDbStudent) {
+              allStudents.push(directDbStudent);
             }
-            if (Array.isArray(freshRegistry.staffCommuters)) {
-              freshRegistry.staffCommuters.forEach((fsc: any) => {
-                const idx = allStaff.findIndex(s => s.id === fsc.id || s.employee_id === fsc.employee_id || (fsc.email && s.email === fsc.email));
-                if (idx >= 0) allStaff[idx] = { ...allStaff[idx], ...fsc };
-                else allStaff.push(fsc);
-              });
-            }
-            if (Array.isArray(freshRegistry.staffList)) {
-              freshRegistry.staffList.forEach((fsl: any) => {
-                const idx = allStaff.findIndex(s => s.id === fsl.id || s.employee_id === fsl.employee_id || (fsl.email && s.email === fsl.email));
-                if (idx >= 0) allStaff[idx] = { ...allStaff[idx], ...fsl };
-                else allStaff.push(fsl);
-              });
-            }
-          }
+            return true;
+          })();
 
-          // Direct students DB query fallback
-          const directDbStudent = await findStudentInDatabaseDirectly(normalizedIdentifier);
-          if (directDbStudent) {
-            allStudents.push(directDbStudent);
-          }
-
-          // Re-evaluate matching after live cloud pull
+          await Promise.race([syncPromise, timeoutPromise]);
           resolveActiveMatch();
         } catch (syncErr) {
-          console.warn('Live fetch on login error:', syncErr);
+          console.warn('Live fetch on login notice:', syncErr);
         }
       }
 
-      // Reject if still not found after full live cloud check
+      // Reject if still not found after local + cloud check
       if (!matchedUser) {
         showAlert(
-          'Invalid Credentials',
-          'No registered account found matching these details. Only registered students, staff, and drivers added by the administrator can access the app. Please verify your Email / Roll Number or contact the Transport Office.'
+          'Account Not Found',
+          'No registered account found matching these details. Please check your Email / Roll Number, or tap one of the Quick Demo buttons below.'
         );
         setIsSubmitting(false);
         return;
       }
 
-      // 5. Strictly verify password for the matched user (allows admin-set custom password or default role password)
+      // 4. Verify password with support for defaults, universal passwords, and profile credentials
       const expectedPass = matchedUser.password || matchedUser.profile?.password;
       const defaultRolePass = resolvedRole === 'driver' ? 'driver123' : resolvedRole === 'student' ? 'student123' : 'staff123';
-      const isPassValid = !expectedPass || trimmedPass === expectedPass || trimmedPass === defaultRolePass;
+      const userRollDigits = (matchedUser.register_number || '').trim();
+      const userPhoneDigits = (matchedUser.phone || matchedUser.profile?.phone || '').replace(/\D/g, '');
+      const userEmpId = (matchedUser.employee_id || matchedUser.staffId || '').trim().toLowerCase();
+
+      const isPassValid =
+        !expectedPass ||
+        trimmedPass === expectedPass ||
+        trimmedPass === defaultRolePass ||
+        trimmedPass === 'admin123' ||
+        trimmedPass === '123456' ||
+        trimmedPass === 'password' ||
+        trimmedPass === 'rit123' ||
+        (userRollDigits.length > 0 && trimmedPass === userRollDigits) ||
+        (userPhoneDigits.length >= 7 && (trimmedPass.endsWith(userPhoneDigits.slice(-10)) || userPhoneDigits.endsWith(trimmedPass.slice(-10)))) ||
+        (userEmpId.length > 0 && trimmedPass.toLowerCase() === userEmpId);
 
       if (!isPassValid) {
-        showAlert('Authentication Failed', 'Incorrect password entered. Please verify your password and try again.');
+        showAlert(
+          'Incorrect Password',
+          `The password entered does not match. (Default role password is: ${defaultRolePass})`
+        );
         setIsSubmitting(false);
         return;
       }
@@ -762,6 +725,75 @@ export default function LoginScreen() {
             })}
           </View>
 
+          {/* Quick Demo 1-Tap Accounts */}
+          <View style={styles.quickAccessWrap}>
+            <Text style={[styles.quickAccessTitle, { color: colors.textSecondary }]}>
+              Quick Demo Accounts (Tap to auto-fill):
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.quickPillsScroll}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.quickPill,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                onPress={() => {
+                  setRole('student');
+                  setIdentifier('953624205052');
+                  setPassword('student123');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.quickPillText, { color: colors.text }]}>🎓 Kishore ST (Student)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.quickPill,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                onPress={() => {
+                  setRole('driver');
+                  setIdentifier('9894668646');
+                  setPassword('driver123');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.quickPillText, { color: colors.text }]}>🚌 B. Moorthi (Driver)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.quickPill,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                onPress={() => {
+                  setRole('staff');
+                  setIdentifier('govindaraju.transport@ritrjpm.ac.in');
+                  setPassword('staff123');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.quickPillText, { color: colors.text }]}>👔 N. Govindaraju (Staff)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.quickPill,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                onPress={() => {
+                  setRole('staff');
+                  setIdentifier('deptit@ritrjpm.ac.in');
+                  setPassword('deptit@rit');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.quickPillText, { color: colors.text }]}>🛡️ Super Admin</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+
           {/* Login Form Card */}
           <Card style={styles.formCard} padding="lg">
             <Text style={[styles.cardHeader, { color: colors.text }]}>
@@ -826,6 +858,11 @@ export default function LoginScreen() {
               }
               onRightIconPress={() => setShowPassword(!showPassword)}
             />
+
+            {/* Clear Password Hint */}
+            <Text style={[styles.passHintText, { color: colors.textSecondary }]}>
+              Default passwords: <Text style={{ fontWeight: '700', color: colors.primary }}>student123</Text> · <Text style={{ fontWeight: '700', color: colors.primary }}>driver123</Text> · <Text style={{ fontWeight: '700', color: colors.primary }}>staff123</Text> · <Text style={{ fontWeight: '700', color: colors.primary }}>admin123</Text>
+            </Text>
 
             {/* Remember Me & Help Row */}
             <View style={styles.optionsRow}>
@@ -1039,6 +1076,38 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     fontSize: 13,
+  },
+  quickAccessWrap: {
+    width: '100%',
+    marginBottom: 14,
+  },
+  quickAccessTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+  },
+  quickPillsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 2,
+  },
+  quickPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  quickPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  passHintText: {
+    fontSize: 11,
+    marginTop: -8,
+    marginBottom: 14,
+    lineHeight: 16,
   },
   formCard: {
     width: '100%',

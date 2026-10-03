@@ -118,11 +118,11 @@ function ThemedAppContainer() {
 }
 
 export default function RootLayout() {
-  // Global safety fallback: hide splash after 2.5 seconds if not already hidden
+  // Global safety fallback: guarantee splash is hidden promptly on app open
   useEffect(() => {
     const timer = setTimeout(() => {
       hideSplash();
-    }, 2500);
+    }, 800);
     return () => clearTimeout(timer);
   }, []);
 

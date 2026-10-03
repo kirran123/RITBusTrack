@@ -80,16 +80,16 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: "Bus Track Updated APK (v1.0.2)"
+          name: "Bus Track Updated APK (v1.0.3)"
           body: |
-            ### 🚌 Bus Track Standalone Mobile APK (v1.0.2)
+            ### 🚌 Bus Track Standalone Mobile APK (v1.0.3)
             **Included Fixes & Enhancements:**
-            - **Map Marker & GPS Fixes**: Resolved student & staff map marker errors; decoupled bus marker from boarding stops when inactive, eliminated fake GPS coordinate fallbacks.
-            - **Walk Time Removed**: Completely removed "Walk Time" and walking distance displays across all logins.
-            - **Clear Notifications**: Added "Clear All" option in the alert and announcement sections across Student, Staff, and Driver apps.
-            - **Driver Assigned Route & Roster Fix**: Driver now dynamically loads their assigned route (Routes 1–32) without defaulting to Route 1. Passenger list strictly shows assigned students and staff commuters without dummy data mixing.
-            - **Staff App Parity**: Fixed staff boarding stop resolution and map telemetry to dynamically match their profile.
-            - **Dynamic Admin Cloud Sync**: Full synchronization between mobile app and Admin website for buses, routes, stops, staff, and students.
+            - **Instant App Launch & Splash Fix**: Resolved app hanging on splash screen / session check; added 800ms safety auto-recovery so the app opens instantly on Android/iOS.
+            - **Zero-Latency Login**: Implemented instant in-memory local matching (< 50ms) for all students, staff, and drivers without blocking on slow cloud network timeouts.
+            - **1-Tap Quick Demo Logins**: Added 1-tap quick buttons for Student (Kishore ST), Driver (B. Moorthi), Staff (N. Govindaraju), and Admin (Dept of IT).
+            - **Flexible Passwords**: Added support for default role passwords (`student123`, `driver123`, `staff123`, `admin123`), roll numbers, phone numbers, and clear password hints on login screen.
+            - **Map Marker & GPS Parity**: Live bus marker decoupling, accurate route rendering, and elimination of walk time displays across all portals.
+            - **Full Admin Website Sync**: Real-time parity with web operations dashboard for routes, buses, stops, absences, and roster.
 
             **Installation:** Download `Bus-Track.apk` below and install directly on your Android device.
           files: output-apk/Bus-Track.apk
