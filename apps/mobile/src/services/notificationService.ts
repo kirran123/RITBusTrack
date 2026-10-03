@@ -1,12 +1,15 @@
 import { Platform, PermissionsAndroid } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+
+export const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export type NotificationPermissionStatus = 'granted' | 'denied' | 'undetermined';
 
 // Defer notification handler setup to avoid crashing on module load.
 // On some Android devices (Samsung, Xiaomi, Oppo), calling setNotificationHandler
 // synchronously during module evaluation crashes the JS bridge before React mounts.
-if (Platform.OS !== 'web') {
+if (Platform.OS !== 'web' && !isExpoGo) {
   setTimeout(() => {
     try {
       Notifications.setNotificationHandler({
@@ -29,7 +32,7 @@ class NotificationService {
   private isPermissionGranted = false;
 
   constructor() {
-    if (Platform.OS === 'android') {
+    if (Platform.OS === 'android' && !isExpoGo) {
       setTimeout(() => {
         this.setupChannels().catch((e) => console.warn('Channel setup notice:', e));
       }, 500);
@@ -77,6 +80,25 @@ class NotificationService {
     }
   }
 
+  /**
+   * Register device for remote push notifications (guarded for Expo Go)
+   */
+  async registerForPushNotificationsAsync(): Promise<string | null> {
+    if (isExpoGo) {
+      console.log('ℹ️ Running in Expo Go: Remote push notifications are disabled in Expo Go with SDK 53+. Use a development build for push notification token testing.');
+      return null;
+    }
+    try {
+      const hasPermission = await this.requestPermission();
+      if (!hasPermission) return null;
+      const tokenData = await (Notifications as any).getExpoPushTokenAsync?.().catch(() => null);
+      return tokenData?.data || null;
+    } catch (err) {
+      console.warn('Could not register push token:', err);
+      return null;
+    }
+  }
+
   async requestPermission(): Promise<boolean> {
     try {
       if (Platform.OS === 'web') {
@@ -87,22 +109,37 @@ class NotificationService {
         }
         return true;
       } else {
-        await this.setupChannels();
-        const { status: existingStatus } = await Notifications.getPermissionsAsync().catch(() => ({ status: 'undetermined' }));
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync({
-            ios: {
-              allowAlert: true,
-              allowBadge: true,
-              allowSound: true,
-            },
-          }).catch(() => ({ status: 'denied' }));
-          finalStatus = status;
+        if (!isExpoGo) {
+          await this.setupChannels();
         }
+        let finalStatus = 'undetermined';
 
-        if (Platform.OS === 'android' && Platform.Version >= 33) {
-          await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS).catch(() => {});
+        if (isExpoGo && Platform.OS === 'android') {
+          // Expo Go on Android SDK 53+ removed remote push notifications.
+          // Request Android 13+ POST_NOTIFICATIONS permission directly without calling expo-notifications push APIs.
+          if (Platform.Version >= 33) {
+            const res = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS).catch(() => 'denied');
+            finalStatus = res === 'granted' ? 'granted' : 'denied';
+          } else {
+            finalStatus = 'granted';
+          }
+        } else {
+          const { status: existingStatus } = await Notifications.getPermissionsAsync().catch(() => ({ status: 'undetermined' }));
+          finalStatus = existingStatus;
+          if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync({
+              ios: {
+                allowAlert: true,
+                allowBadge: true,
+                allowSound: true,
+              },
+            }).catch(() => ({ status: 'denied' }));
+            finalStatus = status;
+          }
+
+          if (Platform.OS === 'android' && Platform.Version >= 33) {
+            await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS).catch(() => {});
+          }
         }
 
         this.isPermissionGranted = finalStatus === 'granted';
@@ -122,6 +159,14 @@ class NotificationService {
           return this.isPermissionGranted;
         }
         return false;
+      } else if (isExpoGo && Platform.OS === 'android') {
+        if (Platform.Version >= 33) {
+          const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS).catch(() => false);
+          this.isPermissionGranted = granted;
+        } else {
+          this.isPermissionGranted = true;
+        }
+        return this.isPermissionGranted;
       } else {
         const { status } = await Notifications.getPermissionsAsync().catch(() => ({ status: 'undetermined' }));
         this.isPermissionGranted = status === 'granted';
@@ -192,7 +237,9 @@ class NotificationService {
       // 2. Mobile Native Notification Delivery (Direct to Android Status Bar & Heads-up Banner)
       if (Platform.OS !== 'web') {
         try {
-          await this.setupChannels();
+          if (!isExpoGo) {
+            await this.setupChannels();
+          }
           const channelId = type === 'emergency' || type === 'emergency_sos'
             ? 'emergency_sos'
             : type === 'trip' || type === 'trip_start' || type === 'trip_end'
@@ -210,6 +257,10 @@ class NotificationService {
               color: type === 'emergency' || type === 'emergency_sos' ? '#ef4444' : '#2563eb',
             } as any,
             trigger: Platform.OS === 'android' ? ({ channelId } as any) : null,
+          }).catch((scheduleErr) => {
+            if (__DEV__) {
+              console.log('Mobile status notification notice:', scheduleErr?.message || scheduleErr);
+            }
           });
         } catch (nativeNotifErr) {
           console.warn('Native mobile status bar notification error:', nativeNotifErr);

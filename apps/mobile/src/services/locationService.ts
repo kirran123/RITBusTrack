@@ -90,16 +90,93 @@ export interface DynamicETA {
 }
 
 /**
+ * Normalizes event timestamps (UTC, ISO, database strings, or local dates)
+ * and formats them consistently in the user's local timezone.
+ * For historical alerts from previous days, includes date context (e.g. "Yesterday, 12:22 PM" or "2 Oct, 12:22 PM").
+ */
+export function formatEventTime(timestamp?: string | number | Date | null): string {
+  if (!timestamp) return 'Live';
+  try {
+    let date: Date;
+    if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    } else if (typeof timestamp === 'string') {
+      let cleanStr = timestamp.trim();
+      if (/^\d{1,2}:\d{2}(\s*[AaPp][Mm])?$/.test(cleanStr)) {
+        return cleanStr;
+      }
+      if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}/.test(cleanStr)) {
+        cleanStr = cleanStr.replace(' ', 'T');
+      }
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(cleanStr)) {
+        cleanStr += 'Z';
+      }
+      date = new Date(cleanStr);
+    } else {
+      return 'Live';
+    }
+
+    if (isNaN(date.getTime())) return 'Live';
+
+    const now = new Date();
+    const isToday =
+      date.getDate() === now.getDate() &&
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear();
+
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (isToday) {
+      return timeStr;
+    }
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getFullYear() === yesterday.getFullYear();
+
+    if (isYesterday) {
+      return `Yesterday, ${timeStr}`;
+    }
+
+    const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return `${dateStr}, ${timeStr}`;
+  } catch {
+    return 'Live';
+  }
+}
+
+/**
  * Calculates dynamic ETA and adjusted arrival clock time based on live GPS speed,
  * remaining distance, intermediate stops, and scheduled timings.
  */
 export function calculateDynamicETA(
-  distanceKm: number,
+  distanceKm: number | null | undefined,
   currentSpeedKmH: number = 0,
   remainingIntermediateStops: number = 0,
   scheduledTimeStr?: string | null,
   currentTime: Date = new Date()
 ): DynamicETA {
+  if (distanceKm === null || distanceKm === undefined || isNaN(distanceKm)) {
+    return {
+      etaMinutes: 0,
+      formattedEta: '--',
+      arrivalTimeStr: '--',
+      arrivalTimestamp: currentTime,
+      isDelayed: false,
+      delayMinutes: 0,
+      statusTag: 'ON_TIME',
+      statusLabel: 'Standby',
+      statusColor: '#64748b',
+      effectiveSpeed: 0,
+      trafficCondition: 'Smooth',
+    };
+  }
+
   // If bus is at or within 80m of the stop
   if (distanceKm <= 0.08) {
     const arrivalHours = currentTime.getHours();
@@ -122,10 +199,7 @@ export function calculateDynamicETA(
     };
   }
 
-  // If testing remotely (distance > 15 km from route stop) or within campus corridor
-  const effectiveDistKm = distanceKm > 15
-    ? Math.max(0.4, (remainingIntermediateStops + 1) * 0.9)
-    : Math.max(0.1, distanceKm);
+  const effectiveDistKm = Math.max(0.1, distanceKm);
 
   let effectiveSpeed = 24; // urban bus speed in km/h
   let trafficCondition: 'Smooth' | 'Moderate' | 'Heavy / Congested' = 'Moderate';
@@ -136,6 +210,9 @@ export function calculateDynamicETA(
   } else if (currentSpeedKmH >= 15) {
     effectiveSpeed = Math.max(18, Math.round(currentSpeedKmH * 0.95));
     trafficCondition = 'Moderate';
+  } else if (currentSpeedKmH > 0) {
+    effectiveSpeed = 16;
+    trafficCondition = 'Heavy / Congested';
   } else {
     // Bus is halted or in heavy traffic
     effectiveSpeed = 18;
@@ -143,7 +220,7 @@ export function calculateDynamicETA(
   }
 
   // Add ~1 min dwell buffer per remaining intermediate pickup stop
-  const stopDwellMinutes = remainingIntermediateStops * 1.0;
+  const stopDwellMinutes = Math.max(0, remainingIntermediateStops) * 1.0;
   const travelMinutes = (effectiveDistKm / effectiveSpeed) * 60;
   const totalEtaMinutes = Math.max(1, Math.round(travelMinutes + stopDwellMinutes));
 
@@ -154,11 +231,8 @@ export function calculateDynamicETA(
   const formattedHours = (arrivalHours % 12 || 12).toString().padStart(2, '0');
   const formattedMins = arrivalMinutes.toString().padStart(2, '0');
 
-  // Clean, consistent arrival time display
-  let arrivalTimeStr = `${formattedHours}:${formattedMins} ${ampm}`;
-  if (scheduledTimeStr && (distanceKm > 15 || remainingIntermediateStops > 0)) {
-    arrivalTimeStr = scheduledTimeStr;
-  }
+  // Dynamic arrival clock time derived from current time + ETA
+  const arrivalTimeStr = `${formattedHours}:${formattedMins} ${ampm}`;
 
   let isDelayed = false;
   let delayMinutes = 0;
@@ -168,7 +242,7 @@ export function calculateDynamicETA(
 
   if (totalEtaMinutes <= 2 || distanceKm <= 0.35) {
     statusTag = 'ARRIVING_NOW';
-    statusLabel = 'Arriving (< 2m)';
+    statusLabel = 'Arriving Soon';
     statusColor = '#f59e0b';
   } else if (scheduledTimeStr) {
     const parts = scheduledTimeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
@@ -185,7 +259,7 @@ export function calculateDynamicETA(
       const diffMs = arrivalDate.getTime() - schedDate.getTime();
       const diffMins = Math.round(diffMs / (60 * 1000));
 
-      if (Math.abs(diffMins) <= 45) {
+      if (Math.abs(diffMins) <= 60) {
         if (diffMins > 3) {
           isDelayed = true;
           delayMinutes = diffMins;
@@ -199,13 +273,9 @@ export function calculateDynamicETA(
           statusColor = '#38bdf8';
         } else {
           statusTag = 'ON_TIME';
-          statusLabel = 'On Time';
+          statusLabel = 'On Schedule';
           statusColor = '#10b981';
         }
-      } else {
-        statusTag = 'ON_TIME';
-        statusLabel = 'On Schedule';
-        statusColor = '#10b981';
       }
     }
   }
@@ -213,7 +283,7 @@ export function calculateDynamicETA(
   return {
     etaMinutes: totalEtaMinutes,
     formattedEta: totalEtaMinutes <= 1 ? '1 min' : `${totalEtaMinutes} mins`,
-    arrivalTimeStr: arrivalTimeStr || scheduledTimeStr || 'On Schedule',
+    arrivalTimeStr,
     arrivalTimestamp: arrivalDate,
     isDelayed,
     delayMinutes,

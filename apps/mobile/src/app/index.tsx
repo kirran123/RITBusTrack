@@ -29,12 +29,16 @@ import { supabase, isLiveBackendConfigured } from '../services/supabase';
 import { locationTracker } from '../services/locationService';
 import { notificationService } from '../services/notificationService';
 import { fetchCloudUserRegistry, findStudentInDatabaseDirectly } from '../services/cloudSync';
+import { useTheme } from '../theme';
+import { Card, Button, Input } from '../components/ui';
+import { Mail, Lock, Eye, EyeOff, GraduationCap, User, Phone, Bus, Check, Sun, Moon } from 'lucide-react-native';
 
 export { MobilePortalRole };
 
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors, isDark, toggleTheme } = useTheme();
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [role, setRole] = useState<'student' | 'staff' | 'driver'>('student');
   const [phone, setPhone] = useState('');
@@ -622,27 +626,43 @@ export default function LoginScreen() {
   if (isCheckingSession) {
     return (
       <View
-        style={[styles.screen, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}
+        style={[
+          styles.screen,
+          {
+            backgroundColor: colors.background,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 24,
+          },
+        ]}
       >
         <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.logoContainer}>
-          <Image
-            source={require('../../assets/icon.png')}
-            style={styles.logoImage}
-            resizeMode="cover"
-          />
+        <View
+          style={[
+            styles.logoContainer,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Bus size={32} color={colors.text} strokeWidth={2} />
         </View>
-        <Text style={[styles.collegeTitle, { marginTop: 16, textAlign: 'center' }]}>RAMCO INSTITUTE OF TECHNOLOGY</Text>
-        <Text style={styles.appTitle}>Bus Track</Text>
-        <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 28 }} />
-        <Text style={{ color: '#475569', fontSize: 12, marginTop: 14 }}>Loading your session...</Text>
+        <Text style={[styles.collegeTitle, { color: colors.textSecondary, marginTop: 16 }]}>
+          RAMCO INSTITUTE OF TECHNOLOGY
+        </Text>
+        <Text style={[styles.appTitle, { color: colors.text }]}>RITBusTrack</Text>
+        <ActivityIndicator size="small" color={colors.text} style={{ marginTop: 24 }} />
+        <Text style={[styles.loadingSub, { color: colors.textSecondary }]}>
+          Loading your session...
+        </Text>
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView
-      style={styles.screen}
+      style={[styles.screen, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Stack.Screen options={{ headerShown: false }} />
@@ -650,7 +670,7 @@ export default function LoginScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: Math.max(insets.top + 16, 28),
+            paddingTop: Math.max(insets.top + 16, 32),
             paddingBottom: Math.max(insets.bottom + 24, 32),
           },
         ]}
@@ -658,128 +678,154 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.contentWrapper}>
-          {/* Brand Header */}
-          <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Image
-                source={require('../../assets/icon.png')}
-                style={styles.logoImage}
-                resizeMode="cover"
-              />
-            </View>
-            <Text style={styles.collegeTitle}>RAMCO INSTITUTE OF TECHNOLOGY</Text>
-            <Text style={styles.appTitle}>Bus Track</Text>
-            <Text style={styles.appSubtitle}>Live Campus Transport & GPS Fleet Tracking</Text>
+          {/* Top Bar with Theme Toggle */}
+          <View style={styles.topBar}>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity
+              style={[
+                styles.themeToggleBtn,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={toggleTheme}
+              activeOpacity={0.7}
+              accessibilityLabel="Toggle Theme"
+            >
+              {isDark ? (
+                <Sun size={16} color={colors.text} />
+              ) : (
+                <Moon size={16} color={colors.text} />
+              )}
+            </TouchableOpacity>
           </View>
 
-          {/* Role Switcher Tabs */}
-          <View style={styles.segmentedControl}>
-            <TouchableOpacity
-              style={[styles.segmentBtn, role === 'student' && styles.segmentBtnActiveStudent]}
-              onPress={() => handleRoleChange('student')}
-              activeOpacity={0.8}
+          {/* Brand Header */}
+          <View style={styles.header}>
+            <View
+              style={[
+                styles.logoContainer,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
             >
-              <Text style={[styles.segmentText, role === 'student' && styles.segmentTextActive]}>
-                Student
-              </Text>
-            </TouchableOpacity>
+              <Bus size={28} color={colors.text} strokeWidth={2} />
+            </View>
+            <Text style={[styles.appTitle, { color: colors.text }]}>RITBusTrack</Text>
+            <Text style={[styles.appSubtitle, { color: colors.textSecondary }]}>
+              Sign in to continue
+            </Text>
+          </View>
 
-            <TouchableOpacity
-              style={[styles.segmentBtn, role === 'staff' && styles.segmentBtnActiveStaff]}
-              onPress={() => handleRoleChange('staff')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.segmentText, role === 'staff' && styles.segmentTextActive]}>
-                Staff
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.segmentBtn, role === 'driver' && styles.segmentBtnActiveDriver]}
-              onPress={() => handleRoleChange('driver')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.segmentText, role === 'driver' && styles.segmentTextActive]}>
-                Driver
-              </Text>
-            </TouchableOpacity>
+          {/* Role Segmented Switcher */}
+          <View
+            style={[
+              styles.segmentedControl,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            {(['student', 'staff', 'driver'] as const).map((r) => {
+              const isSelected = role === r;
+              return (
+                <TouchableOpacity
+                  key={r}
+                  style={[
+                    styles.segmentBtn,
+                    isSelected && {
+                      backgroundColor: colors.primary,
+                    },
+                  ]}
+                  onPress={() => handleRoleChange(r)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      {
+                        color: isSelected
+                          ? colors.primaryContrast
+                          : colors.textSecondary,
+                        fontWeight: isSelected ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* Login Form Card */}
-          <View style={styles.formCard}>
-            <Text style={styles.cardHeader}>
+          <Card style={styles.formCard} padding="lg">
+            <Text style={[styles.cardHeader, { color: colors.text }]}>
               {role === 'driver'
                 ? 'Driver Sign In'
                 : role === 'student'
-                  ? 'Student Sign In'
-                  : 'Staff / Faculty Sign In'}
+                ? 'Student Sign In'
+                : 'Staff Sign In'}
             </Text>
 
             {role === 'driver' ? (
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Mobile Phone Number or Driver ID</Text>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.fieldIcon}>📱</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={phone}
-                    onChangeText={setPhone}
-                    placeholder="e.g. 9894668646 or EMP-DRV-01"
-                    placeholderTextColor="#64748b"
-                    keyboardType="default"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </View>
-              </View>
+              <Input
+                label="Mobile Phone Number or Driver ID"
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="e.g. 9894668646 or EMP-DRV-01"
+                keyboardType="default"
+                autoCapitalize="none"
+                autoCorrect={false}
+                leftIcon={<Phone size={16} color={colors.textSecondary} />}
+              />
             ) : (
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>
-                  {role === 'student'
-                    ? 'Roll Number or Institutional Email'
-                    : 'Staff Email or Employee ID'}
-                </Text>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.fieldIcon}>
-                    {role === 'student' ? '🎓' : '✉️'}
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder={
-                      role === 'student'
-                        ? 'e.g. 953621104021 or email@ritrjpm.ac.in'
-                        : 'e.g. staff@ritrjpm.ac.in or FAC-042'
-                    }
-                    placeholderTextColor="#64748b"
-                    keyboardType="default"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </View>
-              </View>
+              <Input
+                label={
+                  role === 'student'
+                    ? 'College Email or Roll Number'
+                    : 'Staff Email or Employee ID'
+                }
+                value={email}
+                onChangeText={setEmail}
+                placeholder={
+                  role === 'student'
+                    ? 'e.g. 953621104021 or email@ritrjpm.ac.in'
+                    : 'e.g. staff@ritrjpm.ac.in or FAC-042'
+                }
+                keyboardType="default"
+                autoCapitalize="none"
+                autoCorrect={false}
+                leftIcon={
+                  role === 'student' ? (
+                    <GraduationCap size={16} color={colors.textSecondary} />
+                  ) : (
+                    <Mail size={16} color={colors.textSecondary} />
+                  )
+                }
+              />
             )}
 
-            <View style={styles.fieldGroup}>
-              <View style={styles.passwordLabelRow}>
-                <Text style={styles.fieldLabel}>Password</Text>
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Text style={styles.togglePassText}>{showPassword ? 'Hide' : 'Show'}</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.inputContainer}>
-                <Text style={styles.fieldIcon}>🔒</Text>
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Enter your password"
-                  placeholderTextColor="#64748b"
-                  secureTextEntry={!showPassword}
-                />
-              </View>
-            </View>
+            <Input
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter your password"
+              secureTextEntry={!showPassword}
+              leftIcon={<Lock size={16} color={colors.textSecondary} />}
+              rightIcon={
+                showPassword ? (
+                  <EyeOff size={16} color={colors.textSecondary} />
+                ) : (
+                  <Eye size={16} color={colors.textSecondary} />
+                )
+              }
+              onRightIconPress={() => setShowPassword(!showPassword)}
+            />
 
             {/* Remember Me & Help Row */}
             <View style={styles.optionsRow}>
@@ -788,84 +834,126 @@ export default function LoginScreen() {
                 onPress={() => setRememberMe(!rememberMe)}
                 activeOpacity={0.8}
               >
-                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                  {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+                <View
+                  style={[
+                    styles.checkbox,
+                    {
+                      borderColor: rememberMe ? colors.primary : colors.border,
+                      backgroundColor: rememberMe ? colors.primary : 'transparent',
+                    },
+                  ]}
+                >
+                  {rememberMe && (
+                    <Check size={11} color={colors.primaryContrast} strokeWidth={3} />
+                  )}
                 </View>
-                <Text style={styles.rememberMeText}>Remember me</Text>
+                <Text style={[styles.rememberMeText, { color: colors.textSecondary }]}>
+                  Remember me
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() =>
                   showAlert(
                     'Need Help?',
-                    'For password resets or login assistance, please contact the Transport Office coordinator.'
+                    'For password resets or login assistance, please contact the Transport Office coordinator below.'
                   )
                 }
               >
-                <Text style={styles.forgotPassText}>Forgot password?</Text>
+                <Text style={[styles.forgotPassText, { color: colors.text }]}>
+                  Need help?
+                </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Sign In Button */}
-            <TouchableOpacity
-              style={[
-                styles.signInButton,
-                role === 'driver'
-                  ? styles.signInButtonDriver
-                  : role === 'staff'
-                    ? styles.signInButtonStaff
-                    : styles.signInButtonStudent,
-                isSubmitting && { opacity: 0.7 },
-              ]}
+            {/* Continue Button */}
+            <Button
+              label="Continue"
               onPress={handleLogin}
-              disabled={isSubmitting}
-              activeOpacity={0.85}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <Text style={styles.signInButtonText}>Sign In</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+              loading={isSubmitting}
+              size="lg"
+              variant="primary"
+              fullWidth
+            />
+          </Card>
 
-          {/* Transport Help Hotline */}
-          <View style={styles.supportCard}>
-            <Text style={styles.supportTitle}>Transport Support Desk</Text>
+          {/* Transport Support Desk */}
+          <Card style={styles.supportCard} variant="subtle" padding="md">
+            <Text style={[styles.supportTitle, { color: colors.textSecondary }]}>
+              Transport Support Desk
+            </Text>
             <View style={styles.supportList}>
               <TouchableOpacity
-                style={styles.supportItem}
+                style={[
+                  styles.supportItem,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
                 onPress={() => Linking.openURL('tel:+919629284690')}
                 activeOpacity={0.7}
               >
-                <View style={styles.supportItemIcon}>
-                  <Text style={{ fontSize: 14 }}>📞</Text>
+                <View
+                  style={[
+                    styles.supportItemIcon,
+                    {
+                      backgroundColor: colors.surfaceSubtle,
+                      borderColor: colors.borderSubtle,
+                    },
+                  ]}
+                >
+                  <Phone size={14} color={colors.text} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.supportName}>N. Govindaraju (Transport Incharge)</Text>
-                  <Text style={styles.supportPhone}>+91 96292 84690</Text>
+                  <Text style={[styles.supportName, { color: colors.text }]}>
+                    N. Govindaraju (Transport Incharge)
+                  </Text>
+                  <Text style={[styles.supportPhone, { color: colors.textSecondary }]}>
+                    +91 96292 84690
+                  </Text>
                 </View>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.supportItem}
+                style={[
+                  styles.supportItem,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
                 onPress={() => Linking.openURL('tel:+919715540479')}
                 activeOpacity={0.7}
               >
-                <View style={styles.supportItemIcon}>
-                  <Text style={{ fontSize: 14 }}>📞</Text>
+                <View
+                  style={[
+                    styles.supportItemIcon,
+                    {
+                      backgroundColor: colors.surfaceSubtle,
+                      borderColor: colors.borderSubtle,
+                    },
+                  ]}
+                >
+                  <Phone size={14} color={colors.text} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.supportName}>L. Karthikeyan (Coordinator)</Text>
-                  <Text style={styles.supportPhone}>+91 97155 40479</Text>
+                  <Text style={[styles.supportName, { color: colors.text }]}>
+                    L. Karthikeyan (Coordinator)
+                  </Text>
+                  <Text style={[styles.supportPhone, { color: colors.textSecondary }]}>
+                    +91 97155 40479
+                  </Text>
                 </View>
               </TouchableOpacity>
             </View>
-          </View>
+          </Card>
 
-          {/* Footer */}
+          {/* Minimal Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Ramco Institute of Technology &bull; Transport Wing</Text>
+            <Text style={[styles.footerText, { color: colors.textMuted }]}>
+              Ramco Institute of Technology · Transport Wing
+            </Text>
           </View>
         </View>
       </ScrollView>
@@ -876,173 +964,98 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#0a0e17',
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     alignItems: 'center',
   },
   contentWrapper: {
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 440,
     alignItems: 'center',
+  },
+  topBar: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
+  },
+  themeToggleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#131d2e',
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: '#2563eb',
-    shadowColor: '#2563eb',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  logoImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
   },
   collegeTitle: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#94a3b8',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   appTitle: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#ffffff',
-    marginTop: 4,
-    letterSpacing: 0.3,
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   appSubtitle: {
-    fontSize: 12,
-    color: '#64748b',
+    fontSize: 14,
+    fontWeight: '400',
     marginTop: 4,
-    textAlign: 'center',
+  },
+  loadingSub: {
+    fontSize: 12,
+    marginTop: 10,
+    fontWeight: '500',
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#131d2e',
-    borderRadius: 14,
-    padding: 4,
     width: '100%',
-    marginBottom: 20,
+    padding: 3,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    marginBottom: 16,
   },
   segmentBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
-    borderRadius: 10,
-  },
-  segmentBtnActiveStudent: {
-    backgroundColor: '#2563eb',
-    shadowColor: '#2563eb',
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  segmentBtnActiveStaff: {
-    backgroundColor: '#d97706',
-    shadowColor: '#d97706',
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  segmentBtnActiveDriver: {
-    backgroundColor: '#059669',
-    shadowColor: '#059669',
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 4,
+    justifyContent: 'center',
+    borderRadius: 7,
   },
   segmentText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#94a3b8',
-  },
-  segmentTextActive: {
-    color: '#ffffff',
-    fontWeight: '900',
   },
   formCard: {
     width: '100%',
-    backgroundColor: '#111827',
-    borderRadius: 20,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: '#1f293d',
-    shadowColor: '#000000',
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   cardHeader: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#f8fafc',
-    marginBottom: 18,
-  },
-  fieldGroup: {
+    fontWeight: '700',
+    letterSpacing: -0.2,
     marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#94a3b8',
-    marginBottom: 6,
-  },
-  passwordLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  togglePassText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#38bdf8',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0a0e17',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    paddingHorizontal: 12,
-  },
-  fieldIcon: {
-    fontSize: 15,
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    color: '#ffffff',
-    paddingVertical: 12,
-    fontSize: 14,
-    fontWeight: '500',
   },
   optionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 2,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   rememberMeRow: {
     flexDirection: 'row',
@@ -1051,111 +1064,67 @@ const styles = StyleSheet.create({
   checkbox: {
     width: 18,
     height: 18,
-    borderRadius: 5,
+    borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#475569',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
-    backgroundColor: '#0a0e17',
-  },
-  checkboxChecked: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-  },
-  checkmark: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '900',
   },
   rememberMeText: {
     fontSize: 12,
-    color: '#94a3b8',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   forgotPassText: {
     fontSize: 12,
-    color: '#38bdf8',
     fontWeight: '600',
-  },
-  signInButton: {
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  signInButtonStudent: {
-    backgroundColor: '#2563eb',
-  },
-  signInButtonStaff: {
-    backgroundColor: '#d97706',
-  },
-  signInButtonDriver: {
-    backgroundColor: '#059669',
-  },
-  signInButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 0.3,
   },
   supportCard: {
     width: '100%',
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#1f293d',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   supportTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     marginBottom: 10,
   },
   supportList: {
     flexDirection: 'column',
+    gap: 8,
   },
   supportItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0a0e17',
-    borderRadius: 10,
+    borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 8,
   },
   supportItemIcon: {
     width: 28,
     height: 28,
-    borderRadius: 8,
-    backgroundColor: '#1e293b',
+    borderRadius: 6,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
   },
   supportName: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#f8fafc',
+    fontWeight: '600',
   },
   supportPhone: {
     fontSize: 11,
-    color: '#38bdf8',
-    fontWeight: '600',
+    fontWeight: '500',
     marginTop: 1,
   },
   footer: {
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 8,
+    marginBottom: 12,
   },
   footerText: {
     fontSize: 11,
-    color: '#64748b',
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });

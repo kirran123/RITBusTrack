@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { broadcastLeaveToggle, subscribeToLeave, fetchLiveStudentsFromDB } from './supabase';
+import { broadcastLeaveToggle, subscribeToLeave, fetchLiveStudentsFromDB, onRegistryStudentsUpdate } from './supabase';
 import { authStorage } from './authStorage';
 import { MASTER_BUSES, MASTER_ROUTES } from '@college-bus/shared';
 
@@ -322,41 +322,55 @@ class StudentRosterStore {
   }
 
   constructor() {
-    // 0. Load cached registry students from authStorage
-    authStorage.getItem('bustrack_students_v1').then((raw) => {
-      if (raw) {
-        try {
-          const list = JSON.parse(raw);
-          if (Array.isArray(list) && list.length > 0) {
-            this.updateFromRegistry(list);
+    // Run initialization asynchronously after module graph evaluation completes
+    setTimeout(() => {
+      // 0. Load cached registry students from authStorage
+      authStorage.getItem('bustrack_students_v1').then((raw) => {
+        if (raw) {
+          try {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list) && list.length > 0) {
+              this.updateFromRegistry(list);
+            }
+          } catch {}
+        }
+      }).catch(() => {});
+
+      // 1. Fetch live students from Supabase database
+      if (typeof fetchLiveStudentsFromDB === 'function') {
+        fetchLiveStudentsFromDB().then((dbStudents) => {
+          if (dbStudents && dbStudents.length > 0) {
+            this.updateFromRegistry(dbStudents);
           }
-        } catch {}
+        }).catch(() => {});
       }
-    }).catch(() => {});
 
-    // 1. Fetch live students from Supabase database
-    fetchLiveStudentsFromDB().then((dbStudents) => {
-      if (dbStudents && dbStudents.length > 0) {
-        this.updateFromRegistry(dbStudents);
+      // 1.1 Listen for dynamic registry updates from Supabase
+      if (typeof onRegistryStudentsUpdate === 'function') {
+        onRegistryStudentsUpdate((students) => {
+          this.updateFromRegistry(students);
+        });
       }
-    }).catch(() => {});
 
-    // 2. Listen for leave changes from Admin Web / Supabase
-    try {
-      subscribeToLeave((payload) => {
-        this.students = this.students.map((s) =>
-          s.id === payload.studentId || s.rollNumber === payload.studentId
-            ? {
-                ...s,
-                isOnLeave: payload.isOnLeave,
-                leaveReason: payload.isOnLeave ? (payload.reason || 'Leave Applied') : undefined,
-                leaveDate: payload.isOnLeave ? (payload.leaveDate || 'Today') : undefined,
-              }
-            : s
-        );
-        this.notify();
-      });
-    } catch {}
+      // 2. Listen for leave changes from Admin Web / Supabase
+      try {
+        if (typeof subscribeToLeave === 'function') {
+          subscribeToLeave((payload) => {
+            this.students = this.students.map((s) =>
+              s.id === payload.studentId || s.rollNumber === payload.studentId
+                ? {
+                    ...s,
+                    isOnLeave: payload.isOnLeave,
+                    leaveReason: payload.isOnLeave ? (payload.reason || 'Leave Applied') : undefined,
+                    leaveDate: payload.isOnLeave ? (payload.leaveDate || 'Today') : undefined,
+                  }
+                : s
+            );
+            this.notify();
+          });
+        }
+      } catch {}
+    }, 0);
   }
 
   setStudentLeave(
