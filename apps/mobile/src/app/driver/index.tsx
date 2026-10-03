@@ -30,6 +30,41 @@ import { notificationService } from '../../services/notificationService';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
 import { Stop, SystemNotification, GPSCoordinate, timeHistoryStore, EmergencyType, EmergencyAlert, MASTER_BUSES, MASTER_ROUTES, MASTER_STOPS, INITIAL_STOPS, MASTER_STUDENTS, MASTER_STAFF_COMMUTERS } from '@college-bus/shared';
+import { useTheme } from '../../theme';
+import {
+  AppHeader,
+  BottomTabBar,
+  Card,
+  Button,
+  StatusChip,
+  StatBadge,
+  SectionHeader,
+  Input,
+  TabItem,
+} from '../../components/ui';
+import {
+  Bell,
+  Circle,
+  Navigation,
+  Users,
+  Gauge,
+  ShieldAlert,
+  User,
+  Play,
+  CheckCircle2,
+  Square,
+  Phone,
+  AlertTriangle,
+  RotateCcw,
+  Search,
+  Filter,
+  Check,
+  X,
+  LogOut,
+  MapPin,
+  Clock,
+  Compass,
+} from 'lucide-react-native';
 
 type DriverTab = 'nav' | 'students' | 'cockpit' | 'sos' | 'profile';
 
@@ -138,6 +173,7 @@ const EVENING_ROUTE_STOPS: Stop[] = [
 export default function DriverDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors, isDark, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<DriverTab>('nav');
   const [shift, setShift] = useState<'morning' | 'evening'>(() => {
     const hr = new Date().getHours();
@@ -1033,1100 +1069,825 @@ export default function DriverDashboard() {
     (s) => s && nextStop && s.boardingStopId === nextStop.id && s.isOnLeave
   );
 
+  const [confirmingSOSType, setConfirmingSOSType] = useState<EmergencyType | null>(null);
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapReason, setSwapReason] = useState('');
+
+  const handleRequestSwap = (reason: string) => {
+    Alert.alert('Standby Request Submitted', 'Transport office notified: ' + (reason || 'Vehicle substitution'));
+    setShowSwapModal(false);
+    setSwapReason('');
+  };
+
+  const handleTriggerSOS = (type: EmergencyType, msg: string) => {
+    handleDispatchSOS(type, msg);
+  };
+
+  const toggleAttendance = (studentId: string) => {
+    const st = students.find((s) => s.id === studentId);
+    if (!st) return;
+    studentRosterStore.setStudentLeave(
+      studentId,
+      !st.isOnLeave,
+      st.isOnLeave ? undefined : 'Driver marked leave',
+      new Date().toISOString().split('T')[0]
+    );
+  };
+
+  const toggleStaffAttendance = (staffId: string) => {
+    setStaffPassengers((prev) =>
+      prev.map((s) => (s.id === staffId ? { ...s, isOnLeave: !s.isOnLeave } : s))
+    );
+  };
+
+  const staffBoardingStatus = React.useMemo(() => {
+    const map: Record<string, boolean> = {};
+    staffPassengers.forEach((sc) => {
+      map[sc.id] = completedStopIds.includes(sc.boardingStopId);
+    });
+    return map;
+  }, [staffPassengers, completedStopIds]);
+
+  const driverTabs: TabItem<DriverTab>[] = [
+    { id: 'nav', label: 'Live Nav', icon: Navigation },
+    { id: 'students', label: 'Passengers', icon: Users, badge: students.length + staffPassengers.length },
+    { id: 'cockpit', label: 'Cockpit', icon: Gauge },
+    { id: 'sos', label: 'SOS', icon: ShieldAlert, isEmergency: true },
+    { id: 'profile', label: 'Profile', icon: User },
+  ];
+
   return (
-    <View style={styles.screenContainer}>
+    <View style={[styles.screenContainer, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* TOP HEADER */}
-      <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 14) }]}>
-        <View style={styles.topHeaderLeft}>
-          <View style={styles.topLogo}>
-            <Text style={{ fontSize: 18 }}>👨‍✈️</Text>
-          </View>
-          <View style={styles.topHeaderInfo}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.topAppName}>Driver Cockpit</Text>
-              <View style={styles.topBusBadge}>
-                <Text style={styles.topBusBadgeText}>{driverProfile.busNumber || driverBusNumber}</Text>
-              </View>
-            </View>
-            <Text style={styles.topSub} numberOfLines={1} ellipsizeMode="tail">
-              {driverProfile.routeName} &bull; {driverProfile.registrationNumber}
-            </Text>
-          </View>
-        </View>
+      <AppHeader
+        title="RITBusTrack Driver"
+        subtitle={`${driverBusNumber || 'BUS-01'} · ${driverProfile.routeName || 'Route 1'}`}
+        roleBadge="DRIVER"
+        isLive={isTripActive}
+        onNotificationPress={() => setShowNotifModal(true)}
+        unreadCount={unreadNotifCount}
+        showThemeToggle={true}
+      />
 
-        <View style={styles.topHeaderRight}>
-          <TouchableOpacity
-            style={styles.headerBellBtn}
-            onPress={() => setShowNotifModal(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={{ fontSize: 18 }}>🔔</Text>
-            {unreadNotifCount > 0 && (
-              <View style={styles.headerBellBadge}>
-                <Text style={styles.headerBellBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <View style={[styles.liveStatusPill, !isTripActive && styles.standbyStatusPill]}>
-            <View style={[styles.liveDot, !isTripActive && styles.standbyDot]} />
-            <Text style={[styles.liveText, !isTripActive && styles.standbyText]}>
-              {isTripActive ? 'TRANSMITTING' : 'STANDBY'}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* FLOATING LIVE BROADCAST TOAST */}
-      {incomingToast && (
-        <TouchableOpacity
-          style={[styles.incomingToastBanner, { top: Math.max(insets.top + 60, 70) }]}
-          onPress={() => setIncomingToast(null)}
-          activeOpacity={0.9}
-        >
-          <View style={styles.toastIconWrap}>
-            <Text style={{ fontSize: 16 }}>📢</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={styles.toastTitle} numberOfLines={1}>ADMIN NOTICE: {incomingToast.title}</Text>
-              <Text style={styles.toastBadge}>ALERT</Text>
-            </View>
-            <Text style={styles.toastBody} numberOfLines={2}>{incomingToast.message}</Text>
-          </View>
-        </TouchableOpacity>
-      )}
-
-      {/* DRIVER NOTIFICATIONS & BROADCASTS MODAL */}
+      {/* NOTIFICATIONS MODAL */}
       <Modal
         visible={showNotifModal}
         transparent
         animationType="slide"
         onRequestClose={() => setShowNotifModal(false)}
       >
-        <View style={styles.notifModalOverlay}>
-          <View style={styles.notifModalContent}>
-            <View style={styles.notifModalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 22 }}>🔔</Text>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View style={styles.modalHeaderTitleRow}>
+                <Bell size={20} color={colors.text} />
                 <View>
-                  <Text style={styles.notifModalTitle}>Driver Notifications</Text>
-                  <Text style={styles.notifModalSub}>Dispatch alerts, trip notices & announcements</Text>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>Transport Broadcasts</Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                    Announcements from Admin & Dispatch
+                  </Text>
                 </View>
               </View>
               <TouchableOpacity
-                style={styles.notifModalClose}
+                style={[styles.modalCloseBtn, { backgroundColor: colors.surfaceSubtle }]}
                 onPress={() => setShowNotifModal(false)}
               >
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+                <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ maxHeight: 380, padding: 14 }}>
+            <ScrollView style={{ maxHeight: 380, padding: 16 }}>
               {systemBroadcasts.length === 0 ? (
-                <View style={styles.notifEmptyBox}>
-                  <Text style={{ fontSize: 28, marginBottom: 8 }}>📭</Text>
-                  <Text style={styles.notifEmptyText}>No notifications yet</Text>
-                  <Text style={styles.notifEmptySub}>All trip updates and dispatch notices will appear here.</Text>
+                <View style={styles.emptyState}>
+                  <Bell size={32} color={colors.textSecondary} />
+                  <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No broadcasts</Text>
                 </View>
               ) : (
-                systemBroadcasts.map((notif) => {
-                  const isRead = readNotifIds.includes(notif.id);
-                  return (
-                    <TouchableOpacity
-                      key={notif.id}
-                      style={[styles.notifCardItem, isRead && { opacity: 0.65 }]}
-                      onPress={() => markSingleNotificationRead(notif.id)}
-                    >
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Text style={styles.notifCardTitle}>{notif.title}</Text>
-                        <View style={styles.notifBadgeTag}>
-                          <Text style={styles.notifBadgeTagText}>{notif.type?.toUpperCase() || 'INFO'}</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.notifCardBody}>{notif.message}</Text>
-                      <Text style={styles.notifCardTime}>
-                        {notif.created_at ? new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })
+                systemBroadcasts.map((notif) => (
+                  <View
+                    key={notif.id}
+                    style={[
+                      styles.notifItem,
+                      { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderSubtle },
+                    ]}
+                  >
+                    <Text style={[styles.notifItemTitle, { color: colors.text }]}>{notif.title}</Text>
+                    <Text style={[styles.notifItemBody, { color: colors.textSecondary }]}>{notif.message}</Text>
+                  </View>
+                ))
               )}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
-            <View style={styles.notifModalFooter}>
-              <TouchableOpacity
-                style={styles.markAllReadBtn}
-                onPress={markAllNotificationsAsRead}
-              >
-                <Text style={styles.markAllReadText}>✓ Mark All as Read</Text>
-              </TouchableOpacity>
+      {/* CONFIRM EMERGENCY SOS MODAL */}
+      <Modal
+        visible={!!confirmingSOSType}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmingSOSType(null)}
+      >
+        <View style={styles.confirmModalOverlay}>
+          <View style={[styles.confirmModalCard, { backgroundColor: colors.surface, borderColor: colors.emergency }]}>
+            <View style={[styles.confirmModalIconWrap, { backgroundColor: colors.emergencyBg }]}>
+              <ShieldAlert size={32} color={colors.emergency} />
+            </View>
+            <Text style={[styles.confirmModalTitle, { color: colors.emergency }]}>
+              CONFIRM EMERGENCY ALERT
+            </Text>
+            <Text style={[styles.confirmModalDesc, { color: colors.text }]}>
+              Are you sure you want to broadcast a {confirmingSOSType?.toUpperCase()} alert to the Transport Office and all passengers?
+            </Text>
+            <View style={styles.confirmModalBtnRow}>
+              <Button
+                label="Cancel"
+                variant="outline"
+                onPress={() => setConfirmingSOSType(null)}
+                style={{ flex: 1, marginRight: 8 }}
+              />
+              <Button
+                label="BROADCAST NOW"
+                variant="danger"
+                onPress={() => {
+                  if (confirmingSOSType) {
+                    handleTriggerSOS(confirmingSOSType, 'Emergency ' + confirmingSOSType.toUpperCase() + ' reported by driver.');
+                    setConfirmingSOSType(null);
+                  }
+                }}
+                style={{ flex: 1 }}
+              />
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* EXPLICIT IN-APP BROADCAST ALERT BOX MODAL */}
-      {incomingAlertModal && (
-        <Modal transparent animationType="fade" visible={!!incomingAlertModal} onRequestClose={() => setIncomingAlertModal(null)}>
-          <View style={styles.alertModalOverlay}>
-            <View style={styles.alertModalCard}>
-              <View style={styles.alertModalIconCircle}>
-                <Text style={{ fontSize: 26 }}>📢</Text>
-              </View>
-              <Text style={styles.alertModalBadge}>ADMIN DISPATCH NOTICE</Text>
-              <Text style={styles.alertModalTitle}>{incomingAlertModal.title}</Text>
-              <View style={styles.alertModalMessageWrap}>
-                <Text style={styles.alertModalMessage}>{incomingAlertModal.message}</Text>
-              </View>
-              <View style={styles.alertModalFooter}>
-                <TouchableOpacity
-                  style={styles.alertModalCloseBtn}
-                  onPress={() => setIncomingAlertModal(null)}
-                >
-                  <Text style={styles.alertModalCloseText}>✓ Acknowledge Notice</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* SHIFT SELECTOR BAR */}
-      <View style={styles.shiftSelectorBar}>
-        <TouchableOpacity
-          onPress={() => {
-            setShift('morning');
-            setCurrentStopIdx(0);
-            setCompletedStopIds([]);
-            setDistanceTravelledKm(0);
-            setElapsedSeconds(0);
-            if (!isTripActive) {
-              setCurrentLoc({ latitude: 9.4475, longitude: 77.5450, speed: 0, heading: 42, accuracy: 3.5 });
-            }
-          }}
-          style={[styles.shiftSelectBtn, shift === 'morning' && styles.shiftSelectBtnActiveMorning]}
-          activeOpacity={0.8}
-        >
-          <Text style={{ fontSize: 13 }}>🌅</Text>
-          <Text style={[styles.shiftSelectBtnText, shift === 'morning' && styles.shiftSelectBtnTextActive]}>
-            MORNING SHIFT (Pickup ➔ RIT)
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => {
-            setShift('evening');
-            setCurrentStopIdx(0);
-            setCompletedStopIds([]);
-            setDistanceTravelledKm(0);
-            setElapsedSeconds(0);
-            if (!isTripActive) {
-              setCurrentLoc({ latitude: 9.4520, longitude: 77.5535, speed: 0, heading: 215, accuracy: 3.5 });
-            }
-          }}
-          style={[styles.shiftSelectBtn, shift === 'evening' && styles.shiftSelectBtnActiveEvening]}
-          activeOpacity={0.8}
-        >
-          <Text style={{ fontSize: 13 }}>🌆</Text>
-          <Text style={[styles.shiftSelectBtnText, shift === 'evening' && styles.shiftSelectBtnTextActive]}>
-            EVENING SHIFT (RIT ➔ Town Drop)
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* MAIN TAB CONTENT */}
+      {/* MAIN VIEW CONTENT */}
       <View style={styles.mainContent}>
-        {/* ================= TAB 1: LIVE NAVIGATION MAP WITH CURSOR & STOPS ================= */}
+        {/* ================= TAB 1: LIVE NAV ================= */}
         {activeTab === 'nav' && (
-          <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 14 }}>
-            {/* Push Notification Banner — only when definitively denied */}
-            {hasNotificationPermission === false && !dismissNotifBanner && (
-              <NotificationPermissionBanner
-                isGranted={false}
-                onRequestPermission={handleRequestNotificationPermission}
-                onDismiss={() => setDismissNotifBanner(true)}
-              />
-            )}
-
-            {/* Location Permission Prompt Banner if not allowed */}
+          <ScrollView
+            style={styles.scrollPage}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: insets.bottom + 76 },
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* GPS Signal Banner if needed */}
             {!hasPermission && (
               <LocationPermissionBanner
                 role="driver"
-                isGranted={hasPermission}
+                isGranted={false}
                 onRequestPermission={handleRequestPermission}
                 onOpenSettings={() => locationTracker.openSettings()}
               />
             )}
 
-            {/* Designated Route Terminals Banner */}
-            <View style={styles.routeTerminalCard}>
-              <View style={styles.terminalItem}>
-                <Text style={styles.terminalLabelGreen}>🟢 START POINT</Text>
-                <Text style={styles.terminalName}>
-                  {shift === 'morning' ? 'Rajapalayam New Bus Stand' : 'RIT College Campus Hub'}
-                </Text>
-                <Text style={styles.terminalTime}>
-                  Dep: {shift === 'morning' ? '07:30 AM' : '04:30 PM'}
-                </Text>
-              </View>
-              <View style={styles.terminalArrowBox}>
-                <Text style={styles.terminalArrow}>➔</Text>
-              </View>
-              <View style={styles.terminalItem}>
-                <Text style={styles.terminalLabelRed}>🏁 END POINT</Text>
-                <Text style={styles.terminalName}>
-                  {shift === 'morning' ? 'RIT College Campus Hub' : 'Rajapalayam New Bus Stand'}
-                </Text>
-                <Text style={styles.terminalTime}>
-                  Arr: {shift === 'morning' ? '08:20 AM' : '05:25 PM'}
-                </Text>
-              </View>
-            </View>
-
-            {/* DEDICATED ABSENTEES / 1-DAY LEAVE SMALL BOX DIRECTLY UP OF MAP */}
-            <View style={[styles.absenteesCardBox, onLeaveStudents.length > 0 && styles.absenteesCardBoxActive]}>
-              <View style={styles.absenteesHeaderRow}>
-                <View style={styles.absenteesHeaderLeft}>
-                  <View style={[styles.absenteesIconCircle, onLeaveStudents.length > 0 ? styles.absenteesIconCircleActive : styles.absenteesIconCircleEmpty]}>
-                    <Text style={{ fontSize: 13 }}>{onLeaveStudents.length > 0 ? '⛔' : '✅'}</Text>
-                  </View>
-                  <View>
-                    <Text style={[styles.absenteesHeading, onLeaveStudents.length > 0 ? { color: '#f87171' } : { color: '#34d399' }]}>
-                      {onLeaveStudents.length > 0
-                        ? `TODAY'S ABSENTEES (${onLeaveStudents.length})`
-                        : "TODAY'S ABSENTEES (0)"}
-                    </Text>
-                    <Text style={styles.absenteesSub}>
-                      {onLeaveStudents.length > 0
-                        ? 'Student(s) on 1-day leave — Skip pickup at their stops'
-                        : 'All assigned passengers boarding today'}
-                    </Text>
-                  </View>
-                </View>
-                {onLeaveStudents.length > 0 ? (
-                  <View style={styles.absentPillCount}>
-                    <Text style={styles.absentPillCountText}>{onLeaveStudents.length} ON LEAVE</Text>
-                  </View>
-                ) : (
-                  <View style={styles.allPresentPill}>
-                    <Text style={styles.allPresentPillText}>ALL PRESENT</Text>
-                  </View>
-                )}
-              </View>
-
-              {onLeaveStudents.length > 0 ? (
-                <View style={styles.absenteesListWrap}>
-                  {onLeaveStudents.map((st) => {
-                    const stName = st?.name || st?.profile?.name || 'Student';
-                    const initials = stName
-                      .split(' ')
-                      .filter(Boolean)
-                      .map((n: string) => n[0] || '')
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase() || 'ST';
-
-                    return (
-                      <View key={st.id || Math.random().toString()} style={styles.absenteeMiniCard}>
-                        <View style={styles.absenteeAvatarBox}>
-                          <Text style={styles.absenteeAvatarText}>{initials}</Text>
-                        </View>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={styles.absenteeName} numberOfLines={1}>
-                            {stName} <Text style={{ color: '#94a3b8', fontSize: 10, fontWeight: 'normal' }}>({st.rollNumber || st.register_number || 'ID'})</Text>
-                          </Text>
-                          <Text style={styles.absenteeStop} numberOfLines={1}>
-                            📍 {st.boardingStopName || 'Assigned Stop'}
-                          </Text>
-                        </View>
-                        <View style={styles.absenteeLeaveBadge}>
-                          <Text style={styles.absenteeLeaveText}>ON LEAVE</Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              ) : (
-                <View style={styles.noAbsenteesBox}>
-                  <Text style={styles.noAbsenteesText}>
-                    ✨ No students have marked leave. Full route pickup scheduled.
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Compact Professional Map Frame */}
-            <View style={styles.compactMapWrapper}>
-              <OSMMapView
-                busLocation={currentLoc}
-                userLocation={!isTripActive ? driverDeviceLoc : null}
-                userLocationLabel="👨‍✈️ Driver Location"
-                busNumber={driverProfile.busNumber || driverBusNumber || "BUS-01"}
-                routeNumber="Route 1"
-                routeColor="#2563eb"
-                stops={currentStops.slice(0, 5)}
-                boardingStop={nextStop}
-                height={260}
+            {/* Live Metrics HUD */}
+            <View style={styles.metricsGrid}>
+              <StatBadge
+                label="Speed"
+                value={Math.round(currentLoc?.speed || 0)}
+                unit="km/h"
+                style={{ flex: 1 }}
+              />
+              <StatBadge
+                label="Distance"
+                value={distanceTravelledKm.toFixed(1)}
+                unit="km"
+                style={{ flex: 1 }}
+              />
+              <StatBadge
+                label="Signal"
+                value={signal.label.split(' ')[0]}
+                style={{ flex: 1 }}
               />
             </View>
 
-            {/* Driver Next Stop & Live Actions Card */}
-            <View style={styles.driverNavCard}>
-              {/* Telemetry quick bar */}
-              <View style={styles.driverHudQuickBar}>
-                <View style={styles.hudStatBox}>
-                  <Text style={styles.hudStatVal}>{Math.round(Number(currentLoc?.speed || 0))}</Text>
-                  <Text style={styles.hudStatLabel}>KM/H</Text>
-                </View>
-                <View style={styles.hudStatBox}>
-                  <Text style={styles.hudStatVal}>{Number(distanceTravelledKm || 0).toFixed(1)}</Text>
-                  <Text style={styles.hudStatLabel}>KM LOGGED</Text>
-                </View>
-                <View style={styles.hudStatBox}>
-                  <Text style={styles.hudStatVal}>{isTripActive ? formatTimer(elapsedSeconds) : 'READY'}</Text>
-                  <Text style={styles.hudStatLabel}>TIMER</Text>
-                </View>
-                <View style={styles.hudStatBox}>
-                  <Text style={styles.hudStatVal}>±{Number(currentLoc?.accuracy || 4).toFixed(0)}m</Text>
-                  <Text style={styles.hudStatLabel}>GPS LOCK</Text>
-                </View>
+            {/* Current & Next Stop Card */}
+            <Card style={styles.hudCard} padding="lg">
+              <View style={styles.stopInfoBlock}>
+                <Text style={[styles.stopBlockLabel, { color: colors.textSecondary }]}>CURRENT STOP</Text>
+                <Text style={[styles.stopBlockTitle, { color: colors.text }]}>
+                  {currentStops[currentStopIdx]?.stop_name || 'Departing Origin'}
+                </Text>
               </View>
 
-              <View style={styles.cardDivider} />
+              <View style={[styles.stopInfoDivider, { backgroundColor: colors.borderSubtle }]} />
 
-              {/* Dynamic Stop Status Banner */}
-              {isAllStopsReached ? (
-                <View style={styles.nextStopHeaderRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.nextStopPrefix, { color: '#10b981' }]}>
-                      🏁 FINAL TERMINAL REACHED ({currentStops.length}/{currentStops.length}) • {driverProfile.busNumber || 'BUS-01'}
-                    </Text>
-                    <Text style={styles.nextStopName}>{currentStops[currentStops.length - 1]?.stop_name || 'Terminal Destination'}</Text>
-                    <Text style={[styles.nextStopEtaText, { color: '#34d399', fontWeight: 'bold' }]}>
-                      0 m • Arrived at Campus Destination
-                    </Text>
+              <View style={styles.stopInfoBlock}>
+                <Text style={[styles.stopBlockLabel, { color: colors.textSecondary }]}>NEXT STOP</Text>
+                <Text style={[styles.stopBlockTitle, { color: colors.text }]}>
+                  {nextStop?.stop_name || 'Terminal Campus Gate'}
+                </Text>
+              </View>
+
+              {/* Action Button: Large Touch Target */}
+              <View style={{ marginTop: 16 }}>
+                {!isTripActive ? (
+                  <Button
+                    label="START ROUTE"
+                    onPress={handleStartTrip}
+                    size="lg"
+                    variant="primary"
+                    icon={<Play size={18} color={colors.primaryContrast} />}
+                    fullWidth
+                  />
+                ) : (
+                  <View style={{ gap: 8 }}>
+                    <Button
+                      label="ARRIVED AT NEXT STOP"
+                      onPress={() => handleMarkStopReached(nextStop.id, targetStopIdx)}
+                      size="lg"
+                      variant="primary"
+                      icon={<CheckCircle2 size={18} color={colors.primaryContrast} />}
+                      fullWidth
+                    />
+                    <Button
+                      label="END ROUTE"
+                      onPress={handleEndTrip}
+                      size="md"
+                      variant="outline"
+                      icon={<Square size={16} color={colors.text} />}
+                      fullWidth
+                    />
                   </View>
-
-                  <TouchableOpacity
-                    style={[styles.reachedBtn, { backgroundColor: '#10b981' }]}
-                    onPress={handleEndTrip}
-                  >
-                    <Text style={styles.reachedBtnText}>FINISH{'\n'}TRIP</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.nextStopHeaderRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.nextStopPrefix}>
-                      {isFinalStop ? `FINAL STOP (${currentStops.length}/${currentStops.length})` : `NEXT STOP (${Math.min(currentStopIdx + 1, currentStops.length)}/${currentStops.length})`} • {driverProfile.busNumber || 'BUS-01'}
-                    </Text>
-                    <Text style={styles.nextStopName}>{nextStop?.stop_name || 'Next Stop'}</Text>
-                    <Text style={styles.nextStopEtaText}>
-                      {isAtStop
-                        ? `0 m ahead • Arrived at ${nextStop?.stop_name || 'Stop'}`
-                        : `${formatDistance(distToNextStop)} ahead • Arrival: ${nextStopETA?.arrivalTimeStr || '--'} (${nextStopETA?.statusLabel || 'On Time'})`}
-                    </Text>
-
-                    {/* Warning if any student at next stop is on leave */}
-                    {studentsAtNextStopOnLeave.length > 0 && (
-                      <View style={styles.nextStopLeaveNotice}>
-                        <Text style={styles.nextStopLeaveText}>
-                          ⚠️ {studentsAtNextStopOnLeave.map((s) => s?.name || 'Student').join(', ')} marked on leave at this stop.
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {isTripActive ? (
-                    <TouchableOpacity
-                      style={styles.reachedBtn}
-                      onPress={() => handleMarkStopReached(nextStop.id, currentStopIdx)}
-                    >
-                      <Text style={styles.reachedBtnText}>
-                        {isFinalStop ? 'MARK\nARRIVED' : 'MARK\nARRIVED'}
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity style={styles.startTripQuickBtn} onPress={handleStartTrip}>
-                      <Text style={styles.startTripQuickText}>START{'\n'}TRIP</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
-
-              <View style={styles.mapQuickActionRow}>
-                <TouchableOpacity style={styles.mapSosQuickBtn} onPress={() => setActiveTab('sos')}>
-                  <Text style={styles.mapSosQuickText}>🚨 EMERGENCY SOS</Text>
-                </TouchableOpacity>
-                {isTripActive && (
-                  <TouchableOpacity style={styles.mapEndQuickBtn} onPress={handleEndTrip}>
-                    <Text style={styles.mapEndQuickText}>🏁 FINISH TRIP</Text>
-                  </TouchableOpacity>
                 )}
               </View>
+            </Card>
+
+            {/* Live Navigation Map */}
+            <SectionHeader
+              title="Navigation Map"
+              subtitle="Broadcasting live telemetry to student mobile app"
+              rightElement={
+                <TouchableOpacity
+                  style={[styles.simToggleBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                  onPress={() => setUseSimulation(!useSimulation)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.simToggleText, { color: colors.textSecondary }]}>
+                    {useSimulation ? 'GPS: Sim Mode' : 'GPS: Live Device'}
+                  </Text>
+                </TouchableOpacity>
+              }
+            />
+
+            <View style={[styles.mapCardContainer, { borderColor: colors.border }]}>
+              <OSMMapView
+                busLocation={currentLoc}
+                busNumber={driverBusNumber}
+                routeNumber={driverProfile.routeName}
+                stops={currentStops}
+                height={240}
+              />
             </View>
           </ScrollView>
         )}
 
-        {/* ================= TAB 2: STUDENTS MANIFEST & PASSENGER ROSTER ================= */}
+        {/* ================= TAB 2: PASSENGERS ================= */}
         {activeTab === 'students' && (
-          <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 14 }}>
-            {/* Auto Boarding Info Pill */}
-            <View style={styles.autoBoardInfoBox}>
-              <Text style={{ fontSize: 13, marginRight: 6 }}>ℹ️</Text>
-              <Text style={styles.autoBoardInfoText}>
-                Students automatically transition to <Text style={{ color: '#34d399', fontWeight: 'bold' }}>✓ BOARDED</Text> as the bus reaches and passes their respective designated boarding stops.
-              </Text>
-            </View>
-
+          <ScrollView
+            style={styles.scrollPage}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: insets.bottom + 76 },
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Search Input */}
-            <View style={styles.studentSearchWrap}>
-              <Text style={{ fontSize: 14, marginRight: 6 }}>🔍</Text>
-              <TextInput
-                style={styles.studentSearchInput}
-                placeholder="Search by student name, roll no, department..."
-                placeholderTextColor="#64748b"
-                value={studentSearch}
-                onChangeText={setStudentSearch}
-              />
-              {studentSearch.length > 0 && (
-                <TouchableOpacity onPress={() => setStudentSearch('')}>
-                  <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: 'bold' }}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <Input
+              value={studentSearch}
+              onChangeText={setStudentSearch}
+              placeholder="Search by student name or roll no..."
+              leftIcon={<Search size={16} color={colors.textSecondary} />}
+            />
 
-            {/* Passenger Type Filter (All / Students / Staff) */}
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  passengerFilterType === 'all' && styles.filterPillActive,
-                  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }
-                ]}
-                onPress={() => setPassengerFilterType('all')}
-              >
-                <Text style={[styles.filterPillText, passengerFilterType === 'all' && styles.filterPillTextActive, { fontSize: 11 }]}>
-                  👥 All ({students.length + staffPassengers.length})
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  passengerFilterType === 'students' && styles.filterPillActive,
-                  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }
-                ]}
-                onPress={() => setPassengerFilterType('students')}
-              >
-                <Text style={[styles.filterPillText, passengerFilterType === 'students' && styles.filterPillTextActive, { fontSize: 11 }]}>
-                  🎓 Students ({students.length})
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  passengerFilterType === 'staff' && styles.filterPillActive,
-                  { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }
-                ]}
-                onPress={() => setPassengerFilterType('staff')}
-              >
-                <Text style={[styles.filterPillText, passengerFilterType === 'staff' && styles.filterPillTextActive, { fontSize: 11 }]}>
-                  👔 Staff ({staffPassengers.length})
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Boarding Stop Quick Filters */}
+            {/* Stop Filter Pills */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
               <TouchableOpacity
-                style={[styles.filterPill, filterStopId === 'all' && styles.filterPillActive]}
+                style={[
+                  styles.filterChip,
+                  filterStopId === 'all'
+                    ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                    : { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
                 onPress={() => setFilterStopId('all')}
               >
-                <Text style={[styles.filterPillText, filterStopId === 'all' && styles.filterPillTextActive]}>
-                  All Stops ({students.length + staffPassengers.length})
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    { color: filterStopId === 'all' ? colors.primaryContrast : colors.textSecondary },
+                  ]}
+                >
+                  All ({students.length + staffPassengers.length})
                 </Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={[
-                  styles.filterPill,
-                  filterStopId === 'on_leave' && styles.filterPillLeaveActive,
-                  onLeaveCount > 0 && filterStopId !== 'on_leave' && styles.filterPillLeaveHasCount,
+                  styles.filterChip,
+                  filterStopId === 'on_leave'
+                    ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                    : { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}
                 onPress={() => setFilterStopId('on_leave')}
               >
                 <Text
                   style={[
-                    styles.filterPillText,
-                    filterStopId === 'on_leave' ? styles.filterPillTextActive : { color: '#f87171' },
+                    styles.filterChipText,
+                    { color: filterStopId === 'on_leave' ? colors.primaryContrast : colors.textSecondary },
                   ]}
                 >
-                  ⛔ On Leave ({onLeaveCount})
+                  On Leave ({onLeaveCount})
                 </Text>
               </TouchableOpacity>
-              {currentStops.map((st) => {
-                const stCount = students.filter(s => s.boardingStopId === st.id).length + staffPassengers.filter(sc => sc.boardingStopId === st.id).length;
-                return (
-                  <TouchableOpacity
-                    key={st.id}
-                    style={[styles.filterPill, filterStopId === st.id && styles.filterPillActive]}
-                    onPress={() => setFilterStopId(st.id)}
+
+              {currentStops.map((stop: Stop) => (
+                <TouchableOpacity
+                  key={stop.id}
+                  style={[
+                    styles.filterChip,
+                    filterStopId === stop.id
+                      ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                      : { backgroundColor: colors.surface, borderColor: colors.border },
+                  ]}
+                  onPress={() => setFilterStopId(stop.id)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      { color: filterStopId === stop.id ? colors.primaryContrast : colors.textSecondary },
+                    ]}
                   >
-                    <Text style={[styles.filterPillText, filterStopId === st.id && styles.filterPillTextActive]}>
-                      {st.stop_name} ({stCount})
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                    {stop.stop_name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
 
-            {/* Passengers Cards List */}
-            <View style={styles.studentsListWrap}>
-              {((passengerFilterType === 'staff' ? 0 : displayedStudents.length) + (passengerFilterType === 'students' ? 0 : displayedStaff.length)) === 0 ? (
-                <View style={styles.emptyStudentsBox}>
-                  <Text style={{ color: '#64748b', fontSize: 13, textAlign: 'center' }}>
-                    No passengers matched the search criteria for this bus.
+            <SectionHeader
+              title="Students Roster"
+              subtitle={`${displayedStudents.length} students on this route`}
+            />
+
+            {/* Student Cards */}
+            {displayedStudents.map((st) => {
+              const bStatus = getStudentBoardingStatus(st);
+              const isBoarded = bStatus.status === 'boarded';
+              const isOnLeave = !!st.isOnLeave;
+
+              return (
+                <Card key={st.id} style={styles.passengerCard} padding="md">
+                  <View style={styles.passengerRow}>
+                    <View style={[styles.passengerAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                      <Text style={[styles.passengerAvatarText, { color: colors.text }]}>
+                        {st.name ? st.name.charAt(0).toUpperCase() : 'S'}
+                      </Text>
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.passengerName, { color: colors.text }]}>{st.name}</Text>
+                      <Text style={[styles.passengerRoll, { color: colors.textSecondary }]}>
+                        {st.rollNumber} · {st.department}
+                      </Text>
+                      <Text style={[styles.passengerStop, { color: colors.textMuted }]}>
+                        {st.boardingStopName || 'Assigned Stop'}
+                      </Text>
+                    </View>
+
+                    {isOnLeave ? (
+                      <StatusChip label="ON LEAVE" variant="warning" />
+                    ) : (
+                      <Button
+                        label={isBoarded ? 'Boarded' : 'Mark Boarded'}
+                        icon={isBoarded ? <Check size={14} color={colors.primaryContrast} /> : undefined}
+                        variant={isBoarded ? 'primary' : 'outline'}
+                        size="sm"
+                        onPress={() => toggleAttendance(st.id)}
+                      />
+                    )}
+                  </View>
+                </Card>
+              );
+            })}
+
+            {/* Staff Commuters */}
+            {displayedStaff.length > 0 && (
+              <>
+                <SectionHeader
+                  title="Staff & Faculty Commuters"
+                  subtitle={`${displayedStaff.length} faculty members`}
+                  style={{ marginTop: 20 }}
+                />
+
+                {displayedStaff.map((sc) => {
+                  const isBoarded = staffBoardingStatus[sc.id] ?? false;
+                  return (
+                    <Card key={sc.id} style={styles.passengerCard} padding="md">
+                      <View style={styles.passengerRow}>
+                        <View style={[styles.passengerAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                          <Text style={[styles.passengerAvatarText, { color: colors.text }]}>
+                            {sc.name ? sc.name.charAt(0).toUpperCase() : 'F'}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.passengerName, { color: colors.text }]}>{sc.name}</Text>
+                          <Text style={[styles.passengerRoll, { color: colors.textSecondary }]}>
+                            {sc.designation} · {sc.department}
+                          </Text>
+                          <Text style={[styles.passengerStop, { color: colors.textMuted }]}>
+                            {sc.boardingStopName || 'Faculty Point'}
+                          </Text>
+                        </View>
+                        {sc.isOnLeave ? (
+                          <StatusChip label="ON LEAVE" variant="warning" />
+                        ) : (
+                          <Button
+                            label={isBoarded ? 'Boarded' : 'Mark Boarded'}
+                            icon={isBoarded ? <Check size={14} color={colors.primaryContrast} /> : undefined}
+                            variant={isBoarded ? 'primary' : 'outline'}
+                            size="sm"
+                            onPress={() => toggleStaffAttendance(sc.id)}
+                          />
+                        )}
+                      </View>
+                    </Card>
+                  );
+                })}
+              </>
+            )}
+          </ScrollView>
+        )}
+
+        {/* ================= TAB 3: COCKPIT HUD ================= */}
+        {activeTab === 'cockpit' && (
+          <ScrollView
+            style={styles.scrollPage}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: insets.bottom + 76 },
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Prominent Cockpit Display */}
+            <Card style={styles.cockpitHeroCard} padding="lg">
+              <View style={styles.cockpitTopRow}>
+                <View>
+                  <Text style={[styles.cockpitBusText, { color: colors.text }]}>
+                    {driverBusNumber || 'BUS 14'}
+                  </Text>
+                  <Text style={[styles.cockpitRouteText, { color: colors.textSecondary }]}>
+                    {driverProfile.routeName || 'ROUTE 03'}
                   </Text>
                 </View>
-              ) : (
-                <>
-                  {/* Students section */}
-                  {(passengerFilterType === 'all' || passengerFilterType === 'students') &&
-                    displayedStudents.map((student) => {
-                      const boardStatus = getStudentBoardingStatus(student);
-                      const studentName = student?.name || student?.profile?.name || 'Student';
-                      const initials = studentName
-                        .split(' ')
-                        .filter(Boolean)
-                        .map((n: string) => n[0] || '')
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase() || 'ST';
-
-                      return (
-                        <View key={student.id || Math.random().toString()} style={styles.studentCard}>
-                          <View style={[styles.studentAvatarBox, { backgroundColor: student.avatarBg || '#1e3a8a' }]}>
-                            <Text style={styles.studentAvatarText}>{initials}</Text>
-                          </View>
-
-                          <View style={{ flex: 1, minWidth: 0 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 4 }}>
-                                <Text style={styles.studentCardName} numberOfLines={1}>{studentName}</Text>
-                                <View style={{ backgroundColor: '#1e3a8a', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                                  <Text style={{ color: '#93c5fd', fontSize: 8.5, fontWeight: '900' }}>STUDENT</Text>
-                                </View>
-                              </View>
-                              <View style={[styles.boardBadge, boardStatus.badgeStyle]}>
-                                <Text style={[styles.boardBadgeText, boardStatus.textStyle]}>
-                                  {boardStatus.label}
-                                </Text>
-                              </View>
-                            </View>
-
-                            <Text style={styles.studentCardRoll}>
-                              Roll: {student.rollNumber || student.register_number || 'N/A'} &bull; {student.department || 'Student'} (Yr {student.year || 4})
-                            </Text>
-
-                            <View style={styles.studentCardStopRow}>
-                              <Text style={styles.studentCardStop}>📍 {student.boardingStopName || 'Assigned Stop'}</Text>
-                            </View>
-                          </View>
-
-                          <TouchableOpacity
-                            style={styles.callStudentBtn}
-                            onPress={() => handleCallHelpline(student.phone || '+919443012345')}
-                          >
-                            <Text style={{ fontSize: 14 }}>📞</Text>
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
-
-                  {/* Staff commuters section */}
-                  {(passengerFilterType === 'all' || passengerFilterType === 'staff') &&
-                    displayedStaff.map((staff) => {
-                      const boardStatus = getStudentBoardingStatus(staff as any);
-                      const staffName = staff?.name || staff?.profile?.name || 'Faculty Member';
-                      const initials = staffName
-                        .split(' ')
-                        .filter(Boolean)
-                        .map((n: string) => n[0] || '')
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase() || 'FC';
-
-                      return (
-                        <View key={staff.id || Math.random().toString()} style={[styles.studentCard, { borderColor: '#4338ca', borderWidth: 1 }]}>
-                          <View style={[styles.studentAvatarBox, { backgroundColor: staff.avatarBg || '#4f46e5' }]}>
-                            <Text style={styles.studentAvatarText}>{initials}</Text>
-                          </View>
-
-                          <View style={{ flex: 1, minWidth: 0 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 4 }}>
-                                <Text style={styles.studentCardName} numberOfLines={1}>{staffName}</Text>
-                                <View style={{ backgroundColor: '#3730a3', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                                  <Text style={{ color: '#c7d2fe', fontSize: 8.5, fontWeight: '900' }}>FACULTY</Text>
-                                </View>
-                              </View>
-                              <View style={[styles.boardBadge, boardStatus.badgeStyle]}>
-                                <Text style={[styles.boardBadgeText, boardStatus.textStyle]}>
-                                  {boardStatus.label}
-                                </Text>
-                              </View>
-                            </View>
-
-                            <Text style={styles.studentCardRoll}>
-                              Staff ID: {staff.staffId || staff.employee_id || 'N/A'} &bull; {staff.designation || 'Staff'} ({staff.department || 'Faculty'})
-                            </Text>
-
-                            <View style={styles.studentCardStopRow}>
-                              <Text style={styles.studentCardStop}>📍 {staff.boardingStopName || 'Assigned Stop'}</Text>
-                            </View>
-                          </View>
-
-                          <TouchableOpacity
-                            style={styles.callStudentBtn}
-                            onPress={() => handleCallHelpline(staff.phone || '+919443200000')}
-                          >
-                            <Text style={{ fontSize: 14 }}>📞</Text>
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
-                </>
-              )}
-            </View>
-          </ScrollView>
-        )}
-
-        {/* ================= TAB 2: TRIP COCKPIT & STOP CHECKLIST ================= */}
-        {activeTab === 'cockpit' && (
-          <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 16 }}>
-            {/* Location Permission Prompt Banner if needed */}
-            {!hasPermission && (
-              <View style={{ marginBottom: 12 }}>
-                <LocationPermissionBanner
-                  role="driver"
-                  isGranted={hasPermission}
-                  onRequestPermission={handleRequestPermission}
-                  onOpenSettings={() => locationTracker.openSettings()}
+                <StatusChip
+                  label={isTripActive ? 'ACTIVE' : 'SCHEDULED'}
+                  variant={isTripActive ? 'ontime' : 'neutral'}
+                  dot
                 />
               </View>
-            )}
 
-            {/* Trip Standby or Active Control Box */}
-            {!isTripActive ? (
-              <View style={styles.standbyCard}>
-                <View style={styles.standbyIconCircle}>
-                  <Text style={{ fontSize: 32 }}>🚦</Text>
-                </View>
-                <Text style={styles.standbyTitle}>Ready for Departure</Text>
-                <Text style={styles.standbyDesc}>
-                  {shift === 'evening'
-                    ? 'Verify passenger boarding at RIT College Campus Hub and tap START TRIP to begin live satellite telemetry broadcast towards town drop points.'
-                    : 'Verify passenger boarding at Rajapalayam Stand and tap START TRIP to begin live satellite telemetry broadcast.'}
+              <View style={[styles.cockpitStopCard, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderSubtle }]}>
+                <Text style={[styles.cockpitStopLbl, { color: colors.textSecondary }]}>Current Stop</Text>
+                <Text style={[styles.cockpitStopVal, { color: colors.text }]}>
+                  {currentStops[currentStopIdx]?.stop_name || 'Engineering Block'}
                 </Text>
-
-                <TouchableOpacity style={styles.startTripBtn} onPress={handleStartTrip}>
-                  <Text style={styles.startTripBtnText}>START LIVE TRIP ➔</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.activeCockpit}>
-                <View style={styles.cockpitHeader}>
-                  <View>
-                    <Text style={styles.cockpitTitle}>TRIP IN PROGRESS &bull; {driverProfile.busNumber || 'BUS-01'}</Text>
-                    <Text style={styles.timerText}>Duration: {formatTimer(elapsedSeconds)}</Text>
-                  </View>
-                  <View style={styles.transmittingBadge}>
-                    <View style={styles.transmittingDot} />
-                    <Text style={styles.transmittingText}>BROADCASTING</Text>
-                  </View>
-                </View>
-
-                {/* Speedometer & Distance Gauge Grid */}
-                <View style={styles.metricsGrid}>
-                  <View style={styles.metricCard}>
-                    <Text style={styles.metricLabel}>Speed</Text>
-                    <Text style={styles.metricValue}>{Math.round(Number(currentLoc?.speed || 0))}</Text>
-                    <Text style={styles.metricUnit}>km/h</Text>
-                  </View>
-
-                  <View style={styles.metricCard}>
-                    <Text style={styles.metricLabel}>Distance</Text>
-                    <Text style={styles.metricValue}>{Number(distanceTravelledKm || 0).toFixed(2)}</Text>
-                    <Text style={styles.metricUnit}>km logged</Text>
-                  </View>
-
-                  <View style={styles.metricCard}>
-                    <Text style={styles.metricLabel}>Accuracy</Text>
-                    <Text style={styles.metricValue}>±{Math.round(Number(currentLoc?.accuracy ?? 4))}</Text>
-                    <Text style={styles.metricUnit}>meters</Text>
-                  </View>
-                </View>
-
-                {/* Coordinates & Compass */}
-                <View style={styles.coordStrip}>
-                  <View style={styles.coordCol}>
-                    <Text style={styles.coordLabel}>Latitude</Text>
-                    <Text style={styles.coordVal}>{Number(currentLoc?.latitude || 9.4475).toFixed(6)}</Text>
-                  </View>
-                  <View style={styles.coordCol}>
-                    <Text style={styles.coordLabel}>Longitude</Text>
-                    <Text style={styles.coordVal}>{Number(currentLoc?.longitude || 77.5450).toFixed(6)}</Text>
-                  </View>
-                  <View style={styles.coordCol}>
-                    <Text style={styles.coordLabel}>Heading</Text>
-                    <Text style={styles.coordVal}>{Math.round(Number(currentLoc?.heading || 0))}°</Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity style={styles.completeBtn} onPress={handleEndTrip}>
-                  <Text style={styles.completeBtnText}>FINISH & LOG TRIP</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Stop Progression Checklist with Dynamic ETAs */}
-            <View style={styles.stopSection}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <Text style={styles.stopSectionTitle}>Route Stop Progression & Dynamic ETAs</Text>
-                <View style={styles.heartbeatTag}>
-                  <View style={styles.heartbeatDot} />
-                  <Text style={styles.heartbeatText}>1m GPS Sync</Text>
-                </View>
               </View>
 
-              {currentStops.map((stop, idx) => {
-                const isCompleted = completedStopIds.includes(stop.id);
-                const isCurrent = currentStopIdx === idx;
+              <View style={[styles.cockpitStopCard, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderSubtle, marginTop: 8 }]}>
+                <Text style={[styles.cockpitStopLbl, { color: colors.textSecondary }]}>Next Stop</Text>
+                <Text style={[styles.cockpitStopVal, { color: colors.text }]}>
+                  {nextStop?.stop_name || 'Main Gate'}
+                </Text>
+              </View>
 
-                const distToStop = currentLoc
-                  ? calculateDistanceKm(currentLoc.latitude, currentLoc.longitude, stop.latitude, stop.longitude)
-                  : 1.0;
+              {/* Large Touch Target Controls */}
+              <View style={{ marginTop: 18 }}>
+                {!isTripActive ? (
+                  <Button
+                    label="START ROUTE"
+                    size="lg"
+                    variant="primary"
+                    icon={<Play size={20} color={colors.primaryContrast} />}
+                    onPress={handleStartTrip}
+                    fullWidth
+                  />
+                ) : (
+                  <View style={{ gap: 10 }}>
+                    <Button
+                      label="ARRIVED"
+                      size="lg"
+                      variant="primary"
+                      icon={<CheckCircle2 size={20} color={colors.primaryContrast} />}
+                      onPress={() => handleMarkStopReached(nextStop.id, targetStopIdx)}
+                      fullWidth
+                    />
+                    <Button
+                      label="END ROUTE"
+                      size="lg"
+                      variant="outline"
+                      icon={<Square size={18} color={colors.text} />}
+                      onPress={handleEndTrip}
+                      fullWidth
+                    />
+                  </View>
+                )}
+              </View>
+            </Card>
 
-                const dynamicETA = calculateDynamicETA(
-                  distToStop,
-                  currentLoc?.speed || 0,
-                  Math.max(0, idx - currentStopIdx),
-                  stop.estimated_arrival
-                );
+            {/* Shift Switcher */}
+            <View style={[styles.shiftToggleRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.shiftBtn, shift === 'morning' && { backgroundColor: colors.primary }]}
+                onPress={() => setShift('morning')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.shiftBtnText, { color: shift === 'morning' ? colors.primaryContrast : colors.textSecondary, fontWeight: shift === 'morning' ? '700' : '500' }]}>
+                  Morning Shift
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.shiftBtn, shift === 'evening' && { backgroundColor: colors.primary }]}
+                onPress={() => setShift('evening')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.shiftBtnText, { color: shift === 'evening' ? colors.primaryContrast : colors.textSecondary, fontWeight: shift === 'evening' ? '700' : '500' }]}>
+                  Evening Shift
+                </Text>
+              </TouchableOpacity>
+            </View>
 
+            {/* Stops Checklist */}
+            <SectionHeader title="Route Stop Sequence" subtitle={`${completedStopIds.length} of ${currentStops.length} stops cleared`} />
+
+            <Card style={styles.checklistCard} padding="md">
+              {currentStops.map((stop: Stop, idx: number) => {
+                const isCleared = completedStopIds.includes(stop.id) || idx < currentStopIdx;
+                const isCurrent = idx === currentStopIdx;
                 return (
-                  <TouchableOpacity
-                    key={stop.id}
-                    style={[
-                      styles.stopRow,
-                      isCompleted && styles.stopRowCompleted,
-                      isCurrent && styles.stopRowCurrent,
-                    ]}
-                    onPress={() => handleMarkStopReached(stop.id, idx)}
-                  >
-                    <View style={[styles.stopBadge, isCompleted && styles.stopBadgeCompleted]}>
-                      <Text style={styles.stopBadgeText}>{isCompleted ? '✓' : idx + 1}</Text>
+                  <View key={stop.id} style={styles.checklistRow}>
+                    <View style={styles.checkIconWrap}>
+                      {isCleared ? (
+                        <CheckCircle2 size={18} color={colors.success} />
+                      ) : isCurrent ? (
+                        <Square size={18} color={colors.primary} />
+                      ) : (
+                        <Circle size={18} color={colors.border} />
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.stopItemName, isCompleted && styles.stopItemNameCompleted]}>
+                      <Text style={[styles.checklistStopName, { color: isCleared ? colors.textSecondary : colors.text, fontWeight: isCurrent ? '700' : '500' }]}>
                         {stop.stop_name}
                       </Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                        {shift === 'morning' ? (
-                          <Text style={[styles.stopItemEta, { color: '#f59e0b', fontWeight: 'bold' }]}>
-                            🌅 Morning: {stop.morning_time || stop.estimated_arrival || '--:--'}
-                          </Text>
-                        ) : (
-                          <Text style={[styles.stopItemEta, { color: '#a78bfa', fontWeight: 'bold' }]}>
-                            🌆 Evening: {stop.evening_time || stop.estimated_arrival || '--:--'}
-                          </Text>
-                        )}
-                        <Text style={[styles.stopDynamicEta, isCompleted ? { color: '#64748b' } : { color: dynamicETA.statusColor }]}>
-                          &bull; {isCompleted ? 'Passed' : `Live: ${dynamicETA.arrivalTimeStr}`}
-                        </Text>
-                        <Text style={{ fontSize: 11, color: '#94a3b8', fontWeight: '700' }}>
-                          ({formatDistance(distToStop)})
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={[styles.stopActionPill, isCurrent && { backgroundColor: '#1e3a8a' }, isCompleted && { backgroundColor: '#064e3b' }]}>
-                      <Text style={[styles.stopActionText, isCurrent && { color: '#60a5fa' }, isCompleted && { color: '#34d399' }]}>
-                        {isCompleted ? 'DEPARTED' : isCurrent ? (distToStop <= 0.08 ? 'ARRIVED' : 'APPROACHING') : dynamicETA.statusLabel}
+                      <Text style={[styles.checklistStopTime, { color: colors.textMuted }]}>
+                        {shift === 'evening' ? (stop.evening_time || '--') : (stop.morning_time || '--')}
                       </Text>
                     </View>
-                  </TouchableOpacity>
+                  </View>
                 );
               })}
-            </View>
+            </Card>
           </ScrollView>
         )}
 
-        {/* ================= TAB 3: EMERGENCY SOS & INCIDENTS ================= */}
+        {/* ================= TAB 4: SOS (EMERGENCY) ================= */}
         {activeTab === 'sos' && (
-          <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 16 }}>
-            <View style={styles.sosBannerCard}>
-              <Text style={{ fontSize: 32 }}>🚨</Text>
-              <Text style={styles.sosBannerTitle}>Emergency Incident Dispatch</Text>
-              <Text style={styles.sosBannerDesc}>
-                Tap any category below to immediately broadcast your bus coordinates and emergency status to Campus Transport Control & Security.
-              </Text>
+          <ScrollView
+            style={styles.scrollPage}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: insets.bottom + 76 },
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Extremely Clear Emergency Header */}
+            <Card variant="emergency" style={styles.sosWarningCard} padding="lg">
+              <View style={styles.sosWarningHeader}>
+                <ShieldAlert size={28} color={colors.emergency} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.sosWarningTitle, { color: colors.emergency }]}>
+                    EMERGENCY SOS SYSTEM
+                  </Text>
+                  <Text style={[styles.sosWarningSub, { color: colors.text }]}>
+                    Use these buttons ONLY in case of genuine transit emergencies. Dispatch alerts go to the Transport Wing immediately.
+                  </Text>
+                </View>
+              </View>
+            </Card>
+
+            <SectionHeader
+              title="Emergency Categories"
+              subtitle="Select category to trigger confirmation and broadcast"
+            />
+
+            {/* Emergency Action Buttons: Large Touch Targets, Functional Red */}
+            <View style={{ gap: 12, marginTop: 4 }}>
+              <Button
+                label="BREAKDOWN"
+                size="lg"
+                variant="danger"
+                icon={<AlertTriangle size={22} color="#FFFFFF" />}
+                onPress={() => setConfirmingSOSType('breakdown')}
+                fullWidth
+              />
+
+              <Button
+                label="MEDICAL EMERGENCY"
+                size="lg"
+                variant="danger"
+                icon={<ShieldAlert size={22} color="#FFFFFF" />}
+                onPress={() => setConfirmingSOSType('medical')}
+                fullWidth
+              />
+
+              <Button
+                label="ACCIDENT"
+                size="lg"
+                variant="danger"
+                icon={<ShieldAlert size={22} color="#FFFFFF" />}
+                onPress={() => setConfirmingSOSType('accident')}
+                fullWidth
+              />
             </View>
 
-            <Text style={styles.sectionHeader}>Instant Incident Categories</Text>
+            {/* Standby Vehicle Request */}
+            <SectionHeader
+              title="Standby Vehicle / Driver Swap"
+              subtitle="Request a substitute vehicle from transport pool"
+              style={{ marginTop: 24 }}
+            />
 
-            {[
-              { type: 'breakdown' as EmergencyType, label: '🔧 Vehicle Breakdown / Engine Trouble', desc: 'Mechanical defect, tire puncture, or engine breakdown' },
-              { type: 'medical' as EmergencyType, label: '🚑 Medical Emergency / Passenger Illness', desc: 'Student or driver injury requiring ambulance dispatch' },
-              { type: 'accident' as EmergencyType, label: '⚠️ Road Collision / Accident', desc: 'Minor or major vehicular collision on route' },
-              { type: 'emergency' as EmergencyType, label: '🚧 Severe Traffic Gridlock / Roadblock', desc: 'Road blockage or police diversion delaying route' },
-            ].map((item) => (
-              <TouchableOpacity
-                key={item.type}
-                style={styles.sosCategoryCard}
-                onPress={() => handleDispatchSOS(item.type, item.label)}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sosCategoryTitle}>{item.label}</Text>
-                  <Text style={styles.sosCategoryDesc}>{item.desc}</Text>
-                </View>
-                <Text style={styles.sosSendTag}>BROADCAST</Text>
-              </TouchableOpacity>
-            ))}
-
-            <Text style={styles.sectionHeader}>Campus Transport Authority & Security</Text>
-            
-            <TouchableOpacity style={styles.hotlineCard} onPress={() => handleCallHelpline('+919629284690')}>
-              <Text style={{ fontSize: 22 }}>👨‍💼</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.hotlineTitle}>Transport Incharge: N.Govindaraju</Text>
-                <Text style={styles.hotlinePhone}>Mob.No: +91 96292 84690 &bull; Transport Head</Text>
-              </View>
-              <Text style={styles.callPill}>CALL</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.hotlineCard} onPress={() => handleCallHelpline('+919715540479')}>
-              <Text style={{ fontSize: 22 }}>👨‍🏫</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.hotlineTitle}>Transport Coordinator: L.Karthikeyan</Text>
-                <Text style={styles.hotlinePhone}>AP/Mech &bull; Mob.No: +91 97155 40479</Text>
-              </View>
-              <Text style={styles.callPill}>CALL</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.hotlineCard} onPress={() => handleCallHelpline('+919443099999')}>
-              <Text style={{ fontSize: 22 }}>🛡️</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.hotlineTitle}>Campus Security Main Gate</Text>
-                <Text style={styles.hotlinePhone}>+91 94430 99999 &bull; Emergency Dispatch</Text>
-              </View>
-              <Text style={styles.callPill}>CALL</Text>
-            </TouchableOpacity>
+            <Button
+              label="Request Standby Vehicle"
+              variant="outline"
+              size="md"
+              onPress={() => setShowSwapModal(true)}
+              fullWidth
+            />
           </ScrollView>
         )}
 
-        {/* ================= TAB 4: DRIVER PROFILE & VEHICLE ALLOCATION ================= */}
+        {/* ================= TAB 5: PROFILE ================= */}
         {activeTab === 'profile' && (
-          <ScrollView style={styles.scrollPage} contentContainerStyle={{ padding: 16 }}>
-            {/* Driver Hero Card */}
-            <View style={styles.driverHeroCard}>
-              <View style={styles.driverAvatar}>
-                <Text style={{ fontSize: 32 }}>👨‍✈️</Text>
-              </View>
-              <Text style={styles.driverHeroName}>{driverProfile.name}</Text>
-              <Text style={styles.driverHeroMeta}>Employee ID: {driverProfile.employeeId}</Text>
-              <View style={styles.busAllocationPill}>
-                <Text style={styles.busAllocationPillText}>ASSIGNED BUS: {driverProfile.busNumber} &bull; ROUTE 1</Text>
-              </View>
-            </View>
-
-            {/* Vehicle & Assignment Table */}
-            <Text style={styles.sectionHeader}>Vehicle & Fleet Allocation</Text>
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Assigned Bus Number</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={styles.busPillSmall}>
-                    <Text style={styles.busPillSmallText}>{driverProfile.busNumber}</Text>
-                  </View>
-                  <Text style={styles.infoVal}>{driverProfile.registrationNumber}</Text>
+          <ScrollView
+            style={styles.scrollPage}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: insets.bottom + 76 },
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Driver Profile Card */}
+            <Card style={styles.profileCard} padding="lg">
+              <View style={styles.profileHeaderRow}>
+                <View style={[styles.profileAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                  <User size={24} color={colors.text} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.driverProfileName, { color: colors.text }]}>{driverProfile.name}</Text>
+                  <Text style={[styles.driverProfileId, { color: colors.textSecondary }]}>
+                    ID: {driverProfile.employeeId || 'DRV-01'} · License: {driverProfile.licenseNumber || 'DL-TN-67-2018'}
+                  </Text>
                 </View>
               </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Designated Route</Text>
-                <Text style={styles.infoVal}>{driverProfile.routeName}</Text>
+
+              <View style={[styles.profileMetaGrid, { borderTopColor: colors.borderSubtle }]}>
+                <View style={styles.profileMetaItem}>
+                  <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Assigned Bus</Text>
+                  <Text style={[styles.metaValue, { color: colors.text }]}>{driverBusNumber}</Text>
+                </View>
+
+                <View style={styles.profileMetaItem}>
+                  <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Assigned Route</Text>
+                  <Text style={[styles.metaValue, { color: colors.text }]}>{driverProfile.routeName}</Text>
+                </View>
+
+                <View style={styles.profileMetaItem}>
+                  <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Phone</Text>
+                  <Text style={[styles.metaValue, { color: colors.text }]}>{driverProfile.phone}</Text>
+                </View>
+
+                <View style={styles.profileMetaItem}>
+                  <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Status</Text>
+                  <Text style={[styles.metaValue, { color: colors.success }]}>Active Duty</Text>
+                </View>
               </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Driving License</Text>
-                <Text style={styles.infoVal}>{driverProfile.licenseNumber} (Heavy Vehicle)</Text>
+            </Card>
+
+            {/* Helpline Contacts */}
+            <SectionHeader title="Transport Office Contacts" subtitle="Dispatch and maintenance coordinators" />
+
+            <Card style={styles.contactCard} padding="md">
+              <View style={styles.contactRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.contactName, { color: colors.text }]}>N. Govindaraju (Transport Incharge)</Text>
+                  <Text style={[styles.contactPhone, { color: colors.textSecondary }]}>+91 96292 84690</Text>
+                </View>
+                <Button
+                  label="Call"
+                  size="sm"
+                  variant="outline"
+                  icon={<Phone size={14} color={colors.text} />}
+                  onPress={() => Linking.openURL('tel:+919629284690')}
+                />
               </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Driver Contact</Text>
-                <Text style={styles.infoVal}>{driverProfile.phone}</Text>
-              </View>
-            </View>
+            </Card>
 
-            {/* Transport Authority & Coordinator Contacts */}
-            <Text style={styles.sectionHeader}>Transport Incharge & Coordinator</Text>
-            <View style={styles.infoCard}>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}
-                onPress={() => handleCallHelpline('+919629284690')}
-              >
-                <View>
-                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>Mr. N. Govindaraju (Transport Incharge)</Text>
-                  <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>Mob.No: +91 96292 84690</Text>
-                </View>
-                <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
-                  <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '900' }}>CALL</Text>
-                </View>
-              </TouchableOpacity>
-
-              <View style={{ height: 1, backgroundColor: '#1e293b', marginVertical: 6 }} />
-
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}
-                onPress={() => handleCallHelpline('+919715540479')}
-              >
-                <View>
-                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>Mr. L. Karthikeyan (AP/Mech)</Text>
-                  <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>Transport Coordinator &bull; Mob.No: +91 97155 40479</Text>
-                </View>
-                <View style={{ backgroundColor: '#0284c7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
-                  <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '900' }}>CALL</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Sign out */}
-            <TouchableOpacity
-              style={styles.signOutBtn}
-              onPress={async () => {
-                await authStorage.clearSession();
-                router.replace('/');
-              }}
-            >
-              <Text style={styles.signOutText}>Sign Out &bull; Switch Portal</Text>
-            </TouchableOpacity>
-
-            {/* Developer Credit */}
-            <View style={{ alignItems: 'center', marginTop: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#1e293b' }}>
-              <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '700' }}>
-                Designed and Developed by <Text style={{ color: '#38bdf8', fontWeight: '900' }}>Kirran S T</Text>
-              </Text>
-              <Text style={{ color: '#64748b', fontSize: 9.5, fontWeight: '700', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Department of Information Technology
-              </Text>
+            {/* Sign Out */}
+            <View style={{ marginTop: 24 }}>
+              <Button
+                label="Sign Out"
+                icon={<LogOut size={16} color={colors.text} />}
+                onPress={async () => {
+                  await authStorage.clearSession();
+                  router.replace('/');
+                }}
+                variant="outline"
+                size="md"
+                fullWidth
+              />
             </View>
           </ScrollView>
         )}
       </View>
 
-      {/* ================= BOTTOM NAVIGATION BAR ================= */}
-      <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'nav' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('nav')}
-        >
-          <Text style={[styles.tabBarIcon, activeTab === 'nav' && styles.tabBarIconActive]}>📍</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'nav' && styles.tabBarLabelActive]}>Live Nav</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'students' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('students')}
-        >
-          <View style={{ position: 'relative' }}>
-            <Text style={[styles.tabBarIcon, activeTab === 'students' && styles.tabBarIconActive]}>👥</Text>
-            <View style={styles.tabCountPill}>
-              <Text style={styles.tabCountPillText}>{students.length + staffPassengers.length}</Text>
-            </View>
-          </View>
-          <Text style={[styles.tabBarLabel, activeTab === 'students' && styles.tabBarLabelActive]}>Passengers</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'cockpit' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('cockpit')}
-        >
-          <Text style={[styles.tabBarIcon, activeTab === 'cockpit' && styles.tabBarIconActive]}>🚏</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'cockpit' && styles.tabBarLabelActive]}>Cockpit</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'sos' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('sos')}
-        >
-          <Text style={[styles.tabBarIcon, activeTab === 'sos' && styles.tabBarIconActive]}>🚨</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'sos' && styles.tabBarLabelActive]}>SOS</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabBarItem, activeTab === 'profile' && styles.tabBarItemActive]}
-          onPress={() => setActiveTab('profile')}
-        >
-          <Text style={[styles.tabBarIcon, activeTab === 'profile' && styles.tabBarIconActive]}>👤</Text>
-          <Text style={[styles.tabBarLabel, activeTab === 'profile' && styles.tabBarLabelActive]}>Profile</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Location Permission Modal */}
-      <LocationPermissionModal
-        visible={showPermModal}
-        role="driver"
-        onClose={() => setShowPermModal(false)}
-        onGranted={() => {
-          setHasPermission(true);
-          setShowPermModal(false);
-        }}
-      />
-
-      {/* Post-Trip Summary Report Modal */}
-      <Modal visible={showSummaryModal} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryIconWrap}>
-              <Text style={{ fontSize: 32 }}>🏆</Text>
-            </View>
-            <Text style={styles.summaryTitle}>Trip Completed Successfully</Text>
-            <Text style={styles.summaryRoute}>Route 1 &bull; BUS-01 (TN 84 AX 1001)</Text>
-
-            <View style={styles.summaryGrid}>
-              <View style={styles.summaryBox}>
-                <Text style={styles.summaryBoxLabel}>Total Distance</Text>
-                <Text style={styles.summaryBoxVal}>{tripSummary.distance}</Text>
-              </View>
-              <View style={styles.summaryBox}>
-                <Text style={styles.summaryBoxLabel}>Duration</Text>
-                <Text style={styles.summaryBoxVal}>{tripSummary.duration}</Text>
-              </View>
-              <View style={styles.summaryBox}>
-                <Text style={styles.summaryBoxLabel}>Avg Speed</Text>
-                <Text style={styles.summaryBoxVal}>{tripSummary.avgSpeed} km/h</Text>
-              </View>
-              <View style={styles.summaryBox}>
-                <Text style={styles.summaryBoxLabel}>Completed At</Text>
-                <Text style={styles.summaryBoxVal}>{tripSummary.endTime}</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.closeSummaryBtn}
+      {/* TRIP SUMMARY MODAL */}
+      <Modal
+        visible={showSummaryModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSummaryModal(false)}
+      >
+        <View style={styles.confirmModalOverlay}>
+          <View style={[styles.confirmModalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.confirmModalTitle, { color: colors.text }]}>Trip Completed</Text>
+            <Text style={[styles.confirmModalDesc, { color: colors.textSecondary }]}>
+              Shift summary logged. Total distance: {distanceTravelledKm.toFixed(1)} km.
+            </Text>
+            <Button
+              label="Acknowledge & Close"
+              variant="primary"
+              size="md"
               onPress={() => {
                 setShowSummaryModal(false);
-                setIsTripActive(false);
-                setCurrentStopIdx(0);
-                setCompletedStopIds([]);
-                setDistanceTravelledKm(0);
-                setElapsedSeconds(0);
+                router.replace('/driver');
               }}
-            >
-              <Text style={styles.closeSummaryBtnText}>Acknowledge & Close Log</Text>
-            </TouchableOpacity>
+              fullWidth
+            />
           </View>
         </View>
       </Modal>
+
+      {/* SWAP / STANDBY MODAL */}
+      <Modal
+        visible={showSwapModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSwapModal(false)}
+      >
+        <View style={styles.confirmModalOverlay}>
+          <View style={[styles.confirmModalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.confirmModalTitle, { color: colors.text }]}>Request Standby Bus</Text>
+            <Text style={[styles.confirmModalDesc, { color: colors.textSecondary }]}>
+              Enter reason for requesting vehicle substitute or shift relief:
+            </Text>
+            <Input
+              value={swapReason}
+              onChangeText={setSwapReason}
+              placeholder="e.g. Engine overheat at junction"
+              style={{ marginBottom: 16 }}
+            />
+            <View style={styles.confirmModalBtnRow}>
+              <Button
+                label="Cancel"
+                variant="outline"
+                onPress={() => setShowSwapModal(false)}
+                style={{ flex: 1, marginRight: 8 }}
+              />
+              <Button
+                label="Submit Request"
+                variant="primary"
+                onPress={() => {
+                  handleRequestSwap(swapReason);
+                  setShowSwapModal(false);
+                }}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* BOTTOM TAB BAR */}
+      <BottomTabBar
+        tabs={driverTabs}
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId)}
+      />
     </View>
   );
 }
@@ -2134,1795 +1895,393 @@ export default function DriverDashboard() {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: '#080c14',
-  },
-  topHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 48 : 16,
-    paddingBottom: 12,
-    backgroundColor: '#0f172a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
-  },
-  topHeaderLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    overflow: 'hidden',
-  },
-  topHeaderInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  topLogo: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#1e3a8a',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  topAppName: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
-  topBusBadge: {
-    backgroundColor: '#f59e0b',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    flexShrink: 0,
-  },
-  topBusBadgeText: {
-    color: '#000000',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  topSub: {
-    color: '#94a3b8',
-    fontSize: 11,
-    marginTop: 1,
-  },
-  topHeaderRight: {
-    alignItems: 'flex-end',
-    flexShrink: 0,
-  },
-  liveStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#064e3b',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#059669',
-  },
-  standbyStatusPill: {
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#34d399',
-  },
-  standbyDot: {
-    backgroundColor: '#94a3b8',
-  },
-  liveText: {
-    color: '#34d399',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  standbyText: {
-    color: '#94a3b8',
   },
   mainContent: {
     flex: 1,
   },
-  routeTerminalCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 10,
-  },
-  terminalItem: {
-    flex: 1,
-  },
-  terminalLabelGreen: {
-    color: '#10b981',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  terminalLabelRed: {
-    color: '#ef4444',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  terminalName: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  terminalTime: {
-    color: '#94a3b8',
-    fontSize: 10,
-    marginTop: 1,
-  },
-  terminalArrowBox: {
-    paddingHorizontal: 8,
-  },
-  terminalArrow: {
-    color: '#64748b',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  compactMapWrapper: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 10,
-  },
-  driverNavCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 16,
-  },
-  driverHudQuickBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingBottom: 10,
-  },
-  hudStatBox: {
-    alignItems: 'center',
-  },
-  hudStatVal: {
-    color: '#38bdf8',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  hudStatLabel: {
-    color: '#64748b',
-    fontSize: 8,
-    fontWeight: '800',
-    marginTop: 1,
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: '#1e293b',
-    marginVertical: 10,
-  },
-  nextStopHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  nextStopPrefix: {
-    color: '#f59e0b',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  nextStopName: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  nextStopEtaText: {
-    color: '#94a3b8',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  reachedBtn: {
-    backgroundColor: '#059669',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 70,
-  },
-  reachedBtnText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '900',
-    textAlign: 'center',
-    lineHeight: 12,
-  },
-  startTripQuickBtn: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 70,
-  },
-  startTripQuickText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '900',
-    textAlign: 'center',
-    lineHeight: 12,
-  },
-  mapQuickActionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#1e293b',
-  },
-  mapSosQuickBtn: {
-    flex: 1,
-    backgroundColor: '#e11d48',
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  mapSosQuickText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  mapEndQuickBtn: {
-    flex: 1,
-    backgroundColor: '#1e293b',
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  mapEndQuickText: {
-    color: '#f43f5e',
-    fontSize: 11,
-    fontWeight: '800',
-  },
   scrollPage: {
     flex: 1,
   },
-  modeCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 14,
-  },
-  modeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  modeTitle: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  signalPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  signalDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  signalText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  modeToggleRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  modeToggleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#1e293b',
-    alignItems: 'center',
-  },
-  modeToggleBtnActive: {
-    backgroundColor: '#2563eb',
-  },
-  modeToggleText: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  modeToggleTextActive: {
-    color: '#ffffff',
-  },
-  standbyCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 14,
-  },
-  standbyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#1e293b',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  standbyTitle: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  standbyDesc: {
-    color: '#94a3b8',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 20,
-    lineHeight: 18,
-  },
-  startTripBtn: {
-    width: '100%',
-    backgroundColor: '#10b981',
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: '#10b981',
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  startTripBtnText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  activeCockpit: {
-    backgroundColor: '#0f172a',
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 2,
-    borderColor: '#10b981',
-    marginBottom: 14,
-  },
-  cockpitHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  cockpitTitle: {
-    color: '#10b981',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  timerText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  transmittingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#064e3b',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    gap: 6,
-  },
-  transmittingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#34d399',
-  },
-  transmittingText: {
-    color: '#34d399',
-    fontSize: 10,
-    fontWeight: '800',
+  scrollContent: {
+    padding: 16,
   },
   metricsGrid: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  metricCard: {
-    flex: 1,
-    backgroundColor: '#020617',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    alignItems: 'center',
-  },
-  metricLabel: {
-    color: '#64748b',
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  metricValue: {
-    color: '#ffffff',
-    fontSize: 22,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  metricUnit: {
-    color: '#94a3b8',
-    fontSize: 10,
-  },
-  coordStrip: {
-    flexDirection: 'row',
-    backgroundColor: '#020617',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    justifyContent: 'space-around',
-  },
-  coordCol: {
-    alignItems: 'center',
-  },
-  coordLabel: {
-    color: '#64748b',
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  coordVal: {
-    color: '#38bdf8',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  completeBtn: {
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#f43f5e',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  completeBtnText: {
-    color: '#f43f5e',
-    fontWeight: '900',
-    fontSize: 13,
-  },
-  stopSection: {
-    marginBottom: 16,
-    backgroundColor: '#020617',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  stopSectionTitle: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  heartbeatTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#064e3b',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#059669',
-  },
-  heartbeatDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#34d399',
-  },
-  heartbeatText: {
-    color: '#34d399',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  stopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 10,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
-  },
-  stopRowCompleted: {
-    opacity: 0.6,
-  },
-  stopRowCurrent: {
-    backgroundColor: '#1e293b',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-  },
-  stopBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 8,
-    backgroundColor: '#1e293b',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stopBadgeCompleted: {
-    backgroundColor: '#059669',
-  },
-  stopBadgeText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  stopItemName: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  stopItemNameCompleted: {
-    textDecorationLine: 'line-through',
-    color: '#94a3b8',
-  },
-  stopItemEta: {
-    color: '#64748b',
-    fontSize: 10,
-  },
-  stopDynamicEta: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  stopActionPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: '#0f172a',
-  },
-  stopActionText: {
-    color: '#38bdf8',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  sosBannerCard: {
-    backgroundColor: '#450a0a',
-    borderRadius: 20,
-    padding: 18,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ef4444',
     marginBottom: 16,
   },
-  sosBannerTitle: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '900',
-    marginTop: 8,
+  hudCard: {
+    marginBottom: 20,
   },
-  sosBannerDesc: {
-    color: '#fecaca',
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  sectionHeader: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    marginBottom: 10,
-    marginTop: 6,
-    letterSpacing: 0.5,
-  },
-  sosCategoryCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    gap: 10,
-  },
-  sosCategoryTitle: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  sosCategoryDesc: {
-    color: '#94a3b8',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  sosSendTag: {
-    backgroundColor: '#e11d48',
-    color: '#ffffff',
-    fontSize: 9,
-    fontWeight: '900',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  hotlineCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#38bdf8',
-  },
-  hotlineTitle: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  hotlinePhone: {
-    color: '#38bdf8',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  callPill: {
-    backgroundColor: '#0284c7',
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '900',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  driverHeroCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 24,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 16,
-  },
-  driverAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 24,
-    backgroundColor: '#1e3a8a',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 2,
-    borderColor: '#3b82f6',
-  },
-  driverHeroName: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  driverHeroMeta: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  busAllocationPill: {
-    backgroundColor: '#f59e0b',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  busAllocationPillText: {
-    color: '#000000',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  driverRatingCard: {
-    flexDirection: 'row',
-    backgroundColor: '#0f172a',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 16,
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  ratingStat: {
-    alignItems: 'center',
-  },
-  ratingVal: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  ratingLabel: {
-    color: '#64748b',
-    fontSize: 8,
-    fontWeight: '800',
-    marginTop: 2,
-    letterSpacing: 0.5,
-  },
-  ratingDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#1e293b',
-  },
-  shiftCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 14,
-  },
-  shiftRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  stopInfoBlock: {
     paddingVertical: 4,
   },
-  shiftDotActive: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10b981',
+  stopBlockLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 4,
   },
-  shiftDotUpcoming: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#64748b',
+  stopBlockTitle: {
+    fontSize: 20,
+    fontWeight: '700',
   },
-  shiftTitle: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  shiftSub: {
-    color: '#94a3b8',
-    fontSize: 10,
-    marginTop: 2,
-  },
-  shiftTagCurrent: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-  },
-  shiftTagTextCurrent: {
-    color: '#34d399',
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  shiftTagUpcoming: {
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  shiftTagTextUpcoming: {
-    color: '#94a3b8',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  shiftCardDivider: {
+  stopInfoDivider: {
     height: 1,
-    backgroundColor: '#1e293b',
-    marginVertical: 10,
+    marginVertical: 12,
   },
-  infoCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 18,
-    padding: 16,
+  simToggleBtn: {
     borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 14,
-    gap: 12,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
-  },
-  infoLabel: {
-    color: '#64748b',
+  simToggleText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  infoVal: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  busPillSmall: {
-    backgroundColor: '#f59e0b',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  busPillSmallText: {
-    color: '#000000',
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  signOutBtn: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  signOutText: {
-    color: '#f43f5e',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  bottomTabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#0f172a',
-    borderTopWidth: 1,
-    borderTopColor: '#1e293b',
-    paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-  },
-  tabBarItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 3,
-  },
-  tabBarItemActive: {
-    transform: [{ scale: 1.05 }],
-  },
-  tabBarIcon: {
-    fontSize: 18,
-    opacity: 0.6,
-  },
-  tabBarIconActive: {
-    opacity: 1,
-  },
-  tabBarLabel: {
-    color: '#64748b',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  tabBarLabelActive: {
-    color: '#38bdf8',
-    fontWeight: '800',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  summaryCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 24,
-    padding: 24,
+  mapCardContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#10b981',
-    alignItems: 'center',
-  },
-  summaryIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#064e3b',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  summaryTitle: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  summaryRoute: {
-    color: '#34d399',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 4,
     marginBottom: 20,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    width: '100%',
-    marginBottom: 20,
-  },
-  summaryBox: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: '#020617',
-    padding: 12,
-    borderRadius: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  summaryBoxLabel: {
-    color: '#64748b',
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  summaryBoxVal: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '900',
-    marginTop: 4,
-  },
-  tabCountPill: {
-    position: 'absolute',
-    top: -4,
-    right: -10,
-    backgroundColor: '#3b82f6',
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderWidth: 1,
-    borderColor: '#0f172a',
-  },
-  tabCountPillText: {
-    color: '#ffffff',
-    fontSize: 8,
-    fontWeight: '900',
-  },
-  rosterKpiCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 12,
-  },
-  rosterKpiHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  rosterKpiTitle: {
-    color: '#38bdf8',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  rosterKpiSub: {
-    color: '#94a3b8',
-    fontSize: 10,
-    marginTop: 2,
-  },
-  syncBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#064e3b',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 8,
-    gap: 5,
-    borderWidth: 1,
-    borderColor: '#059669',
-  },
-  syncDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#34d399',
-  },
-  syncText: {
-    color: '#34d399',
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  rosterGrid: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  rosterStatBox: {
-    flex: 1,
-    backgroundColor: '#020617',
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    alignItems: 'center',
-  },
-  rosterStatVal: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  rosterStatLabel: {
-    color: '#64748b',
-    fontSize: 8,
-    fontWeight: '800',
-    marginTop: 2,
-    letterSpacing: 0.5,
-  },
-  studentSearchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    paddingHorizontal: 12,
-    marginBottom: 10,
-  },
-  studentSearchInput: {
-    flex: 1,
-    color: '#ffffff',
-    paddingVertical: 10,
-    fontSize: 12,
   },
   filterScroll: {
-    marginBottom: 12,
+    marginVertical: 12,
   },
-  filterPill: {
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+  filterChip: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
     paddingVertical: 6,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: '#1e293b',
+    marginRight: 8,
   },
-  filterPillActive: {
-    backgroundColor: '#1e3a8a',
-    borderColor: '#3b82f6',
-  },
-  filterPillText: {
-    color: '#94a3b8',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  filterPillTextActive: {
-    color: '#ffffff',
-  },
-  studentsListWrap: {
-    gap: 8,
-    marginBottom: 16,
-  },
-  emptyStudentsBox: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    alignItems: 'center',
-  },
-  studentCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  studentAvatarBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  studentAvatarText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  studentCardName: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  studentCardRoll: {
-    color: '#94a3b8',
-    fontSize: 10,
-    marginTop: 2,
-  },
-  studentCardStopRow: {
-    marginTop: 4,
-  },
-  studentCardStop: {
-    color: '#38bdf8',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  boardBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  boardBadgeActive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-  },
-  boardBadgePending: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-  },
-  boardBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  boardBadgeTextActive: {
-    color: '#34d399',
-  },
-  boardBadgeTextPending: {
-    color: '#fbbf24',
-  },
-  autoBoardInfoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.2)',
-    marginBottom: 10,
-  },
-  autoBoardInfoText: {
-    flex: 1,
-    color: '#94a3b8',
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  boardBadgeApproaching: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-  },
-  boardBadgeTextApproaching: {
-    color: '#38bdf8',
-  },
-  callStudentBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#064e3b',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#059669',
-  },
-  closeSummaryBtn: {
-    width: '100%',
-    backgroundColor: '#2563eb',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  closeSummaryBtnText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  absenteesCardBox: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 10,
-  },
-  absenteesCardBoxActive: {
-    backgroundColor: '#1c0f12',
-    borderColor: '#ef4444',
-  },
-  absenteesHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  absenteesHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  absenteesIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  absenteesIconCircleActive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderWidth: 1,
-    borderColor: '#ef4444',
-  },
-  absenteesIconCircleEmpty: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: '#059669',
-  },
-  absenteesHeading: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  absenteesSub: {
-    color: '#94a3b8',
-    fontSize: 10,
-    marginTop: 1,
-  },
-  absentPillCount: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  absentPillCountText: {
-    color: '#ffffff',
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  allPresentPill: {
-    backgroundColor: '#064e3b',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#059669',
-  },
-  allPresentPillText: {
-    color: '#34d399',
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  absenteesListWrap: {
-    marginTop: 8,
-    gap: 6,
-  },
-  absenteeMiniCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#090d16',
-    borderRadius: 10,
-    padding: 8,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
-  },
-  absenteeAvatarBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: '#7f1d1d',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  absenteeAvatarText: {
-    color: '#fecaca',
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  absenteeName: {
-    color: '#ffffff',
+  filterChipText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '600',
   },
-  absenteeStop: {
-    color: '#38bdf8',
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 1,
-  },
-  absenteeLeaveBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ef4444',
-  },
-  absenteeLeaveText: {
-    color: '#fca5a5',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
-  absenteeReasonBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-  },
-  absenteeReasonText: {
-    color: '#fca5a5',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  noAbsenteesBox: {
-    marginTop: 6,
-    paddingVertical: 2,
-  },
-  noAbsenteesText: {
-    color: '#64748b',
-    fontSize: 10,
-    fontStyle: 'italic',
-  },
-  driverLeaveBanner: {
-    backgroundColor: '#450a0a',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#ef4444',
-    marginBottom: 10,
-  },
-  driverLeaveBannerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  passengerCard: {
     marginBottom: 8,
   },
-  driverLeaveIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    justifyContent: 'center',
+  passengerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ef4444',
+    gap: 12,
   },
-  driverLeaveTitle: {
-    color: '#f87171',
+  passengerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  passengerAvatarText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  passengerName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  passengerRoll: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  passengerStop: {
     fontSize: 11,
-    fontWeight: '900',
+    marginTop: 2,
+  },
+  cockpitHeroCard: {
+    marginBottom: 16,
+  },
+  cockpitTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  cockpitBusText: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  cockpitRouteText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  cockpitStopCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+  },
+  cockpitStopLbl: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  cockpitStopVal: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  shiftToggleRow: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  shiftBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  shiftBtnText: {
+    fontSize: 13,
+  },
+  checklistCard: {
+    marginBottom: 20,
+  },
+  checklistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    gap: 12,
+  },
+  checkIconWrap: {
+    width: 24,
+    alignItems: 'center',
+  },
+  checklistStopName: {
+    fontSize: 14,
+  },
+  checklistStopTime: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  sosWarningCard: {
+    marginBottom: 16,
+  },
+  sosWarningHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  sosWarningTitle: {
+    fontSize: 16,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
-  driverLeaveSub: {
-    color: '#fca5a5',
-    fontSize: 10,
-    marginTop: 1,
+  sosWarningSub: {
+    fontSize: 13,
+    marginTop: 4,
+    lineHeight: 18,
   },
-  driverLeaveList: {
-    gap: 6,
+  profileCard: {
+    marginBottom: 16,
   },
-  driverLeaveItem: {
+  profileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
+  },
+  profileAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverProfileName: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  driverProfileId: {
+    fontSize: 13,
+    marginTop: 3,
+  },
+  profileMetaGrid: {
+    borderTopWidth: 1,
+    paddingTop: 14,
+    gap: 10,
+  },
+  profileMetaItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metaLabel: {
+    fontSize: 13,
+  },
+  metaValue: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  contactCard: {
+    marginBottom: 12,
+  },
+  contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1f1315',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
-  driverLeaveItemName: {
-    color: '#ffffff',
+  contactName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  contactPhone: {
     fontSize: 12,
-    fontWeight: '800',
-  },
-  driverLeaveItemStop: {
-    color: '#38bdf8',
-    fontSize: 10,
-    fontWeight: '700',
     marginTop: 2,
   },
-  driverLeaveReasonPill: {
-    backgroundColor: 'rgba(239, 68, 68, 0.25)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ef4444',
-  },
-  driverLeaveReasonText: {
-    color: '#fca5a5',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  nextStopLeaveNotice: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-  },
-  nextStopLeaveText: {
-    color: '#f87171',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  boardBadgeLeave: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-  },
-  boardBadgeTextLeave: {
-    color: '#f87171',
-  },
-  filterPillLeaveActive: {
-    backgroundColor: '#7f1d1d',
-    borderColor: '#ef4444',
-  },
-  filterPillLeaveHasCount: {
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-  },
-  shiftSelectorBar: {
-    flexDirection: 'row',
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
-  },
-  shiftSelectBtn: {
+  modalOverlay: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#020617',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderWidth: 1,
-    borderColor: '#1e293b',
-    gap: 6,
+    maxHeight: '75%',
   },
-  shiftSelectBtnActiveMorning: {
-    backgroundColor: '#451a03',
-    borderColor: '#f59e0b',
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
   },
-  shiftSelectBtnActiveEvening: {
-    backgroundColor: '#1e1b4b',
-    borderColor: '#6366f1',
-  },
-  shiftSelectBtnText: {
-    color: '#94a3b8',
-    fontSize: 9.5,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  shiftSelectBtnTextActive: {
-    color: '#ffffff',
-    fontWeight: '900',
-  },
-  incomingToastBanner: {
-    position: 'absolute',
-    left: 14,
-    right: 14,
-    zIndex: 9999,
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 12,
+  modalHeaderTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderWidth: 1.5,
-    borderColor: '#3b82f6',
-    shadowColor: '#000000',
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 10,
   },
-  toastIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#1e3a8a',
-    justifyContent: 'center',
-    alignItems: 'center',
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
   },
-  toastTitle: {
-    color: '#ffffff',
+  modalSubtitle: {
     fontSize: 12,
-    fontWeight: '900',
-    flex: 1,
-  },
-  toastBadge: {
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    fontSize: 8,
-    fontWeight: '900',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 6,
-  },
-  toastBody: {
-    color: '#cbd5e1',
-    fontSize: 11,
     marginTop: 2,
-    lineHeight: 15,
   },
-  alertModalOverlay: {
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    gap: 8,
+  },
+  emptyStateTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  notifItem: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  notifItemTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  notifItemBody: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  confirmModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(3, 7, 18, 0.85)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    zIndex: 99999,
   },
-  alertModalCard: {
+  confirmModalCard: {
     width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#0f172a',
-    borderRadius: 24,
-    padding: 22,
-    borderWidth: 1.5,
-    borderColor: '#3b82f6',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
   },
-  alertModalIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#1e3a8a',
-    borderWidth: 2,
-    borderColor: '#60a5fa',
+  confirmModalIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
+    alignSelf: 'center',
   },
-  alertModalBadge: {
-    backgroundColor: '#1d4ed8',
-    color: '#ffffff',
-    fontSize: 9,
-    fontWeight: '900',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    letterSpacing: 0.5,
+  confirmModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
     marginBottom: 8,
   },
-  alertModalTitle: {
-    color: '#ffffff',
-    fontSize: 17,
-    fontWeight: '900',
+  confirmModalDesc: {
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 20,
   },
-  alertModalMessageWrap: {
-    backgroundColor: '#090d16',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    width: '100%',
-    marginBottom: 16,
-  },
-  alertModalMessage: {
-    color: '#e2e8f0',
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: 'center',
-  },
-  alertModalFooter: {
-    width: '100%',
-  },
-  alertModalCloseBtn: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 13,
-    borderRadius: 14,
-    alignItems: 'center',
-    width: '100%',
-    shadowColor: '#2563eb',
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  alertModalCloseText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  headerBellBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
-    borderWidth: 1,
-    borderColor: '#334155',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    marginRight: 6,
-  },
-  headerBellBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#ef4444',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
-    borderColor: '#0f172a',
-  },
-  headerBellBadgeText: {
-    color: '#ffffff',
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  notifModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(2, 6, 23, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  notifModalContent: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#0f172a',
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: '#1e293b',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 20,
-  },
-  notifModalHeader: {
+  confirmModalBtnRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
-    backgroundColor: '#090d16',
+    gap: 10,
   },
-  notifModalTitle: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  notifModalSub: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  notifModalClose: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#1e293b',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notifEmptyBox: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  notifEmptyText: {
-    color: '#e2e8f0',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  notifEmptySub: {
-    color: '#64748b',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  notifCardItem: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  notifCardTitle: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '800',
-    flex: 1,
-    marginRight: 6,
-  },
-  notifBadgeTag: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  boardBadgePending: {
+    backgroundColor: '#F2F2F2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 6,
   },
-  notifBadgeTagText: {
-    color: '#ffffff',
-    fontSize: 9,
-    fontWeight: '900',
+  boardBadgeTextPending: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#777777',
   },
-  notifCardBody: {
-    color: '#cbd5e1',
-    fontSize: 12,
-    marginTop: 4,
-    lineHeight: 16,
+  boardBadgeLeave: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
-  notifCardTime: {
-    color: '#64748b',
-    fontSize: 10,
-    marginTop: 6,
-    fontWeight: '600',
-    textAlign: 'right',
+  boardBadgeTextLeave: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
   },
-  notifModalFooter: {
-    padding: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#1e293b',
-    backgroundColor: '#090d16',
+  boardBadgeActive: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
-  markAllReadBtn: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
+  boardBadgeTextActive: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#16A34A',
   },
-  markAllReadText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '900',
+  boardBadgeApproaching: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  boardBadgeTextApproaching: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
   },
 });

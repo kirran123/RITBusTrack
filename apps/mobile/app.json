@@ -50,7 +50,15 @@
       ]
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-dev-client",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#000000"
+        }
+      ]
     ],
     "scheme": "college-bus-track",
     "web": {
@@ -58,12 +66,11 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "7fa1a5b8-cdfc-4637-a6d7-e389c869bb41"
+        "projectId": "20bce025-80a6-4aaf-83cb-f86986ba34fd"
       }
-    }
+    },
+    "owner": "karthik-debug-cell"
   }
 }
-
-
-

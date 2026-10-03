@@ -1,5 +1,6 @@
 import React, { Component, ReactNode, useEffect } from 'react';
 import { Stack } from 'expo-router';
+export { ErrorBoundary } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   StyleSheet,
@@ -88,6 +89,34 @@ class MobileErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
+import { ThemeProvider, useTheme } from '../theme';
+
+function ThemedAppContainer() {
+  const { isDark, colors } = useTheme();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      {Platform.OS === 'android' && (
+        <RNStatusBar
+          backgroundColor={colors.background}
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          translucent={false}
+        />
+      )}
+      <MobileErrorBoundary>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+            animation: 'none',
+          }}
+        />
+      </MobileErrorBoundary>
+    </View>
+  );
+}
+
 export default function RootLayout() {
   // Global safety fallback: hide splash after 2.5 seconds if not already hidden
   useEffect(() => {
@@ -100,23 +129,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
-        {Platform.OS === 'android' && (
-          <RNStatusBar
-            backgroundColor="#090d16"
-            barStyle="light-content"
-            translucent={false}
-          />
-        )}
-        <MobileErrorBoundary>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: '#090d16' },
-              animation: 'none',
-            }}
-          />
-        </MobileErrorBoundary>
+        <ThemeProvider>
+          <ThemedAppContainer />
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
