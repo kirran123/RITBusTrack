@@ -83,7 +83,8 @@ import {
   Check,
 } from 'lucide-react-native';
 
-const MORNING_ROUTE_STOPS: Stop[] = [
+// Reliable Route 033 / Route 1 Stops Dataset
+const ROUTE_033_STOPS: Stop[] = [
   {
     id: 'st1_1',
     route_id: 'r1',
@@ -93,7 +94,7 @@ const MORNING_ROUTE_STOPS: Stop[] = [
     stop_order: 1,
     estimated_arrival: '08:20 AM',
     morning_time: '08:20 AM',
-    evening_time: '04:45 PM',
+    evening_time: '05:15 PM',
     status: 'active',
   },
   {
@@ -105,7 +106,7 @@ const MORNING_ROUTE_STOPS: Stop[] = [
     stop_order: 2,
     estimated_arrival: '08:28 AM',
     morning_time: '08:28 AM',
-    evening_time: '04:45 PM',
+    evening_time: '05:05 PM',
     status: 'active',
   },
   {
@@ -117,7 +118,7 @@ const MORNING_ROUTE_STOPS: Stop[] = [
     stop_order: 3,
     estimated_arrival: '08:35 AM',
     morning_time: '08:35 AM',
-    evening_time: '04:45 PM',
+    evening_time: '04:55 PM',
     status: 'active',
   },
   {
@@ -134,56 +135,17 @@ const MORNING_ROUTE_STOPS: Stop[] = [
   },
 ];
 
+const MORNING_ROUTE_STOPS: Stop[] = ROUTE_033_STOPS;
 const EVENING_ROUTE_STOPS: Stop[] = [
-  {
-    id: 'st1_4',
-    route_id: 'r1',
-    stop_name: 'RIT Campus Main Gate',
-    latitude: 9.4520,
-    longitude: 77.5535,
-    stop_order: 1,
-    estimated_arrival: '04:45 PM',
-    morning_time: '08:45 AM',
-    evening_time: '04:45 PM',
-    status: 'active',
-  },
-  {
-    id: 'st1_3',
-    route_id: 'r1',
-    stop_name: 'PACR Mill Circle',
-    latitude: 9.4505,
-    longitude: 77.5525,
-    stop_order: 2,
-    estimated_arrival: '04:55 PM',
-    morning_time: '08:35 AM',
-    evening_time: '04:55 PM',
-    status: 'active',
-  },
-  {
-    id: 'st1_2',
-    route_id: 'r1',
-    stop_name: 'Tenkasi Road Junction',
-    latitude: 9.4498,
-    longitude: 77.5518,
-    stop_order: 3,
-    estimated_arrival: '05:05 PM',
-    morning_time: '08:28 AM',
-    evening_time: '05:05 PM',
-    status: 'active',
-  },
-  {
-    id: 'st1_1',
-    route_id: 'r1',
-    stop_name: 'Old Bus Stand, RJPM',
-    latitude: 9.4485,
-    longitude: 77.5505,
-    stop_order: 4,
-    estimated_arrival: '05:15 PM',
-    morning_time: '08:20 AM',
-    evening_time: '05:15 PM',
-    status: 'active',
-  },
-];
+  ROUTE_033_STOPS[3],
+  ROUTE_033_STOPS[2],
+  ROUTE_033_STOPS[1],
+  ROUTE_033_STOPS[0],
+].map((st, i) => ({
+  ...st,
+  stop_order: i + 1,
+  estimated_arrival: st.evening_time || st.estimated_arrival,
+}));
 
 type StudentTab = 'track' | 'stops' | 'alerts' | 'profile';
 
@@ -193,6 +155,7 @@ export default function StudentDashboard() {
   const { colors, isDark, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<StudentTab>('track');
   const [hasLocationPermission, setHasLocationPermission] = useState<boolean | null>(null);
+  const [isLocationPermanentlyDenied, setIsLocationPermanentlyDenied] = useState(false);
   const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean | null>(null);
   const [showPermModal, setShowPermModal] = useState(false);
   const [scheduleType, setScheduleType] = useState<'morning' | 'evening'>(() => {
@@ -356,30 +319,31 @@ export default function StudentDashboard() {
           (s.profile?.name && s.profile.name.trim().toLowerCase() === cleanName)
         );
         if (matched) {
+          const m = matched as any;
           const allB = Array.isArray(payload.buses) && payload.buses.length > 0 ? payload.buses : MASTER_BUSES;
           const allR = Array.isArray(payload.routes) && payload.routes.length > 0 ? payload.routes : MASTER_ROUTES;
-          const bId = matched.bus_id || matched.busId || currentStudent.busId;
-          const bObj = allB.find((b: any) => b.id === bId || b.bus_number === matched.bus_number);
-          const bNum = matched.bus?.bus_number || matched.bus_number || matched.busNumber || bObj?.bus_number || currentStudent.busNumber;
-          const rId = matched.route_id || matched.routeId || bObj?.route_id || currentStudent.routeId;
+          const bId = m.bus_id || m.busId || currentStudent.busId;
+          const bObj = allB.find((b: any) => b.id === bId || b.bus_number === m.bus_number);
+          const bNum = m.bus?.bus_number || m.bus_number || m.busNumber || bObj?.bus_number || currentStudent.busNumber;
+          const rId = m.route_id || m.routeId || bObj?.route_id || currentStudent.routeId;
           const rObj = allR.find((r: any) => r.id === rId);
-          const rName = matched.route?.route_name || matched.route_name || matched.routeName || rObj?.route_name || currentStudent.routeName;
-          const stopName = matched.boarding_stop?.stop_name || matched.boardingStopName || currentStudent.boardingStopName;
+          const rName = m.route?.route_name || m.route_name || m.routeName || rObj?.route_name || currentStudent.routeName;
+          const stopName = m.boarding_stop?.stop_name || m.boardingStopName || currentStudent.boardingStopName;
 
           setCurrentStudent((prev) => ({
             ...prev,
-            name: matched.profile?.name || matched.name || prev.name,
-            rollNumber: matched.register_number || matched.rollNumber || prev.rollNumber,
-            department: matched.department || prev.department,
-            year: matched.year ? Number(matched.year) : prev.year,
-            section: matched.section || prev.section,
+            name: m.profile?.name || m.name || prev.name,
+            rollNumber: m.register_number || m.rollNumber || prev.rollNumber,
+            department: m.department || prev.department,
+            year: m.year ? Number(m.year) : prev.year,
+            section: m.section || prev.section,
             busId: bId,
             busNumber: bNum,
             routeId: rId,
             routeName: rName,
-            boardingStopId: matched.boarding_stop_id || matched.boardingStopId || prev.boardingStopId,
+            boardingStopId: m.boarding_stop_id || m.boardingStopId || prev.boardingStopId,
             boardingStopName: stopName,
-            phone: matched.profile?.phone || matched.phone || prev.phone,
+            phone: m.profile?.phone || m.phone || prev.phone,
           }));
         }
       }
@@ -512,32 +476,51 @@ export default function StudentDashboard() {
   // Dynamic route stops for student's assigned route
   const currentRouteStops: Stop[] = React.useMemo(() => {
     const rId = currentStudent.routeId || 'r1';
+    const isRoute033Or1 = rId === 'r1' || rId === 'r33' || rId === 'r033' || rId === 'route_033' || (currentStudent.routeName && (currentStudent.routeName.includes('033') || currentStudent.routeName.includes('Route 1')));
+    if (isRoute033Or1) {
+      const exactMatched = allStops.filter(s => s.route_id === rId);
+      if (exactMatched.length === 4) return exactMatched;
+      const r33Matched = allStops.filter(s => s.route_id === 'r33');
+      if (r33Matched.length === 4) return r33Matched;
+      const r1Matched = allStops.filter(s => s.route_id === 'r1');
+      if (r1Matched.length === 4) return r1Matched;
+      return ROUTE_033_STOPS;
+    }
     const matched = allStops.filter(s => s.route_id === rId);
     if (matched.length > 0) return matched;
     const masterMatched = MASTER_STOPS.filter(s => s.route_id === rId);
     if (masterMatched.length > 0) return masterMatched;
-    return INITIAL_STOPS;
-  }, [allStops, currentStudent.routeId]);
+    return ROUTE_033_STOPS;
+  }, [allStops, currentStudent.routeId, currentStudent.routeName]);
 
   // Active stops sequence based on schedule shift
   const activeStops = React.useMemo(() => {
+    // Ensure base stops are sorted in morning departure order
+    const baseStops = [...currentRouteStops].sort((a, b) => (a.stop_order ?? 0) - (b.stop_order ?? 0));
+
     if (scheduleType === 'evening') {
-      return [...currentRouteStops].reverse().map((st, i) => ({
+      // Evening Trip (Return):
+      // 1. RIT Campus Main Gate -> 2. PACR Mill Circle -> 3. Tenkasi Road Junction -> 4. Old Bus Stand, RJPM
+      return [...baseStops].reverse().map((st, i) => ({
         ...st,
         stop_order: i + 1,
         estimated_arrival: st.evening_time || st.estimated_arrival,
       }));
     }
-    return [...currentRouteStops].sort((a, b) => a.stop_order - b.stop_order).map((st) => ({
+
+    // Morning Trip (To Campus):
+    // 1. Old Bus Stand, RJPM -> 2. Tenkasi Road Junction -> 3. PACR Mill Circle -> 4. RIT Campus Main Gate
+    return baseStops.map((st, i) => ({
       ...st,
+      stop_order: i + 1,
       estimated_arrival: st.morning_time || st.estimated_arrival,
     }));
   }, [currentRouteStops, scheduleType]);
 
   const boardingStop = (activeStops && (
-    activeStops.find(s => s.id === (currentStudent.boardingStopId || 'st1') || s.id === 'stop_1') ||
-    activeStops.find(s => s.stop_name.toLowerCase().includes((currentStudent.boardingStopName || '').toLowerCase().slice(0, 6)))
-  )) || activeStops[0];
+    activeStops.find(s => s.id === currentStudent.boardingStopId || s.id === (currentStudent.boardingStopId || '').replace('_', '') || s.id === `st1_${(currentStudent.boardingStopId || '').replace('st', '')}`) ||
+    activeStops.find(s => currentStudent.boardingStopName && (s.stop_name || '').toLowerCase().includes(currentStudent.boardingStopName.toLowerCase().slice(0, 6)))
+  )) || activeStops[0] || ROUTE_033_STOPS[0];
 
   useEffect(() => {
     const loadStudentSession = async () => {
@@ -820,31 +803,37 @@ export default function StudentDashboard() {
       const perm = await locationTracker.checkPermissions();
       if (perm.granted) {
         setHasLocationPermission(true);
+        setIsLocationPermanentlyDenied(false);
         const pos = await locationTracker.getCurrentPosition();
         if (pos && typeof pos.latitude === 'number' && typeof pos.longitude === 'number') {
           setStudentLocation(pos);
         }
       } else {
         setHasLocationPermission(false);
+        setIsLocationPermanentlyDenied(perm.canAskAgain === false && perm.foregroundStatus === 'denied');
       }
     } catch {}
   };
 
   const handleRequestPermission = async () => {
     try {
-      const granted = await locationTracker.requestForegroundPermission();
-      if (granted) {
+      const res = await locationTracker.requestForegroundPermissionDetailed();
+      if (res.granted) {
         setHasLocationPermission(true);
+        setIsLocationPermanentlyDenied(false);
         const pos = await locationTracker.getCurrentPosition();
         if (pos && typeof pos.latitude === 'number' && typeof pos.longitude === 'number') {
           setStudentLocation(pos);
         }
         Alert.alert('✅ Location Access Active', 'Your live location is pinpointed on the map.');
       } else {
-        setShowPermModal(true);
+        setHasLocationPermission(false);
+        if (res.canAskAgain === false) {
+          setIsLocationPermanentlyDenied(true);
+        }
       }
     } catch {
-      setShowPermModal(true);
+      setHasLocationPermission(false);
     }
   };
 
@@ -1042,7 +1031,7 @@ export default function StudentDashboard() {
                   <Button
                     label="Clear All"
                     onPress={handleClearAllNotifications}
-                    variant="emergency"
+                    variant="danger"
                     size="sm"
                     fullWidth
                   />
@@ -1101,6 +1090,7 @@ export default function StudentDashboard() {
                 isGranted={false}
                 onRequestPermission={handleRequestPermission}
                 onOpenSettings={() => locationTracker.openSettings()}
+                showSettings={isLocationPermanentlyDenied}
               />
             )}
 
@@ -1795,6 +1785,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: 2,
   },
   primaryCard: {
     marginBottom: 12,
