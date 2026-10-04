@@ -458,7 +458,7 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
           } else {
             var iconClass = s.isBoarding ? 'stop-marker boarding' : 'stop-marker';
             sIcon = L.divIcon({
-              html: '<div class="' + iconClass + '">' + (s.isBoarding ? '⭐' : s.order) + '</div>',
+              html: '<div class="' + iconClass + '">' + s.order + '</div>',
               className: '',
               iconSize: [s.isBoarding ? 24 : 20, s.isBoarding ? 24 : 20],
               iconAnchor: [s.isBoarding ? 12 : 10, s.isBoarding ? 12 : 10]
@@ -483,7 +483,7 @@ export const OSMMapView: React.FC<OSMMapViewProps> = ({
               s.delayLabel + " (in ~" + s.etaMinutes + " mins)" +
             "</div>" +
             (s.isStart ? "<div style='color:#059669;font-weight:bold;font-size:11px;margin-top:4px;'>🟢 Route Starting Terminal</div>" :
-             s.isEnd ? "<div style='color:#dc2626;font-weight:bold;font-size:11px;margin-top:4px;'>🏁 Final Campus Terminal</div>" :
+             s.isEnd ? "<div style='color:#dc2626;font-weight:bold;font-size:11px;margin-top:4px;'>🏁 Final Route Destination</div>" :
              s.isBoarding ? "<div style='color:#d97706;font-weight:bold;font-size:11px;margin-top:4px;'>⭐ Your Designated Boarding Stop</div>" : "") +
             "</div>";
 

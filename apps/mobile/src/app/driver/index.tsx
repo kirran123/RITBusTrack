@@ -68,7 +68,7 @@ import {
 
 type DriverTab = 'nav' | 'students' | 'cockpit' | 'sos' | 'profile';
 
-const MORNING_ROUTE_STOPS: Stop[] = [
+const ROUTE_033_STOPS: Stop[] = [
   {
     id: 'st1_1',
     route_id: 'r1',
@@ -78,7 +78,7 @@ const MORNING_ROUTE_STOPS: Stop[] = [
     stop_order: 1,
     estimated_arrival: '08:20 AM',
     morning_time: '08:20 AM',
-    evening_time: '04:45 PM',
+    evening_time: '05:15 PM',
     status: 'active',
   },
   {
@@ -90,7 +90,7 @@ const MORNING_ROUTE_STOPS: Stop[] = [
     stop_order: 2,
     estimated_arrival: '08:28 AM',
     morning_time: '08:28 AM',
-    evening_time: '04:45 PM',
+    evening_time: '05:05 PM',
     status: 'active',
   },
   {
@@ -102,7 +102,7 @@ const MORNING_ROUTE_STOPS: Stop[] = [
     stop_order: 3,
     estimated_arrival: '08:35 AM',
     morning_time: '08:35 AM',
-    evening_time: '04:45 PM',
+    evening_time: '04:55 PM',
     status: 'active',
   },
   {
@@ -119,56 +119,17 @@ const MORNING_ROUTE_STOPS: Stop[] = [
   },
 ];
 
+const MORNING_ROUTE_STOPS: Stop[] = ROUTE_033_STOPS;
 const EVENING_ROUTE_STOPS: Stop[] = [
-  {
-    id: 'st1_4',
-    route_id: 'r1',
-    stop_name: 'RIT Campus Main Gate',
-    latitude: 9.4520,
-    longitude: 77.5535,
-    stop_order: 1,
-    estimated_arrival: '04:45 PM',
-    morning_time: '08:45 AM',
-    evening_time: '04:45 PM',
-    status: 'active',
-  },
-  {
-    id: 'st1_3',
-    route_id: 'r1',
-    stop_name: 'PACR Mill Circle',
-    latitude: 9.4505,
-    longitude: 77.5525,
-    stop_order: 2,
-    estimated_arrival: '04:55 PM',
-    morning_time: '08:35 AM',
-    evening_time: '04:55 PM',
-    status: 'active',
-  },
-  {
-    id: 'st1_2',
-    route_id: 'r1',
-    stop_name: 'Tenkasi Road Junction',
-    latitude: 9.4498,
-    longitude: 77.5518,
-    stop_order: 3,
-    estimated_arrival: '05:05 PM',
-    morning_time: '08:28 AM',
-    evening_time: '05:05 PM',
-    status: 'active',
-  },
-  {
-    id: 'st1_1',
-    route_id: 'r1',
-    stop_name: 'Old Bus Stand, RJPM',
-    latitude: 9.4485,
-    longitude: 77.5505,
-    stop_order: 4,
-    estimated_arrival: '05:15 PM',
-    morning_time: '08:20 AM',
-    evening_time: '05:15 PM',
-    status: 'active',
-  },
-];
+  ROUTE_033_STOPS[3],
+  ROUTE_033_STOPS[2],
+  ROUTE_033_STOPS[1],
+  ROUTE_033_STOPS[0],
+].map((st, i) => ({
+  ...st,
+  stop_order: i + 1,
+  estimated_arrival: st.evening_time || st.estimated_arrival,
+}));
 
 export default function DriverDashboard() {
   const router = useRouter();
@@ -182,6 +143,7 @@ export default function DriverDashboard() {
   const [isTripActive, setIsTripActive] = useState(false);
   const [useSimulation, setUseSimulation] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
+  const [isLocationPermanentlyDenied, setIsLocationPermanentlyDenied] = useState(false);
   const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean | null>(null);
   const [showPermModal, setShowPermModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -420,20 +382,21 @@ export default function DriverDashboard() {
         );
 
         if (matchedD) {
+          const md = matchedD as any;
           const allB = Array.isArray(payload.buses) && payload.buses.length > 0 ? payload.buses : MASTER_BUSES;
           const allR = Array.isArray(payload.routes) && payload.routes.length > 0 ? payload.routes : MASTER_ROUTES;
-          const bId = matchedD.bus_id || matchedD.busId || matchedD.assigned_bus_id || driverProfile.assignedBusId;
-          const busObj = allB.find((b: any) => b.id === bId || b.bus_number === (matchedD.bus_number || matchedD.busNumber));
-          const bNum = matchedD.bus?.bus_number || matchedD.bus_number || matchedD.busNumber || busObj?.bus_number || driverProfile.busNumber;
-          const rId = matchedD.route_id || matchedD.routeId || busObj?.route_id || driverProfile.routeId;
+          const bId = md.bus_id || md.busId || md.assigned_bus_id || driverProfile.assignedBusId;
+          const busObj = allB.find((b: any) => b.id === bId || b.bus_number === (md.bus_number || md.busNumber));
+          const bNum = md.bus?.bus_number || md.bus_number || md.busNumber || busObj?.bus_number || driverProfile.busNumber;
+          const rId = md.route_id || md.routeId || busObj?.route_id || driverProfile.routeId;
           const rObj = allR.find((r: any) => r.id === rId);
-          const rName = matchedD.route_name || matchedD.routeName || matchedD.route?.route_name || rObj?.route_name || driverProfile.routeName;
-          const regNum = matchedD.bus?.registration_number || matchedD.registration_number || busObj?.registration_number || driverProfile.registrationNumber;
+          const rName = md.route_name || md.routeName || md.route?.route_name || rObj?.route_name || driverProfile.routeName;
+          const regNum = md.bus?.registration_number || md.registration_number || busObj?.registration_number || driverProfile.registrationNumber;
 
           setDriverProfile((prev) => ({
             ...prev,
-            name: matchedD.profile?.name || matchedD.name || prev.name,
-            phone: matchedD.phone || matchedD.profile?.phone || prev.phone,
+            name: md.profile?.name || md.name || prev.name,
+            phone: md.phone || md.profile?.phone || prev.phone,
             assignedBusId: bId,
             busNumber: bNum,
             routeId: rId,
@@ -485,24 +448,36 @@ export default function DriverDashboard() {
   // Dynamic route stops based on driver's assigned route
   const driverRouteStops: Stop[] = React.useMemo(() => {
     const rId = driverProfile.routeId || 'r1';
+    const isRoute033Or1 = rId === 'r1' || rId === 'r33' || rId === 'r033' || rId === 'route_033' || (driverProfile.routeName && (driverProfile.routeName.includes('033') || driverProfile.routeName.includes('Route 1')));
+    if (isRoute033Or1) {
+      const exactMatched = allStops.filter(s => s.route_id === rId);
+      if (exactMatched.length === 4) return exactMatched;
+      const r33Matched = allStops.filter(s => s.route_id === 'r33');
+      if (r33Matched.length === 4) return r33Matched;
+      const r1Matched = allStops.filter(s => s.route_id === 'r1');
+      if (r1Matched.length === 4) return r1Matched;
+      return ROUTE_033_STOPS;
+    }
     const matched = allStops.filter(s => s.route_id === rId);
     if (matched.length > 0) return matched;
     const masterMatched = MASTER_STOPS.filter(s => s.route_id === rId);
     if (masterMatched.length > 0) return masterMatched;
-    return INITIAL_STOPS;
-  }, [allStops, driverProfile.routeId]);
+    return ROUTE_033_STOPS;
+  }, [allStops, driverProfile.routeId, driverProfile.routeName]);
 
   // Active stops sequence based on shift
   const currentStops = React.useMemo(() => {
+    const baseStops = [...driverRouteStops].sort((a, b) => (a.stop_order ?? 0) - (b.stop_order ?? 0));
     if (shift === 'evening') {
-      return [...driverRouteStops].reverse().map((st, i) => ({
+      return [...baseStops].reverse().map((st, i) => ({
         ...st,
         stop_order: i + 1,
         estimated_arrival: st.evening_time || st.estimated_arrival,
       }));
     }
-    return [...driverRouteStops].sort((a, b) => a.stop_order - b.stop_order).map((st) => ({
+    return baseStops.map((st, i) => ({
       ...st,
+      stop_order: i + 1,
       estimated_arrival: st.morning_time || st.estimated_arrival,
     }));
   }, [driverRouteStops, shift]);
@@ -714,20 +689,34 @@ export default function DriverDashboard() {
   const checkPermissionStatus = async () => {
     try {
       const result = await locationTracker.checkPermissions();
-      setHasPermission(result.granted);
+      if (result.granted) {
+        setHasPermission(true);
+        setIsLocationPermanentlyDenied(false);
+      } else {
+        setHasPermission(false);
+        setIsLocationPermanentlyDenied(result.canAskAgain === false && result.foregroundStatus === 'denied');
+      }
     } catch {
       setHasPermission(false);
     }
   };
 
   const handleRequestPermission = async () => {
-    const granted = await locationTracker.requestForegroundPermission();
-    if (granted) {
-      await locationTracker.requestBackgroundPermission();
-      setHasPermission(true);
-      Alert.alert('✅ GPS Access Granted', 'Hardware location sensor is enabled.');
-    } else {
-      setShowPermModal(true);
+    try {
+      const res = await locationTracker.requestForegroundPermissionDetailed();
+      if (res.granted) {
+        await locationTracker.requestBackgroundPermission();
+        setHasPermission(true);
+        setIsLocationPermanentlyDenied(false);
+        Alert.alert('✅ GPS Access Granted', 'Hardware location sensor is enabled.');
+      } else {
+        setHasPermission(false);
+        if (res.canAskAgain === false) {
+          setIsLocationPermanentlyDenied(true);
+        }
+      }
+    } catch {
+      setHasPermission(false);
     }
   };
 
@@ -743,12 +732,16 @@ export default function DriverDashboard() {
 
   const handleStartTrip = async () => {
     if (!hasPermission) {
-      const granted = await locationTracker.requestForegroundPermission();
-      if (!granted) {
+      const res = await locationTracker.requestForegroundPermissionDetailed();
+      if (!res.granted) {
+        if (res.canAskAgain === false) {
+          setIsLocationPermanentlyDenied(true);
+        }
         setShowPermModal(true);
         return;
       }
       setHasPermission(true);
+      setIsLocationPermanentlyDenied(false);
     }
 
     const busId = driverProfile.assignedBusId || (driverProfile.id.startsWith('dr') ? 'b' + driverProfile.id.replace('dr', '') : 'b1');
@@ -1322,7 +1315,7 @@ export default function DriverDashboard() {
             </ScrollView>
 
             {systemBroadcasts.length > 0 && (
-              <View style={[styles.modalFooter, { borderTopColor: colors.border, padding: 14, flexDirection: 'row', gap: 10 }]}>
+              <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 14, flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1 }}>
                   <Button
                     label="Mark Read"
@@ -1336,7 +1329,7 @@ export default function DriverDashboard() {
                   <Button
                     label="Clear All"
                     onPress={handleClearAllNotifications}
-                    variant="emergency"
+                    variant="danger"
                     size="sm"
                     fullWidth
                   />
@@ -1407,6 +1400,14 @@ export default function DriverDashboard() {
                 isGranted={false}
                 onRequestPermission={handleRequestPermission}
                 onOpenSettings={() => locationTracker.openSettings()}
+                showSettings={isLocationPermanentlyDenied}
+              />
+            )}
+
+            {!hasNotificationPermission && (
+              <NotificationPermissionBanner
+                isGranted={false}
+                onRequestPermission={handleRequestNotificationPermission}
               />
             )}
 

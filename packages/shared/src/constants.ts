@@ -109,7 +109,7 @@ export const matchesDepartment = (deptText: string | undefined | null, filterCod
 };
 
 
-// Standard Initial Stops for Route 1 (Rajapalayam to Campus) - Configured in Admin
+// Standard Initial Stops for Route 033 / Route 1 (Rajapalayam to Campus) - Configured in Admin
 export const INITIAL_STOPS: Stop[] = [
   {
     id: 'st1_1',
@@ -120,7 +120,7 @@ export const INITIAL_STOPS: Stop[] = [
     stop_order: 1,
     estimated_arrival: '08:20 AM',
     morning_time: '08:20 AM',
-    evening_time: '04:45 PM',
+    evening_time: '05:15 PM',
     status: 'active',
   },
   {
@@ -132,7 +132,7 @@ export const INITIAL_STOPS: Stop[] = [
     stop_order: 2,
     estimated_arrival: '08:28 AM',
     morning_time: '08:28 AM',
-    evening_time: '04:45 PM',
+    evening_time: '05:05 PM',
     status: 'active',
   },
   {
@@ -144,7 +144,7 @@ export const INITIAL_STOPS: Stop[] = [
     stop_order: 3,
     estimated_arrival: '08:35 AM',
     morning_time: '08:35 AM',
-    evening_time: '04:45 PM',
+    evening_time: '04:55 PM',
     status: 'active',
   },
   {
@@ -161,13 +161,14 @@ export const INITIAL_STOPS: Stop[] = [
   },
 ];
 
-// Sample simulation route coordinates for Bus 01 (Rajapalayam Town to College Campus)
+export const ROUTE_033_STOPS: Stop[] = INITIAL_STOPS;
+
+// Sample simulation route coordinates for Bus 01 / Bus 033 (Rajapalayam Town to College Campus)
 export const SIMULATION_ROUTE_A: RouteSimulationPoint[] = [
-  { latitude: 9.4475, longitude: 77.5450, speed: 25, heading: 45, accuracy: 5, stop_name: "Rajapalayam New Bus Stand" },
-  { latitude: 9.4490, longitude: 77.5472, speed: 30, heading: 40, accuracy: 4, stop_name: "Gandhi Statue Junction" },
-  { latitude: 9.4505, longitude: 77.5495, speed: 35, heading: 35, accuracy: 5, stop_name: "PACR Mill Circle" },
-  { latitude: 9.4512, longitude: 77.5510, speed: 28, heading: 30, accuracy: 6, stop_name: "Samsigapuram Road Turn" },
-  { latitude: 9.4520, longitude: 77.5535, speed: 10, heading: 0, accuracy: 3, stop_name: "College Main Gate" },
+  { latitude: 9.4485, longitude: 77.5505, speed: 20, heading: 40, accuracy: 5, stop_name: "Old Bus Stand, RJPM" },
+  { latitude: 9.4498, longitude: 77.5518, speed: 25, heading: 35, accuracy: 4, stop_name: "Tenkasi Road Junction" },
+  { latitude: 9.4505, longitude: 77.5525, speed: 30, heading: 32, accuracy: 5, stop_name: "PACR Mill Circle" },
+  { latitude: 9.4520, longitude: 77.5535, speed: 10, heading: 0, accuracy: 3, stop_name: "RIT Campus Main Gate" },
 ];
 
 export const SIMULATION_ROUTE_B: RouteSimulationPoint[] = [

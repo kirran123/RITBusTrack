@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { locationTracker } from '../services/locationService';
 
 interface LocationPermissionBannerProps {
-  role?: 'driver' | 'student' | 'admin';
+  role?: 'driver' | 'student' | 'staff' | 'admin';
   isGranted: boolean;
   onRequestPermission: () => void;
   onOpenSettings?: () => void;
+  showSettings?: boolean;
 }
 
 export const LocationPermissionBanner: React.FC<LocationPermissionBannerProps> = ({
@@ -14,15 +15,9 @@ export const LocationPermissionBanner: React.FC<LocationPermissionBannerProps> =
   isGranted,
   onRequestPermission,
   onOpenSettings,
+  showSettings = false,
 }) => {
-  if (isGranted) {
-    return (
-      <View style={styles.grantedBadge}>
-        <Text style={styles.grantedDot}>🟢</Text>
-        <Text style={styles.grantedText}>GPS Location Access Active</Text>
-      </View>
-    );
-  }
+  if (isGranted) return null;
 
   const roleText =
     role === 'driver'
@@ -33,23 +28,25 @@ export const LocationPermissionBanner: React.FC<LocationPermissionBannerProps> =
     <View style={styles.bannerCard}>
       <View style={styles.bannerHeader}>
         <View style={styles.iconCircle}>
-          <Text style={{ fontSize: 18 }}>📍</Text>
+          <Text style={{ fontSize: 15 }}>📍</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.bannerTitle}>Location Access Required</Text>
-          <Text style={styles.bannerSubtitle}>{roleText}</Text>
+          <Text style={styles.bannerSubtitle} numberOfLines={2}>{roleText}</Text>
         </View>
       </View>
 
       <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.primaryBtn} onPress={onRequestPermission}>
-          <Text style={styles.primaryBtnText}>Grant Permission</Text>
-        </TouchableOpacity>
-
-        {onOpenSettings && (
-          <TouchableOpacity style={styles.secondaryBtn} onPress={onOpenSettings}>
-            <Text style={styles.secondaryBtnText}>Settings</Text>
+        {!showSettings ? (
+          <TouchableOpacity style={styles.primaryBtn} onPress={onRequestPermission} activeOpacity={0.8}>
+            <Text style={styles.primaryBtnText}>Grant Permission</Text>
           </TouchableOpacity>
+        ) : (
+          onOpenSettings && (
+            <TouchableOpacity style={styles.secondaryBtn} onPress={onOpenSettings} activeOpacity={0.8}>
+              <Text style={styles.secondaryBtnText}>Settings</Text>
+            </TouchableOpacity>
+          )
         )}
       </View>
     </View>
@@ -138,64 +135,64 @@ const styles = StyleSheet.create({
   },
   bannerCard: {
     backgroundColor: '#1e293b',
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 14,
+    padding: 10,
     borderWidth: 1,
     borderColor: '#3b82f6',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   bannerHeader: {
     flexDirection: 'row',
-    gap: 12,
-    alignItems: 'flex-start',
+    gap: 10,
+    alignItems: 'center',
   },
   iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     backgroundColor: '#1d4ed8',
     justifyContent: 'center',
     alignItems: 'center',
   },
   bannerTitle: {
     color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   bannerSubtitle: {
     color: '#94a3b8',
-    fontSize: 12,
-    marginTop: 4,
-    lineHeight: 16,
+    fontSize: 10.5,
+    marginTop: 2,
+    lineHeight: 14,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
+    gap: 8,
+    marginTop: 8,
   },
   primaryBtn: {
     flex: 1,
     backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingVertical: 7,
     alignItems: 'center',
   },
   primaryBtnText: {
     color: '#ffffff',
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: 11,
   },
   secondaryBtn: {
+    flex: 1,
     backgroundColor: '#334155',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingVertical: 7,
     alignItems: 'center',
   },
   secondaryBtnText: {
     color: '#e2e8f0',
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: 11,
   },
   modalOverlay: {
     flex: 1,

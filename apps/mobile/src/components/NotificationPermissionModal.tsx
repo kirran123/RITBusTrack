@@ -19,11 +19,11 @@ export const NotificationPermissionBanner: React.FC<NotificationPermissionBanner
   return (
     <View style={styles.bannerContainer}>
       <View style={styles.iconBox}>
-        <Text style={{ fontSize: 18 }}>🔔</Text>
+        <Text style={{ fontSize: 15 }}>🔔</Text>
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.bannerTitle}>Push Notifications Disabled</Text>
-        <Text style={styles.bannerSub}>
+        <Text style={styles.bannerSub} numberOfLines={2}>
           Allow push notifications to receive live bus arrival notices, driver swaps, and transit announcements in your mobile notification bar.
         </Text>
       </View>
@@ -95,19 +95,19 @@ export const NotificationPermissionModal: React.FC<NotificationPermissionModalPr
 const styles = StyleSheet.create({
   bannerContainer: {
     backgroundColor: '#172554',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
     borderColor: '#3b82f6',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     backgroundColor: 'rgba(59, 130, 246, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   bannerTitle: {
     color: '#93c5fd',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   bannerSub: {
     color: '#bfdbfe',
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   enableBtn: {
     backgroundColor: '#2563eb',
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 8,
     shadowColor: '#2563eb',
     shadowOffset: { width: 0, height: 2 },

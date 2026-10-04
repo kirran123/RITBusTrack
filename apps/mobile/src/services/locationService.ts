@@ -10,6 +10,7 @@ export interface LocationPermissionResult {
   backgroundStatus?: Location.PermissionStatus;
   isServicesEnabled: boolean;
   granted: boolean;
+  canAskAgain?: boolean;
 }
 
 export interface LocationTrackerConfig {
@@ -295,70 +296,36 @@ export function calculateDynamicETA(
   };
 }
 
-// Morning Route 1 (Rajapalayam Stand ➔ Gandhi Statue ➔ PACR Mill ➔ Samsigapuram Rd ➔ RIT Main Gate)
+// Morning Route 033 / 1 (Old Bus Stand ➔ Tenkasi Rd Jct ➔ PACR Mill ➔ RIT Main Gate)
 const ROUTE_1_MORNING_WAYPOINTS = [
-  { lat: 9.447500, lng: 77.545000, speed: 0, heading: 42, stopIdx: 0 },
-  { lat: 9.447620, lng: 77.545180, speed: 18, heading: 42, stopIdx: 0 },
-  { lat: 9.447780, lng: 77.545390, speed: 27, heading: 44, stopIdx: 0 },
-  { lat: 9.447950, lng: 77.545620, speed: 32, heading: 45, stopIdx: 0 },
-  { lat: 9.448150, lng: 77.545900, speed: 35, heading: 46, stopIdx: 0 },
-  { lat: 9.448350, lng: 77.546200, speed: 36, heading: 45, stopIdx: 0 },
-  { lat: 9.448550, lng: 77.546500, speed: 33, heading: 43, stopIdx: 0 },
-  { lat: 9.448750, lng: 77.546820, speed: 24, heading: 41, stopIdx: 0 },
-  { lat: 9.448900, lng: 77.547050, speed: 14, heading: 40, stopIdx: 1 },
-  { lat: 9.449000, lng: 77.547200, speed: 0, heading: 40, stopIdx: 1 }, // Gandhi Statue Stop
-  { lat: 9.449120, lng: 77.547400, speed: 16, heading: 38, stopIdx: 1 },
-  { lat: 9.449300, lng: 77.547700, speed: 28, heading: 38, stopIdx: 1 },
-  { lat: 9.449500, lng: 77.548050, speed: 34, heading: 37, stopIdx: 1 },
-  { lat: 9.449750, lng: 77.548450, speed: 38, heading: 36, stopIdx: 1 },
-  { lat: 9.450000, lng: 77.548850, speed: 36, heading: 35, stopIdx: 1 },
-  { lat: 9.450250, lng: 77.549200, speed: 26, heading: 35, stopIdx: 2 },
-  { lat: 9.450400, lng: 77.549380, speed: 12, heading: 35, stopIdx: 2 },
-  { lat: 9.450500, lng: 77.549500, speed: 0, heading: 35, stopIdx: 2 }, // PACR Mill Circle Stop
-  { lat: 9.450620, lng: 77.549720, speed: 15, heading: 33, stopIdx: 2 },
-  { lat: 9.450780, lng: 77.550050, speed: 29, heading: 32, stopIdx: 2 },
-  { lat: 9.450950, lng: 77.550450, speed: 35, heading: 31, stopIdx: 2 },
-  { lat: 9.451080, lng: 77.550780, speed: 25, heading: 30, stopIdx: 3 },
-  { lat: 9.451200, lng: 77.551000, speed: 0, heading: 30, stopIdx: 3 }, // Samsigapuram Road Turn Stop
-  { lat: 9.451350, lng: 77.551350, speed: 20, heading: 32, stopIdx: 3 },
-  { lat: 9.451520, lng: 77.551800, speed: 33, heading: 34, stopIdx: 3 },
-  { lat: 9.451700, lng: 77.552300, speed: 37, heading: 35, stopIdx: 3 },
-  { lat: 9.451850, lng: 77.552800, speed: 28, heading: 36, stopIdx: 4 },
-  { lat: 9.451950, lng: 77.553200, speed: 14, heading: 35, stopIdx: 4 },
-  { lat: 9.452000, lng: 77.553500, speed: 0, heading: 0, stopIdx: 4 }, // College Main Gate Terminal
+  { lat: 9.448500, lng: 77.550500, speed: 0, heading: 45, stopIdx: 0 }, // Stop 1: Old Bus Stand, RJPM
+  { lat: 9.448800, lng: 77.550800, speed: 20, heading: 45, stopIdx: 0 },
+  { lat: 9.449200, lng: 77.551200, speed: 28, heading: 45, stopIdx: 0 },
+  { lat: 9.449500, lng: 77.551500, speed: 22, heading: 45, stopIdx: 0 },
+  { lat: 9.449800, lng: 77.551800, speed: 0, heading: 45, stopIdx: 1 }, // Stop 2: Tenkasi Road Junction
+  { lat: 9.450000, lng: 77.552000, speed: 18, heading: 45, stopIdx: 1 },
+  { lat: 9.450250, lng: 77.552250, speed: 24, heading: 45, stopIdx: 1 },
+  { lat: 9.450500, lng: 77.552500, speed: 0, heading: 35, stopIdx: 2 }, // Stop 3: PACR Mill Circle
+  { lat: 9.450900, lng: 77.552800, speed: 22, heading: 35, stopIdx: 2 },
+  { lat: 9.451400, lng: 77.553100, speed: 28, heading: 35, stopIdx: 2 },
+  { lat: 9.451750, lng: 77.553350, speed: 18, heading: 35, stopIdx: 2 },
+  { lat: 9.452000, lng: 77.553500, speed: 0, heading: 0, stopIdx: 3 }, // Stop 4: RIT Campus Main Gate
 ];
 
-// Evening Reverse Route 1 (RIT Main Gate ➔ Samsigapuram Rd ➔ PACR Mill ➔ Gandhi Statue ➔ Rajapalayam Stand)
+// Evening Reverse Route 033 / 1 (RIT Main Gate ➔ PACR Mill ➔ Tenkasi Rd Jct ➔ Old Bus Stand)
 const ROUTE_1_EVENING_WAYPOINTS = [
-  { lat: 9.452000, lng: 77.553500, speed: 0, heading: 215, stopIdx: 0 }, // College Main Gate Hub
-  { lat: 9.451950, lng: 77.553200, speed: 16, heading: 215, stopIdx: 0 },
-  { lat: 9.451850, lng: 77.552800, speed: 26, heading: 216, stopIdx: 0 },
-  { lat: 9.451700, lng: 77.552300, speed: 35, heading: 215, stopIdx: 0 },
-  { lat: 9.451520, lng: 77.551800, speed: 33, heading: 214, stopIdx: 0 },
-  { lat: 9.451350, lng: 77.551350, speed: 22, heading: 212, stopIdx: 1 },
-  { lat: 9.451200, lng: 77.551000, speed: 0, heading: 210, stopIdx: 1 }, // Samsigapuram Road Turn Stop
-  { lat: 9.451080, lng: 77.550780, speed: 24, heading: 210, stopIdx: 1 },
-  { lat: 9.450950, lng: 77.550450, speed: 34, heading: 211, stopIdx: 1 },
-  { lat: 9.450780, lng: 77.550050, speed: 30, heading: 212, stopIdx: 1 },
-  { lat: 9.450620, lng: 77.549720, speed: 18, heading: 213, stopIdx: 2 },
-  { lat: 9.450500, lng: 77.549500, speed: 0, heading: 215, stopIdx: 2 }, // PACR Mill Circle Stop
-  { lat: 9.450400, lng: 77.549380, speed: 14, heading: 215, stopIdx: 2 },
-  { lat: 9.450250, lng: 77.549200, speed: 28, heading: 215, stopIdx: 2 },
-  { lat: 9.450000, lng: 77.548850, speed: 36, heading: 215, stopIdx: 2 },
-  { lat: 9.449750, lng: 77.548450, speed: 37, heading: 216, stopIdx: 2 },
-  { lat: 9.449500, lng: 77.548050, speed: 33, heading: 217, stopIdx: 3 },
-  { lat: 9.449300, lng: 77.547700, speed: 26, heading: 218, stopIdx: 3 },
-  { lat: 9.449120, lng: 77.547400, speed: 15, heading: 218, stopIdx: 3 },
-  { lat: 9.449000, lng: 77.547200, speed: 0, heading: 220, stopIdx: 3 }, // Gandhi Statue Stop
-  { lat: 9.448900, lng: 77.547050, speed: 16, heading: 220, stopIdx: 3 },
-  { lat: 9.448750, lng: 77.546820, speed: 25, heading: 221, stopIdx: 3 },
-  { lat: 9.448550, lng: 77.546500, speed: 32, heading: 223, stopIdx: 3 },
-  { lat: 9.448350, lng: 77.546200, speed: 35, heading: 225, stopIdx: 3 },
-  { lat: 9.448150, lng: 77.545900, speed: 34, heading: 226, stopIdx: 4 },
-  { lat: 9.447950, lng: 77.545620, speed: 30, heading: 225, stopIdx: 4 },
-  { lat: 9.447780, lng: 77.545390, speed: 25, heading: 224, stopIdx: 4 },
-  { lat: 9.447620, lng: 77.545180, speed: 16, heading: 222, stopIdx: 4 },
-  { lat: 9.447500, lng: 77.545000, speed: 0, heading: 0, stopIdx: 4 }, // Rajapalayam New Bus Stand Terminal
+  { lat: 9.452000, lng: 77.553500, speed: 0, heading: 215, stopIdx: 0 }, // Stop 1: RIT Campus Main Gate Hub
+  { lat: 9.451750, lng: 77.553350, speed: 18, heading: 215, stopIdx: 0 },
+  { lat: 9.451400, lng: 77.553100, speed: 28, heading: 215, stopIdx: 0 },
+  { lat: 9.450900, lng: 77.552800, speed: 22, heading: 215, stopIdx: 0 },
+  { lat: 9.450500, lng: 77.552500, speed: 0, heading: 225, stopIdx: 1 }, // Stop 2: PACR Mill Circle
+  { lat: 9.450250, lng: 77.552250, speed: 24, heading: 225, stopIdx: 1 },
+  { lat: 9.450000, lng: 77.552000, speed: 18, heading: 225, stopIdx: 1 },
+  { lat: 9.449800, lng: 77.551800, speed: 0, heading: 225, stopIdx: 2 }, // Stop 3: Tenkasi Road Junction
+  { lat: 9.449500, lng: 77.551500, speed: 22, heading: 225, stopIdx: 2 },
+  { lat: 9.449200, lng: 77.551200, speed: 28, heading: 225, stopIdx: 2 },
+  { lat: 9.448800, lng: 77.550800, speed: 20, heading: 225, stopIdx: 2 },
+  { lat: 9.448500, lng: 77.550500, speed: 0, heading: 0, stopIdx: 3 }, // Stop 4: Old Bus Stand, RJPM
 ];
 
 class LocationTracker {
@@ -390,7 +357,7 @@ class LocationTracker {
       }
 
       const isServicesEnabled = await Location.hasServicesEnabledAsync().catch(() => true);
-      const foreground = await Location.getForegroundPermissionsAsync().catch(() => ({ status: Location.PermissionStatus.UNDETERMINED }));
+      const foreground = await Location.getForegroundPermissionsAsync().catch(() => ({ status: Location.PermissionStatus.UNDETERMINED, canAskAgain: true }));
 
       let backgroundStatus: Location.PermissionStatus | undefined;
       try {
@@ -407,6 +374,7 @@ class LocationTracker {
         backgroundStatus,
         isServicesEnabled,
         granted: isGranted,
+        canAskAgain: (foreground as any).canAskAgain ?? true,
       };
     } catch (err: any) {
       console.warn('Error checking location permissions:', err);
@@ -414,30 +382,40 @@ class LocationTracker {
         foregroundStatus: Location.PermissionStatus.GRANTED,
         isServicesEnabled: true,
         granted: true,
+        canAskAgain: true,
       };
     }
   }
 
-  async requestForegroundPermission(): Promise<boolean> {
+  async requestForegroundPermissionDetailed(): Promise<{ granted: boolean; canAskAgain: boolean }> {
     try {
       if (Platform.OS === 'web') {
         if (typeof navigator !== 'undefined' && navigator.geolocation) {
-          return new Promise((resolve) => {
+          const granted = await new Promise<boolean>((resolve) => {
             navigator.geolocation.getCurrentPosition(
               () => resolve(true),
               () => resolve(false),
               { enableHighAccuracy: true, timeout: 6000 }
             );
           });
+          return { granted, canAskAgain: !granted };
         }
-        return true;
+        return { granted: true, canAskAgain: true };
       }
-      const { status } = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: Location.PermissionStatus.DENIED }));
-      return status === Location.PermissionStatus.GRANTED;
+      const resp = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: Location.PermissionStatus.DENIED, canAskAgain: false }));
+      return {
+        granted: resp.status === Location.PermissionStatus.GRANTED,
+        canAskAgain: (resp as any).canAskAgain ?? false,
+      };
     } catch (err) {
       console.error('Failed to request foreground location permission:', err);
-      return false;
+      return { granted: false, canAskAgain: false };
     }
+  }
+
+  async requestForegroundPermission(): Promise<boolean> {
+    const res = await this.requestForegroundPermissionDetailed();
+    return res.granted;
   }
 
   async requestBackgroundPermission(): Promise<boolean> {
