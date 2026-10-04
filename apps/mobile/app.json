@@ -2,7 +2,7 @@
   "expo": {
     "name": "Bus Track",
     "slug": "bus-track",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "com.college.bustrack",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#090d16"

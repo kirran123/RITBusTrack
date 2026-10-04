@@ -16,8 +16,9 @@ const STORAGE_KEYS = {
   STAFF_PROFILE: 'bustrack_current_mobile_staff',
   DRIVER_PROFILE: 'bustrack_current_mobile_driver',
   ADMIN_PROFILE: 'bustrack_current_mobile_admin',
-  NOTIFICATIONS: 'bustrack_notifications_v1',
-};
+    NOTIFICATIONS: 'bustrack_notifications_v1',
+    CLEARED_NOTIFICATIONS: 'bustrack_cleared_notifs_v1',
+  };
 
 class AuthStorageService {
   /**
@@ -136,6 +137,43 @@ class AuthStorageService {
     } catch (e) {
       console.warn('AuthStorageService setItem error:', e);
     }
+  }
+
+  /**
+   * Cleared notifications tracking across app restarts and polling
+   */
+  async getClearedNotificationIds(): Promise<string[]> {
+    try {
+      const raw = await this.getItem(STORAGE_KEYS.CLEARED_NOTIFICATIONS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  }
+
+  async addClearedNotification(id: string): Promise<void> {
+    if (!id) return;
+    try {
+      const current = await this.getClearedNotificationIds();
+      if (!current.includes(id)) {
+        current.push(id);
+        // Retain maximum recent 200 IDs to avoid unbounded growth
+        const trimmed = current.slice(-200);
+        await this.setItem(STORAGE_KEYS.CLEARED_NOTIFICATIONS, JSON.stringify(trimmed));
+      }
+    } catch {}
+  }
+
+  async addClearedNotifications(ids: string[]): Promise<void> {
+    if (!ids || ids.length === 0) return;
+    try {
+      const current = await this.getClearedNotificationIds();
+      const set = new Set([...current, ...ids]);
+      const trimmed = Array.from(set).slice(-200);
+      await this.setItem(STORAGE_KEYS.CLEARED_NOTIFICATIONS, JSON.stringify(trimmed));
+    } catch {}
   }
 }
 

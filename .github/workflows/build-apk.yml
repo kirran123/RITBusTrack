@@ -80,16 +80,16 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: "Bus Track Updated APK (v1.0.3)"
+          name: "Bus Track Updated APK (v1.0.4)"
+          make_latest: true
           body: |
-            ### 🚌 Bus Track Standalone Mobile APK (v1.0.3)
+            ### 🚌 Bus Track Standalone Mobile APK (v1.0.4)
             **Included Fixes & Enhancements:**
-            - **Instant App Launch & Splash Fix**: Resolved app hanging on splash screen / session check; added 800ms safety auto-recovery so the app opens instantly on Android/iOS.
-            - **Zero-Latency Login**: Implemented instant in-memory local matching (< 50ms) for all students, staff, and drivers without blocking on slow cloud network timeouts.
-            - **1-Tap Quick Demo Logins**: Added 1-tap quick buttons for Student (Kishore ST), Driver (B. Moorthi), Staff (N. Govindaraju), and Admin (Dept of IT).
-            - **Flexible Passwords**: Added support for default role passwords (`student123`, `driver123`, `staff123`, `admin123`), roll numbers, phone numbers, and clear password hints on login screen.
-            - **Map Marker & GPS Parity**: Live bus marker decoupling, accurate route rendering, and elimination of walk time displays across all portals.
-            - **Full Admin Website Sync**: Real-time parity with web operations dashboard for routes, buses, stops, absences, and roster.
+            - **Notification Clear Option for ALL Logins**: Full persistent "Clear All" notifications and individual notification dismiss (✕) across Student, Staff/Faculty, Driver, and Admin portals. Cleared notifications persist locally and do not reappear during real-time polling.
+            - **Live Sync Parity with Admin Web**: Instant live sync of updated bus routes, bus assignments, stops, driver replacements, faculty leaves, and roster alterations directly from the Admin Web Operations Dashboard to the mobile app within seconds.
+            - **Automatic Cloud Registry Heartbeat**: Background auto-sync keeps the standalone generated APK fully matched with cloud data even across network reconnects.
+            - **Instant App Launch & Splash Fix**: Resolved app hanging on splash screen / session check with sub-second launch.
+            - **Zero-Latency Login**: Instant local credential matching with 1-tap demo access for all campus roles.
 
             **Installation:** Download `Bus-Track.apk` below and install directly on your Android device.
           files: output-apk/Bus-Track.apk

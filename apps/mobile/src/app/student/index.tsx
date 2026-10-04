@@ -41,6 +41,9 @@ import {
   fetchLiveStops,
   fetchCloudUserRegistry,
   isInternalRegistryNotification,
+  onCloudRegistryUpdate,
+  clearSystemNotification,
+  clearAllSystemNotifications,
 } from '../../services/supabase';
 import { GPSCoordinate, INITIAL_STOPS, SIMULATION_ROUTE_A, EmergencyAlert, SystemNotification, Stop, MASTER_BUSES, MASTER_ROUTES, MASTER_STOPS, MASTER_DRIVERS } from '@college-bus/shared';
 import { authStorage } from '../../services/authStorage';
@@ -267,6 +270,17 @@ export default function StudentDashboard() {
     });
   };
 
+  const handleClearAllNotifications = async () => {
+    const ids = systemBroadcasts.map((n) => n.id);
+    setSystemBroadcasts([]);
+    await clearAllSystemNotifications(ids);
+  };
+
+  const handleClearSingleNotification = async (notifId: string) => {
+    setSystemBroadcasts((prev) => prev.filter((n) => n.id !== notifId));
+    await clearSystemNotification(notifId);
+  };
+
   // Student Profile & Realtime Leave State
   const [currentStudent, setCurrentStudent] = useState<BusStudent>(() => {
     return studentRosterStore.getStudentById('s3') || studentRosterStore.getAllStudents()[0] || {
@@ -325,6 +339,75 @@ export default function StudentDashboard() {
     };
     loadDriverForBus();
   }, [currentStudent.busId, currentStudent.busNumber]);
+
+  // Live Sync with Admin Web updates (Routes, Buses, Stops, Drivers, Student Profile)
+  useEffect(() => {
+    const unsub = onCloudRegistryUpdate((payload) => {
+      if (!payload) return;
+
+      // 1. Update current student details if admin changed them in admin-web
+      if (Array.isArray(payload.students)) {
+        const cleanRoll = (currentStudent.rollNumber || '').trim().toLowerCase();
+        const cleanName = (currentStudent.name || '').trim().toLowerCase();
+        const matched = payload.students.find((s: any) => 
+          s.id === currentStudent.id || 
+          (s.register_number && s.register_number.trim().toLowerCase() === cleanRoll) ||
+          (s.rollNumber && s.rollNumber.trim().toLowerCase() === cleanRoll) ||
+          (s.profile?.name && s.profile.name.trim().toLowerCase() === cleanName)
+        );
+        if (matched) {
+          const allB = Array.isArray(payload.buses) && payload.buses.length > 0 ? payload.buses : MASTER_BUSES;
+          const allR = Array.isArray(payload.routes) && payload.routes.length > 0 ? payload.routes : MASTER_ROUTES;
+          const bId = matched.bus_id || matched.busId || currentStudent.busId;
+          const bObj = allB.find((b: any) => b.id === bId || b.bus_number === matched.bus_number);
+          const bNum = matched.bus?.bus_number || matched.bus_number || matched.busNumber || bObj?.bus_number || currentStudent.busNumber;
+          const rId = matched.route_id || matched.routeId || bObj?.route_id || currentStudent.routeId;
+          const rObj = allR.find((r: any) => r.id === rId);
+          const rName = matched.route?.route_name || matched.route_name || matched.routeName || rObj?.route_name || currentStudent.routeName;
+          const stopName = matched.boarding_stop?.stop_name || matched.boardingStopName || currentStudent.boardingStopName;
+
+          setCurrentStudent((prev) => ({
+            ...prev,
+            name: matched.profile?.name || matched.name || prev.name,
+            rollNumber: matched.register_number || matched.rollNumber || prev.rollNumber,
+            department: matched.department || prev.department,
+            year: matched.year ? Number(matched.year) : prev.year,
+            section: matched.section || prev.section,
+            busId: bId,
+            busNumber: bNum,
+            routeId: rId,
+            routeName: rName,
+            boardingStopId: matched.boarding_stop_id || matched.boardingStopId || prev.boardingStopId,
+            boardingStopName: stopName,
+            phone: matched.profile?.phone || matched.phone || prev.phone,
+          }));
+        }
+      }
+
+      // 2. Update stops if admin modified stops
+      if (Array.isArray(payload.stops) && payload.stops.length > 0) {
+        setAllStops(payload.stops);
+      }
+
+      // 3. Update driver info if admin updated driver or replaced bus driver
+      if (Array.isArray(payload.drivers)) {
+        const bId = (currentStudent.busId || '').toLowerCase().replace(/[- ]/g, '');
+        const bNum = (currentStudent.busNumber || '').toLowerCase().replace(/[- ]/g, '');
+        const matchedD = payload.drivers.find((d: any) => {
+          const dBus = (d.assigned_bus_id || d.bus_id || d.busNumber || d.bus_number || '').toLowerCase().replace(/[- ]/g, '');
+          return (bId && dBus === bId) || (bNum && dBus === bNum);
+        });
+        if (matchedD) {
+          setAssignedDriver({
+            name: matchedD.profile?.name || matchedD.name || 'Assigned Driver',
+            phone: matchedD.phone || matchedD.profile?.phone || '+91 9894668646',
+          });
+        }
+      }
+    });
+
+    return unsub;
+  }, [currentStudent.id, currentStudent.rollNumber, currentStudent.name, currentStudent.busId, currentStudent.busNumber]);
 
   // Load saved student profile from persistent session
   useEffect(() => {
@@ -846,13 +929,31 @@ export default function StudentDashboard() {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity
-                style={[styles.modalCloseBtn, { backgroundColor: colors.surfaceSubtle }]}
-                onPress={() => setShowNotifModal(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>✕</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {systemBroadcasts.length > 0 && (
+                  <TouchableOpacity
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 8,
+                      backgroundColor: colors.emergencyBg,
+                      borderWidth: 1,
+                      borderColor: colors.emergencyBorder,
+                    }}
+                    onPress={handleClearAllNotifications}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ color: colors.emergency, fontSize: 12, fontWeight: '700' }}>Clear All</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.modalCloseBtn, { backgroundColor: colors.surfaceSubtle }]}
+                  onPress={() => setShowNotifModal(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
@@ -886,16 +987,33 @@ export default function StudentDashboard() {
                         <Text
                           style={[
                             styles.notifItemTitle,
-                            { color: isEmergency ? colors.emergency : colors.text },
+                            { color: isEmergency ? colors.emergency : colors.text, flex: 1, marginRight: 8 },
                           ]}
                           numberOfLines={2}
                         >
                           {notif.title}
                         </Text>
-                        <StatusChip
-                          label={notif.type?.toUpperCase() || 'INFO'}
-                          variant={isEmergency ? 'emergency' : 'neutral'}
-                        />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <StatusChip
+                            label={notif.type?.toUpperCase() || 'INFO'}
+                            variant={isEmergency ? 'emergency' : 'neutral'}
+                          />
+                          <TouchableOpacity
+                            style={{
+                              padding: 4,
+                              borderRadius: 4,
+                              backgroundColor: colors.surface,
+                            }}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleClearSingleNotification(notif.id);
+                            }}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            accessibilityLabel="Dismiss notification"
+                          >
+                            <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700' }}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                       <Text style={[styles.notifItemBody, { color: colors.textSecondary }]}>
                         {notif.message}
@@ -909,15 +1027,28 @@ export default function StudentDashboard() {
               )}
             </ScrollView>
 
-            <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
-              <Button
-                label="Mark All as Read"
-                onPress={markAllNotificationsAsRead}
-                variant="outline"
-                size="sm"
-                fullWidth
-              />
-            </View>
+            {systemBroadcasts.length > 0 && (
+              <View style={[styles.modalFooter, { borderTopColor: colors.border, flexDirection: 'row', gap: 10 }]}>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label="Mark Read"
+                    onPress={markAllNotificationsAsRead}
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label="Clear All"
+                    onPress={handleClearAllNotifications}
+                    variant="emergency"
+                    size="sm"
+                    fullWidth
+                  />
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </Modal>

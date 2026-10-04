@@ -22,7 +22,7 @@ import {
   calculateDistanceKm,
   calculateDynamicETA,
 } from '../../services/locationService';
-import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB, subscribeToStops, fetchLiveStops, fetchCloudUserRegistry, isInternalRegistryNotification } from '../../services/supabase';
+import { broadcastEmergencySOS, broadcastTripUpdate, broadcastSystemNotification, broadcastTimeHistoryUpdate, subscribeToSystemNotifications, fetchSystemNotificationsFromDB, subscribeToStops, fetchLiveStops, fetchCloudUserRegistry, isInternalRegistryNotification, onCloudRegistryUpdate, clearSystemNotification, clearAllSystemNotifications, subscribeToStaffLeave } from '../../services/supabase';
 import { studentRosterStore, BusStudent } from '../../services/studentStore';
 import { LocationPermissionBanner, LocationPermissionModal } from '../../components/LocationPermissionModal';
 import { NotificationPermissionBanner } from '../../components/NotificationPermissionModal';
@@ -403,6 +403,73 @@ export default function DriverDashboard() {
     return unsubscribe;
   }, [driverProfile.assignedBusId, driverProfile.busNumber, driverProfile.routeId]);
 
+  // Live Sync with Admin Web updates (Routes, Buses, Stops, Driver Assignment & Passengers)
+  useEffect(() => {
+    const unsubRegistry = onCloudRegistryUpdate((payload) => {
+      if (!payload) return;
+
+      // 1. Update driver profile if admin changed assigned bus or route
+      if (Array.isArray(payload.drivers)) {
+        const cleanName = (driverProfile.name || '').trim().toLowerCase();
+        const cleanPhone = (driverProfile.phone || '').replace(/\D/g, '');
+        const matchedD = payload.drivers.find((d: any) =>
+          d.id === driverProfile.id ||
+          (d.employee_id && d.employee_id === driverProfile.employeeId) ||
+          (d.profile?.name && d.profile.name.trim().toLowerCase() === cleanName) ||
+          (d.phone && d.phone.replace(/\D/g, '') === cleanPhone)
+        );
+
+        if (matchedD) {
+          const allB = Array.isArray(payload.buses) && payload.buses.length > 0 ? payload.buses : MASTER_BUSES;
+          const allR = Array.isArray(payload.routes) && payload.routes.length > 0 ? payload.routes : MASTER_ROUTES;
+          const bId = matchedD.bus_id || matchedD.busId || matchedD.assigned_bus_id || driverProfile.assignedBusId;
+          const busObj = allB.find((b: any) => b.id === bId || b.bus_number === (matchedD.bus_number || matchedD.busNumber));
+          const bNum = matchedD.bus?.bus_number || matchedD.bus_number || matchedD.busNumber || busObj?.bus_number || driverProfile.busNumber;
+          const rId = matchedD.route_id || matchedD.routeId || busObj?.route_id || driverProfile.routeId;
+          const rObj = allR.find((r: any) => r.id === rId);
+          const rName = matchedD.route_name || matchedD.routeName || matchedD.route?.route_name || rObj?.route_name || driverProfile.routeName;
+          const regNum = matchedD.bus?.registration_number || matchedD.registration_number || busObj?.registration_number || driverProfile.registrationNumber;
+
+          setDriverProfile((prev) => ({
+            ...prev,
+            name: matchedD.profile?.name || matchedD.name || prev.name,
+            phone: matchedD.phone || matchedD.profile?.phone || prev.phone,
+            assignedBusId: bId,
+            busNumber: bNum,
+            routeId: rId,
+            routeName: rName,
+            registrationNumber: regNum,
+          }));
+          setDriverBusNumber(bNum);
+        }
+      }
+
+      // 2. Update stops if admin modified stops
+      if (Array.isArray(payload.stops) && payload.stops.length > 0) {
+        setAllStops(payload.stops);
+      }
+
+      // 3. Immediately refresh passengers list for driver's bus
+      loadPassengersForBus();
+    });
+
+    const unsubStaffLeave = subscribeToStaffLeave((leavePayload) => {
+      if (!leavePayload) return;
+      setStaffPassengers((prev) =>
+        prev.map((sp) =>
+          sp.id === leavePayload.commuterId || sp.staffId === leavePayload.commuterId
+            ? { ...sp, isOnLeave: leavePayload.isOnLeave }
+            : sp
+        )
+      );
+    });
+
+    return () => {
+      unsubRegistry();
+      unsubStaffLeave();
+    };
+  }, [driverProfile.id, driverProfile.employeeId, driverProfile.name, driverProfile.phone, driverProfile.assignedBusId, driverProfile.busNumber, driverProfile.routeId]);
+
   const [allStops, setAllStops] = useState<Stop[]>(INITIAL_STOPS);
 
   useEffect(() => {
@@ -493,6 +560,17 @@ export default function DriverDashboard() {
       authStorage.setItem('bustrack_driver_read_notifs', JSON.stringify(updated)).catch(() => {});
       return updated;
     });
+  };
+
+  const handleClearAllNotifications = async () => {
+    const allIds = (systemBroadcasts || []).map((n) => n.id);
+    setSystemBroadcasts([]);
+    await clearAllSystemNotifications(allIds);
+  };
+
+  const handleClearSingleNotification = async (notifId: string) => {
+    setSystemBroadcasts((prev) => prev.filter((n) => n.id !== notifId));
+    await clearSystemNotification(notifId);
   };
 
   const timerRef = useRef<any>(null);
@@ -1168,11 +1246,16 @@ export default function DriverDashboard() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 {systemBroadcasts.length > 0 && (
                   <TouchableOpacity
-                    style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: colors.surfaceSubtle, borderWidth: 1, borderColor: colors.border }}
-                    onPress={async () => {
-                      setSystemBroadcasts([]);
-                      await authStorage.setItem('bustrack_notifications_v1', '[]');
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 8,
+                      backgroundColor: colors.emergencyBg,
+                      borderWidth: 1,
+                      borderColor: colors.emergencyBorder,
                     }}
+                    onPress={handleClearAllNotifications}
+                    activeOpacity={0.7}
                   >
                     <Text style={{ color: colors.emergency, fontSize: 12, fontWeight: '700' }}>Clear All</Text>
                   </TouchableOpacity>
@@ -1191,22 +1274,75 @@ export default function DriverDashboard() {
                 <View style={styles.emptyState}>
                   <Bell size={32} color={colors.textSecondary} />
                   <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No broadcasts</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Dispatcher and campus alerts will appear here.</Text>
                 </View>
               ) : (
-                systemBroadcasts.map((notif) => (
-                  <View
-                    key={notif.id}
-                    style={[
-                      styles.notifItem,
-                      { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderSubtle },
-                    ]}
-                  >
-                    <Text style={[styles.notifItemTitle, { color: colors.text }]}>{notif.title}</Text>
-                    <Text style={[styles.notifItemBody, { color: colors.textSecondary }]}>{notif.message}</Text>
-                  </View>
-                ))
+                systemBroadcasts.map((notif) => {
+                  const isRead = readNotifIds.includes(notif.id);
+                  const isEmergency = notif.type === 'emergency' || notif.type === 'sos' || notif.priority === 'urgent';
+                  return (
+                    <TouchableOpacity
+                      key={notif.id}
+                      style={[
+                        styles.notifItem,
+                        {
+                          backgroundColor: isEmergency ? colors.emergencyBg : colors.surfaceSubtle,
+                          borderColor: isEmergency ? colors.emergencyBorder : colors.borderSubtle,
+                          opacity: isRead ? 0.7 : 1,
+                        },
+                      ]}
+                      onPress={() => markSingleNotificationRead(notif.id)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={[styles.notifItemTitle, { color: isEmergency ? colors.emergency : colors.text, flex: 1, marginRight: 8 }]}>
+                          {notif.title}
+                        </Text>
+                        <TouchableOpacity
+                          style={{
+                            padding: 4,
+                            borderRadius: 4,
+                            backgroundColor: colors.surface,
+                          }}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleClearSingleNotification(notif.id);
+                          }}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          accessibilityLabel="Dismiss notification"
+                        >
+                          <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={[styles.notifItemBody, { color: colors.textSecondary }]}>{notif.message}</Text>
+                    </TouchableOpacity>
+                  );
+                })
               )}
             </ScrollView>
+
+            {systemBroadcasts.length > 0 && (
+              <View style={[styles.modalFooter, { borderTopColor: colors.border, padding: 14, flexDirection: 'row', gap: 10 }]}>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label="Mark Read"
+                    onPress={markAllNotificationsAsRead}
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label="Clear All"
+                    onPress={handleClearAllNotifications}
+                    variant="emergency"
+                    size="sm"
+                    fullWidth
+                  />
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </Modal>

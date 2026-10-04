@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { broadcastLeaveToggle, subscribeToLeave, fetchLiveStudentsFromDB, onRegistryStudentsUpdate } from './supabase';
 import { authStorage } from './authStorage';
-import { MASTER_BUSES, MASTER_ROUTES } from '@college-bus/shared';
+import { MASTER_BUSES, MASTER_ROUTES, MASTER_STUDENTS } from '@college-bus/shared';
 
 export interface BusStudent {
   id: string;

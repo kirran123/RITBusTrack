@@ -41,6 +41,10 @@ import {
   fetchLiveStops,
   fetchCloudUserRegistry,
   isInternalRegistryNotification,
+  onCloudRegistryUpdate,
+  clearSystemNotification,
+  clearAllSystemNotifications,
+  subscribeToStaffLeave,
 } from '../../services/supabase';
 import { authStorage } from '../../services/authStorage';
 import { hideSplash } from '../../services/splashService';
@@ -285,6 +289,17 @@ export default function StaffMobileDashboard() {
     });
   };
 
+  const handleClearAllNotifications = async () => {
+    const ids = (systemBroadcasts || []).map((n) => n.id);
+    setSystemBroadcasts([]);
+    await clearAllSystemNotifications(ids);
+  };
+
+  const handleClearSingleNotification = async (notifId: string) => {
+    setSystemBroadcasts((prev) => prev.filter((n) => n.id !== notifId));
+    await clearSystemNotification(notifId);
+  };
+
   // Commuter Faculty Profile & Realtime Leave State
   const [facultyProfile, setFacultyProfile] = useState<FacultyCommuter & { routeName?: string }>({
     id: 'fac_042',
@@ -368,6 +383,72 @@ export default function StaffMobileDashboard() {
     };
     loadSavedStaff();
   }, []);
+
+  // Live Sync with Admin Web updates (Routes, Buses, Stops, Staff Profile, and Leaves)
+  useEffect(() => {
+    const unsubRegistry = onCloudRegistryUpdate((payload) => {
+      if (!payload) return;
+
+      // 1. Update faculty details if admin changed them in admin-web
+      if (Array.isArray(payload.staffCommuters)) {
+        const cleanName = (facultyProfile.name || '').trim().toLowerCase();
+        const cleanStaffId = (facultyProfile.staffId || '').trim().toLowerCase();
+        const matched = payload.staffCommuters.find((sc: any) =>
+          sc.id === facultyProfile.id ||
+          (sc.employee_id && sc.employee_id.trim().toLowerCase() === cleanStaffId) ||
+          (sc.staffId && sc.staffId.trim().toLowerCase() === cleanStaffId) ||
+          (sc.profile?.name && sc.profile.name.trim().toLowerCase() === cleanName) ||
+          (sc.name && sc.name.trim().toLowerCase() === cleanName)
+        );
+
+        if (matched) {
+          const allB = Array.isArray(payload.buses) && payload.buses.length > 0 ? payload.buses : MASTER_BUSES;
+          const allR = Array.isArray(payload.routes) && payload.routes.length > 0 ? payload.routes : MASTER_ROUTES;
+          const bNum = matched.bus?.bus_number || matched.bus_number || matched.busNumber || facultyProfile.busNumber;
+          const busObj = allB.find((b: any) => b.bus_number === bNum || b.id === (matched.bus_id || matched.busId));
+          const rId = matched.route?.id || matched.route_id || matched.routeId || busObj?.route_id || facultyProfile.routeId;
+          const routeObj = allR.find((r: any) => r.id === rId);
+          const rName = matched.route?.route_name || matched.route_name || matched.routeName || routeObj?.route_name || facultyProfile.routeName;
+          const stopName = typeof matched.boarding_stop === 'object' ? matched.boarding_stop?.stop_name : (matched.boarding_stop || matched.boardingStopName || facultyProfile.boardingStopName);
+
+          setFacultyProfile((prev) => ({
+            ...prev,
+            name: matched.profile?.name || matched.name || prev.name,
+            staffId: matched.employee_id || matched.staffId || prev.staffId,
+            designation: matched.designation || prev.designation,
+            department: matched.department || prev.department,
+            busNumber: bNum,
+            routeId: rId,
+            routeName: rName,
+            boardingStopId: matched.boarding_stop_id || matched.boardingStopId || prev.boardingStopId,
+            boardingStopName: stopName,
+            phone: matched.profile?.phone || matched.phone || prev.phone,
+            isOnLeave: Boolean(matched.is_on_leave || matched.isOnLeave),
+          }));
+        }
+      }
+
+      // 2. Update stops if admin modified stops
+      if (Array.isArray(payload.stops) && payload.stops.length > 0) {
+        setAllStops(payload.stops);
+      }
+    });
+
+    const unsubStaffLeave = subscribeToStaffLeave((leavePayload) => {
+      if (!leavePayload) return;
+      if (leavePayload.commuterId === facultyProfile.id || leavePayload.commuterId === facultyProfile.staffId) {
+        setFacultyProfile((prev) => ({
+          ...prev,
+          isOnLeave: leavePayload.isOnLeave,
+        }));
+      }
+    });
+
+    return () => {
+      unsubRegistry();
+      unsubStaffLeave();
+    };
+  }, [facultyProfile.id, facultyProfile.staffId, facultyProfile.name]);
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedLeaveDate, setSelectedLeaveDate] = useState('Today (20 Sep)');
@@ -850,12 +931,30 @@ export default function StaffMobileDashboard() {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity
-                style={[styles.modalCloseBtn, { backgroundColor: colors.surfaceSubtle }]}
-                onPress={() => setShowNotifModal(false)}
-              >
-                <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>✕</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {systemBroadcasts.length > 0 && (
+                  <TouchableOpacity
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 8,
+                      backgroundColor: colors.emergencyBg,
+                      borderWidth: 1,
+                      borderColor: colors.emergencyBorder,
+                    }}
+                    onPress={handleClearAllNotifications}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ color: colors.emergency, fontSize: 12, fontWeight: '700' }}>Clear All</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.modalCloseBtn, { backgroundColor: colors.surfaceSubtle }]}
+                  onPress={() => setShowNotifModal(false)}
+                >
+                  <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView style={{ maxHeight: 380, padding: 16 }}>
@@ -863,22 +962,75 @@ export default function StaffMobileDashboard() {
                 <View style={styles.emptyState}>
                   <Bell size={32} color={colors.textSecondary} />
                   <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No announcements</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>All transport updates will appear here.</Text>
                 </View>
               ) : (
-                systemBroadcasts.map((notif) => (
-                  <View
-                    key={notif.id}
-                    style={[
-                      styles.notifItem,
-                      { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderSubtle },
-                    ]}
-                  >
-                    <Text style={[styles.notifItemTitle, { color: colors.text }]}>{notif.title}</Text>
-                    <Text style={[styles.notifItemBody, { color: colors.textSecondary }]}>{notif.message}</Text>
-                  </View>
-                ))
+                systemBroadcasts.map((notif) => {
+                  const isRead = readNotifIds.includes(notif.id);
+                  const isEmergency = notif.type === 'emergency' || notif.type === 'sos' || notif.priority === 'urgent';
+                  return (
+                    <TouchableOpacity
+                      key={notif.id}
+                      style={[
+                        styles.notifItem,
+                        {
+                          backgroundColor: isEmergency ? colors.emergencyBg : colors.surfaceSubtle,
+                          borderColor: isEmergency ? colors.emergencyBorder : colors.borderSubtle,
+                          opacity: isRead ? 0.7 : 1,
+                        },
+                      ]}
+                      onPress={() => markSingleNotificationRead(notif.id)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={[styles.notifItemTitle, { color: isEmergency ? colors.emergency : colors.text, flex: 1, marginRight: 8 }]}>
+                          {notif.title}
+                        </Text>
+                        <TouchableOpacity
+                          style={{
+                            padding: 4,
+                            borderRadius: 4,
+                            backgroundColor: colors.surface,
+                          }}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleClearSingleNotification(notif.id);
+                          }}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          accessibilityLabel="Dismiss notification"
+                        >
+                          <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={[styles.notifItemBody, { color: colors.textSecondary }]}>{notif.message}</Text>
+                    </TouchableOpacity>
+                  );
+                })
               )}
             </ScrollView>
+
+            {systemBroadcasts.length > 0 && (
+              <View style={[styles.modalFooter, { borderTopColor: colors.border, padding: 14, flexDirection: 'row', gap: 10 }]}>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label="Mark Read"
+                    onPress={markAllNotificationsAsRead}
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label="Clear All"
+                    onPress={handleClearAllNotifications}
+                    variant="emergency"
+                    size="sm"
+                    fullWidth
+                  />
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </Modal>

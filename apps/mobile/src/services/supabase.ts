@@ -80,22 +80,47 @@ export interface TripUpdatePayload {
   shift?: 'morning' | 'evening';
 }
 
+export interface StaffLeaveTogglePayload {
+  commuterId: string;
+  isOnLeave: boolean;
+  leaveDate?: string;
+  reason?: string;
+}
+
 // In-memory event bus listeners for peer-to-peer realtime updates within app session
 type TelemetryListener = (payload: BusTelemetryPayload) => void;
 type SOSListener = (payload: EmergencyAlert) => void;
 type FleetSwapListener = (payload: FleetSwapNotice) => void;
 type LeaveListener = (payload: LeaveTogglePayload) => void;
+type StaffLeaveListener = (payload: StaffLeaveTogglePayload) => void;
 type TripListener = (payload: TripUpdatePayload) => void;
 type NotificationListener = (payload: SystemNotification) => void;
 type StopsListener = (stops: Stop[]) => void;
+type CloudRegistryListener = (payload: SyncedUserRegistryPayload) => void;
 
 const telemetryListeners: Set<TelemetryListener> = new Set();
 const sosListeners: Set<SOSListener> = new Set();
 const fleetSwapListeners: Set<FleetSwapListener> = new Set();
 const leaveListeners: Set<LeaveListener> = new Set();
+const staffLeaveListeners: Set<StaffLeaveListener> = new Set();
 const tripListeners: Set<TripListener> = new Set();
 const notificationListeners: Set<NotificationListener> = new Set();
 const stopsListeners: Set<StopsListener> = new Set();
+const cloudRegistryListeners: Set<CloudRegistryListener> = new Set();
+
+export function subscribeToStaffLeave(listener: StaffLeaveListener): () => void {
+  staffLeaveListeners.add(listener);
+  return () => {
+    staffLeaveListeners.delete(listener);
+  };
+}
+
+export function onCloudRegistryUpdate(listener: CloudRegistryListener): () => void {
+  cloudRegistryListeners.add(listener);
+  return () => {
+    cloudRegistryListeners.delete(listener);
+  };
+}
 
 // Deduplication tracking to prevent duplicate message and alert popups
 const recentNotificationDedupe = new Map<string, number>();
@@ -116,29 +141,34 @@ export function emitSystemNotification(notif: SystemNotification) {
   // Completely suppress internal registry snapshots from being dispatched as user announcements
   if (isInternalRegistryNotification(notif)) return;
 
-  const cleanTitle = (notif.title || '').trim();
-  const cleanMsg = (notif.message || '').trim();
-  const dedupeKey = `${cleanTitle}::${cleanMsg}`;
-  const now = Date.now();
-  const lastTime = recentNotificationDedupe.get(dedupeKey);
+  // Check if this notification has been cleared by the user
+  authStorage.getClearedNotificationIds().then((cleared) => {
+    if (cleared.includes(notif.id)) return;
 
-  // If identical notification received within 5 seconds, suppress duplicate
-  if (lastTime && now - lastTime < 5000) {
-    return;
-  }
-  recentNotificationDedupe.set(dedupeKey, now);
+    const cleanTitle = (notif.title || '').trim();
+    const cleanMsg = (notif.message || '').trim();
+    const dedupeKey = `${cleanTitle}::${cleanMsg}`;
+    const now = Date.now();
+    const lastTime = recentNotificationDedupe.get(dedupeKey);
 
-  if (recentNotificationDedupe.size > 50) {
-    for (const [k, timestamp] of recentNotificationDedupe.entries()) {
-      if (now - timestamp > 12000) recentNotificationDedupe.delete(k);
+    // If identical notification received within 5 seconds, suppress duplicate
+    if (lastTime && now - lastTime < 5000) {
+      return;
     }
-  }
+    recentNotificationDedupe.set(dedupeKey, now);
 
-  notificationListeners.forEach((listener) => {
-    try {
-      listener(notif);
-    } catch {}
-  });
+    if (recentNotificationDedupe.size > 50) {
+      for (const [k, timestamp] of recentNotificationDedupe.entries()) {
+        if (now - timestamp > 12000) recentNotificationDedupe.delete(k);
+      }
+    }
+
+    notificationListeners.forEach((listener) => {
+      try {
+        listener(notif);
+      } catch {}
+    });
+  }).catch(() => {});
 }
 
 // Cross-Tab / Cross-Window Broadcast Channel for instant local sync (Web Only)
@@ -250,11 +280,18 @@ export async function applyRegistryToStorage(payload: SyncedUserRegistryPayload)
       await authStorage.setItem('bustrack_routes_v1', JSON.stringify(payload.routes));
     }
     if (Array.isArray(payload.stops) && payload.stops.length > 0) {
-      await authStorage.setItem('bustrack_stops_v1', JSON.stringify(payload.stops));
+      const activeStops = payload.stops;
+      await authStorage.setItem('bustrack_stops_v1', JSON.stringify(activeStops));
       stopsListeners.forEach((listener) => {
-        try { listener(payload.stops); } catch {}
+        try { listener(activeStops); } catch {}
       });
     }
+
+    // Broadcast full live registry update to all screens (Student, Staff, Driver, Admin)
+    cloudRegistryListeners.forEach((listener) => {
+      try { listener(payload); } catch {}
+    });
+
     console.log('✅ Applied user registry to mobile storage. Students:', payload.students?.length, 'Drivers:', payload.drivers?.length, 'Staff:', payload.staffCommuters?.length);
   } catch (err) {
     console.warn('⚠️ Error applying registry to storage:', err);
@@ -976,11 +1013,33 @@ export async function fetchSystemNotificationsFromDB(): Promise<SystemNotificati
 
     // Sort newest first
     items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return items;
+
+    // Exclude notifications cleared by user in this mobile app
+    const cleared = await authStorage.getClearedNotificationIds();
+    return items.filter((n) => !cleared.includes(n.id));
   } catch (err) {
     console.warn('fetchSystemNotificationsFromDB error:', err);
     return [];
   }
+}
+
+/**
+ * Notification clearing helpers for All Logins (Student, Staff, Driver, Admin)
+ */
+export async function getClearedNotificationIds(): Promise<string[]> {
+  return authStorage.getClearedNotificationIds();
+}
+
+export async function clearSystemNotification(id: string): Promise<void> {
+  if (!id) return;
+  await authStorage.addClearedNotification(id);
+}
+
+export async function clearAllSystemNotifications(ids?: string[]): Promise<void> {
+  if (ids && ids.length > 0) {
+    await authStorage.addClearedNotifications(ids);
+  }
+  await authStorage.setItem('bustrack_notifications_v1', '[]');
 }
 
 /**
@@ -1101,7 +1160,19 @@ export async function broadcastStopsUpdate(stops: Stop[]) {
   }
 }
 
-// Auto-initialize realtime channel on load
+// Auto-sync registry loop ensuring APK stays 100% in live sync with Admin Web
+let registryPollTimer: any = null;
+export function startRegistryAutoSync(intervalMs = 6000) {
+  if (registryPollTimer) return;
+  fetchCloudUserRegistry(true).catch(() => {});
+  registryPollTimer = setInterval(() => {
+    fetchCloudUserRegistry(true).catch(() => {});
+  }, intervalMs);
+}
+
+// Auto-initialize realtime channel & live sync with Admin Web
 initRealtimeChannel();
+startRegistryAutoSync(6000);
+
 
 

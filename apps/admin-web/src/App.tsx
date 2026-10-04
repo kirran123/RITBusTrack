@@ -1413,6 +1413,17 @@ export const App: React.FC = () => {
       }
       localStorage.setItem('bustrack_cross_sync_event', JSON.stringify({ type: 'staff_leave_toggle', payload: { commuterId, isOnLeave: nextState }, timestamp: Date.now() }));
     } catch {}
+
+    if (supabase) {
+      try {
+        const channel = supabase.channel('bus_tracking_live');
+        channel.send({
+          type: 'broadcast',
+          event: 'staff_leave_toggle',
+          payload: { commuterId, isOnLeave: nextState }
+        }).catch(() => {});
+      } catch {}
+    }
   };
 
   const handleUpdateStaffCommuterPassword = (commuterId: string, newPass: string) => {
